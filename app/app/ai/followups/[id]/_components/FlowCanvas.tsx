@@ -376,6 +376,9 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             // nós seguintes nascendo fora da vista (medido no trace do e2e
             // followup-cartoes: scale 1 → 2 logo após o primeiro clique).
             fitView={initial.nodes.length > 0}
+            // Fluxo novo tem só Início e Fim: sem teto, o enquadramento os
+            // amplia ao zoom máximo. 1x é o tamanho em que os blocos se leem.
+            fitViewOptions={surface === "fluxo" ? { maxZoom: 1 } : undefined}
             // Fluxos (fork jhoow): grade com encaixe e mini-mapa — fluxo de
             // venda passa de 100 blocos, e sem mapa a pessoa se perde no canvas.
             snapToGrid={surface === "fluxo"}
@@ -383,7 +386,20 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
           >
             <Background gap={surface === "fluxo" ? 20 : undefined} />
             <Controls />
-            {surface === "fluxo" && <MiniMap pannable zoomable position="bottom-right" />}
+            {surface === "fluxo" && (
+              // Cores dos tokens: o padrão do XYFlow é um retângulo branco, que
+              // no tema escuro (Onix) vira o elemento mais claro da tela.
+              <MiniMap
+                pannable
+                zoomable
+                position="bottom-right"
+                bgColor="var(--color-surface)"
+                maskColor="color-mix(in oklch, var(--color-bg) 70%, transparent)"
+                nodeColor="var(--color-surface-elevated)"
+                nodeStrokeColor="var(--color-border-strong)"
+                className="!rounded-md !border !border-border"
+              />
+            )}
           </ReactFlow>
           <Button
             type="button"
