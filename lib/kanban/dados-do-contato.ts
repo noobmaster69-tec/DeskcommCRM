@@ -1,7 +1,11 @@
+import { ehIdentificadorTecnico } from "@/lib/contacts/rotulo-do-contato";
 import { linksParaExibir } from "@/lib/leads/links-de-contato";
 import type { Lead } from "@/lib/types/leads";
 
-type DadosDoContato = Pick<Lead, "contact_phone" | "contact_email" | "contact_links">;
+type DadosDoContato = Pick<
+  Lead,
+  "contact_phone" | "contact_email" | "contact_links" | "contact_whatsapp_name" | "contact_has_avatar"
+>;
 
 /** A linha de `contacts` como o quadro a lê — as colunas que esta regra usa. */
 export interface LinhaDoContatoNoQuadro {
@@ -10,6 +14,9 @@ export interface LinhaDoContatoNoQuadro {
   email: string | null;
   custom_fields: Record<string, unknown> | null;
   is_anonymized: boolean | null;
+  /** O pushName — o nome que a pessoa pôs no próprio WhatsApp. */
+  display_name?: string | null;
+  avatar_storage_path?: string | null;
 }
 
 /**
@@ -35,10 +42,17 @@ export function anexarDadosDoContato(leads: Lead[], contatos: LinhaDoContatoNoQu
   for (const contato of contatos) {
     if (contato.is_anonymized) continue;
     const links = linksParaExibir(contato.custom_fields);
+    // `543134@lid` no topo do card é a doença que a spec 16 mediu: identificador
+    // técnico não é nome, e o card cai no título.
+    const nomeDoWhatsapp = (contato.display_name ?? "").trim();
     const dados: DadosDoContato = {
       ...(contato.phone_number ? { contact_phone: contato.phone_number } : {}),
       ...(contato.email ? { contact_email: contato.email } : {}),
       ...(links.length > 0 ? { contact_links: links } : {}),
+      ...(nomeDoWhatsapp && !ehIdentificadorTecnico(nomeDoWhatsapp)
+        ? { contact_whatsapp_name: nomeDoWhatsapp }
+        : {}),
+      ...(contato.avatar_storage_path ? { contact_has_avatar: true } : {}),
     };
     if (Object.keys(dados).length > 0) porContato.set(contato.id, dados);
   }

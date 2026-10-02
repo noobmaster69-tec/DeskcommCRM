@@ -128,6 +128,17 @@ export interface Lead {
   contact_email?: string;
   contact_links?: Array<{ tipo: string; href: string }>;
   /**
+   * O nome que a PRÓPRIA pessoa pôs no perfil do WhatsApp (`contacts.display_name`,
+   * o pushName) — a linha pequena do topo do card. Ausente quando o canal não
+   * mandou nome ou o valor é identificador técnico (`543134@lid`).
+   */
+  contact_whatsapp_name?: string;
+  /**
+   * O contato tem foto guardada. A foto em si sai de `/api/v1/contacts/{id}/avatar`
+   * — a mesma rota do Inbox; o caminho no storage nunca vai ao navegador.
+   */
+  contact_has_avatar?: boolean;
+  /**
    * Derivado (não é coluna): os marcadores das CONVERSAS do contato deste
    * negócio — a terceira caixa, "Tags da conversa" no painel do Inbox, onde a
    * IA também escreve. União de TODAS as conversas do contato, não só da mais

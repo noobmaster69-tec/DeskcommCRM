@@ -3,7 +3,7 @@
 import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
 
 import type { Locale } from "date-fns";
-import { format, formatDistanceToNowStrict } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
 import { useT } from "@/hooks/i18n/useT";
 import { Robot } from "@/lib/ui/icons";
 import { ChannelLogo } from "@/components/inbox/ChannelLogo";
@@ -15,6 +15,7 @@ import { comandoDaConversa, esperaDaConversa } from "@/lib/inbox/comando-da-conv
 import { cn } from "@/lib/utils";
 import type { ConversationWithContact } from "@/hooks/inbox/useConversationsRealtime";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
+import { initials, relativeTime } from "@/lib/contacts/apresentacao-na-lista";
 import { phoneForDisplay } from "@/lib/channels/phone-variants";
 
 interface Props {
@@ -79,28 +80,6 @@ const COR_DO_COMANDO: Record<string, string> = {
   ninguem: "bg-muted-foreground/60",
   encerrada: "bg-muted-foreground/30",
 };
-
-function initials(name: string | null | undefined, fallback: string): string {
-  const v = (name ?? "").trim();
-  if (!v) return fallback.slice(0, 2).toUpperCase();
-  const parts = v.split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return fallback.slice(0, 2).toUpperCase();
-  if (parts.length === 1) return (parts[0] ?? "").slice(0, 2).toUpperCase();
-  const first = parts[0]?.[0] ?? "";
-  const last = parts[parts.length - 1]?.[0] ?? "";
-  return (first + last).toUpperCase();
-}
-
-function relativeTime(iso: string | null, locale: Locale): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay) return format(d, "HH:mm");
-  const diff = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
-  if (diff < 7) return formatDistanceToNowStrict(d, { addSuffix: false, locale: locale });
-  return format(d, "dd/MM");
-}
 
 /**
  * "Aguardando há 5 min" — desde quando o cliente ESPERA.

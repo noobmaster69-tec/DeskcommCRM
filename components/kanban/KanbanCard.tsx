@@ -2,6 +2,9 @@
 import { Draggable } from "@hello-pangea/dnd";
 import type { MouseEvent } from "react";
 import { useT } from "@/hooks/i18n/useT";
+import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initials, relativeTime } from "@/lib/contacts/apresentacao-na-lista";
 import { cn } from "@/lib/utils";
 import { formatValorDoNegocio, MOEDA_PADRAO } from "@/lib/money";
 import type { Lead } from "@/lib/types/leads";
@@ -47,6 +50,11 @@ interface KanbanCardProps {
   onOpen?: (leadId: string) => void;
 }
 
+/** "Maria Silva" e " maria silva " são o mesmo nome — não se repete na linha. */
+function mesmoNome(a: string, b: string): boolean {
+  return a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
+}
+
 function formatValor(cents: number | null, currency: string | null): string | null {
   // A régua do negócio (×100 em qualquer moeda) e o locale da moeda moram em
   // `formatValorDoNegocio` — a mesma função do total da coluna, para o card e o
@@ -81,6 +89,20 @@ export function KanbanCard({
   const value = formatValor(card.valueCents, card.currency);
   const state = resolveCardState(card, t);
   const age = stageAgeLabel(card.hoursInStage, t);
+  const localeDaData = useLocaleDeData();
+
+  // A identidade estilo Kommo: foto, o nome que a pessoa pôs no WhatsApp e a
+  // última mensagem. Tudo derivado do que o quadro já carrega (`withConversas`
+  // e `withMarcadoresDoContato` na rota do board) — nenhuma leitura nova.
+  const temContato = Boolean(lead.contact_id);
+  const nomeDoWhatsapp = lead.contact_whatsapp_name ?? null;
+  const previa = lead.conversa?.preview?.trim() || null;
+  const hora = relativeTime(lead.conversa?.last_message_at ?? null, localeDaData);
+  const rotuloPequeno = !nomeDoWhatsapp
+    ? card.title
+    : mesmoNome(nomeDoWhatsapp, card.title)
+      ? nomeDoWhatsapp
+      : `${nomeDoWhatsapp} · ${card.title}`;
 
   // Clique ABRE o dossiê; ctrl/cmd+clique SELECIONA; shift+clique estende até a
   // âncora. "Clicar abre" é a convenção mais forte, e seleção múltipla é recurso
@@ -217,7 +239,24 @@ export function KanbanCard({
                   acessibilidade; deixar só onKeyDown daria uma ação que existe
                   e NÃO É DESCOBERTA por leitor de tela. O título como button
                   atende mouse, teclado e leitor sem desfazer a decisão antiga. */}
-              <h3 className="line-clamp-2 h-10 text-sm font-medium leading-5 text-text">
+              {temContato && (
+                // A MESMA foto do Inbox, pela mesma rota. Só monta a <img>
+                // quando há arquivo — sem isso o quadro pediria a rota para
+                // todo card e levaria 404 na maioria (ver ConversationListItem).
+                <Avatar className="mt-0.5 h-9 w-9 shrink-0">
+                  {lead.contact_has_avatar ? (
+                    <AvatarImage
+                      src={`/api/v1/contacts/${lead.contact_id}/avatar`}
+                      alt=""
+                      className="object-cover"
+                    />
+                  ) : null}
+                  <AvatarFallback className="bg-surface-elevated text-[11px] font-medium text-text-muted">
+                    {initials(nomeDoWhatsapp ?? card.title, lead.contact_phone ?? "?")}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              <h3 className="min-w-0 flex-1 text-sm leading-5 text-text">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -228,9 +267,24 @@ export function KanbanCard({
                     e.stopPropagation();
                     decidirClique(e);
                   }}
-                  className="text-left hover:underline"
+                  className="block w-full text-left hover:underline"
                 >
-                  {card.title}
+                  {previa ? (
+                    <>
+                      {/* Estilo Kommo: QUEM, pequeno; O QUE DISSE, grande. O
+                          título do negócio só entra quando difere do nome —
+                          senão a linha diria o mesmo nome duas vezes. */}
+                      <span className="flex items-baseline gap-2 text-[11px] leading-4 text-text-muted">
+                        <span className="min-w-0 flex-1 truncate">{rotuloPequeno}</span>
+                        {hora && <span className="shrink-0 tabular-nums">{hora}</span>}
+                      </span>
+                      <span className="line-clamp-2 h-10 font-medium">{previa}</span>
+                    </>
+                  ) : (
+                    // Sem conversa (lead criado à mão, por formulário): o
+                    // card de sempre, título em destaque.
+                    <span className="line-clamp-2 h-10 font-medium">{card.title}</span>
+                  )}
                 </button>
               </h3>
             </div>
@@ -289,7 +343,7 @@ export function KanbanCard({
           {/* A última mensagem, com atalho para o inbox. Fica ANTES do rodapé
               de dono/tempo porque é conteúdo do negócio, não metadado do card —
               e some por inteiro quando não há conversa. */}
-          <ConversaSlot conversa={lead.conversa} />
+          <ConversaSlot conversa={lead.conversa} semPrevia={Boolean(previa)} />
 
           {/* Telefone, e-mail e links do contato — some por inteiro quando o
               negócio não tem nada disso, como a conversa acima. */}

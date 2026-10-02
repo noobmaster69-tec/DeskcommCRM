@@ -30,7 +30,18 @@ import { cn } from "@/lib/utils";
  * conversa. Nesses casos o slot não aparece — e NÃO aparece um "sem mensagens"
  * cinza, que ocuparia a mesma linha em metade dos cards para não dizer nada.
  */
-export function ConversaSlot({ conversa }: { conversa: Lead["conversa"] }) {
+export function ConversaSlot({
+  conversa,
+  semPrevia = false,
+}: {
+  conversa: Lead["conversa"];
+  /**
+   * O card já mostra a última mensagem em destaque, no topo (estilo Kommo):
+   * repeti-la aqui gastaria uma linha para dizer a mesma frase duas vezes. A
+   * linha vira só o atalho, com o contador de não lidas.
+   */
+  semPrevia?: boolean;
+}) {
   const t = useT();
   if (!conversa) return null;
 
@@ -53,7 +64,9 @@ export function ConversaSlot({ conversa }: { conversa: Lead["conversa"] }) {
     >
       <ChatCircle size={12} weight="regular" className="shrink-0" aria-hidden />
       <span className="truncate">
-        {preview || <span className="italic">{t("conversa sem mensagens")}</span>}
+        {semPrevia
+          ? t("Abrir no Inbox")
+          : preview || <span className="italic">{t("conversa sem mensagens")}</span>}
       </span>
       {temNaoLidas && (
         // O número, não um ponto: "3 sem ler" e "12 sem ler" pedem urgências
