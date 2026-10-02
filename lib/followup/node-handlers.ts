@@ -565,6 +565,21 @@ export function processNode(input: {
   } = input;
 
   switch (node.type) {
+    // Blocos de FLUXOS (fork jhoow, Fase A): só o formato existe. O publish
+    // recusa estes tipos (`NOS_DA_SUPERFICIE.fluxo`) até a fase que entrega o
+    // executor de cada um; se um grafo chegar aqui assim mesmo, falha alto.
+    case "mensagem":
+    case "etiquetas":
+    case "aguardar_resposta":
+    case "notificacao":
+    case "condicional":
+    case "distribuidor":
+    case "conexao_fluxo":
+    case "pixel":
+    case "intervalo":
+    case "bloco_ia":
+    case "kanban":
+      return { kind: "fail", error: `bloco "${node.type}" ainda não tem executor` };
     case "trigger": {
       const edge = selectEdge(edges, node.id, { type: "always" });
       if (!edge) return { kind: "fail", error: `trigger node "${node.id}" has no outbound edge` };

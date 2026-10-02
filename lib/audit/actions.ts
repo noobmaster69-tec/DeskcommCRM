@@ -88,6 +88,10 @@ export const AUDIT_ACTIONS = [
   // Fork jhoow (P6, migration 9001): a pessoa mudou o PRÓPRIO menu lateral.
   // Só esconde telas; a trilha diz quando, para "o Radar sumiu" ter resposta.
   "me.menu_changed",
+  // Fork jhoow (Etapa 2, migration 9002): pastas da lista de Fluxos.
+  "fluxo_pasta.created",
+  "fluxo_pasta.updated",
+  "fluxo_pasta.deleted",
   "member.accepted",
   "member.role_changed",
   "member.revoked",

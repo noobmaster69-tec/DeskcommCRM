@@ -184,13 +184,13 @@ describe("medição da folga (pergunta de aceite da issue #1341)", () => {
    * vínculo. É o número que o issue publica (15 itens: atendimento 4, CRM 3,
    * IA 3, canais 2, análise 3), medido aqui pelo módulo que alimenta o menu.
    */
-  it("hoje: 42 itens no menu lateral — fork jhoow (P5), todas as telas no menu", () => {
+  it("hoje: 43 itens no menu lateral — fork jhoow (P5 + Fluxos), todas as telas no menu", () => {
     // Eram 15 (o teto da dobra a 1280x900) enquanto CRM, IA e Análise tinham
     // hub. Sem os hubs o menu lista tudo e ROLA de propósito; quem encolhe é a
     // escolha da empresa e a preferência de menu de cada pessoa.
-    expect(itensNoMenuLateral(INTERFACE_COMPLETA)).toBe(42);
+    expect(itensNoMenuLateral(INTERFACE_COMPLETA)).toBe(43);
     // `undefined` é o caminho de quem não tem escolha nenhuma gravada
-    expect(itensNoMenuLateral(undefined)).toBe(42);
+    expect(itensNoMenuLateral(undefined)).toBe(43);
   });
 
   /**
@@ -198,8 +198,8 @@ describe("medição da folga (pergunta de aceite da issue #1341)", () => {
    * A escolha da empresa é interseção, então o menu só ENCOLHE — a mudança não
    * tem como empurrar o instrumento de tela para o vermelho.
    */
-  it("configuração COMPLETA (ninguém escolheu): 42 itens — igual a hoje", () => {
-    expect(itensNoMenuLateral(combinarInterfaces(completa, completa))).toBe(42);
+  it("configuração COMPLETA (ninguém escolheu): 43 itens — igual a hoje", () => {
+    expect(itensNoMenuLateral(combinarInterfaces(completa, completa))).toBe(43);
   });
 
   it("configuração SIMPLIFICADA (empresa escolhe o preset): 6 itens, folga 9", () => {

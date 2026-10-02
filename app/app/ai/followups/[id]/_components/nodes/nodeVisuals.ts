@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-import { Bell, Play, Clock, GitBranch, Brain, ChatCircle, ArrowsClockwise, PaperPlaneTilt, Flag, Question, PuzzlePiece } from "@/lib/ui/icons";
+import { Bell, Play, Clock, GitBranch, Brain, ChatCircle, ArrowsClockwise, PaperPlaneTilt, Flag, Question, PuzzlePiece, ChatText, Tag, Hourglass, ArrowsSplit, LinkSimple, Target, Timer, Robot, Kanban } from "@/lib/ui/icons";
 import type { FlowNode, NodeType } from "@/lib/followup/graph-schema";
 import { RESULTADOS_DO_FIM } from "@/lib/followup/vocabulario";
 import { NOS_DA_SUPERFICIE } from "@/lib/followup/validate-publish";
@@ -54,6 +54,43 @@ export function configPadraoDaAcao(triggerKind?: string): FlowNode["config"] {
     return { mode: "text", body: "Configure esta mensagem." };
   }
   return { mode: "ai_message", prompt_hint: "Configure esta etapa." };
+}
+
+/**
+ * Cor dos blocos de FLUXOS (fork jhoow): o pedido dá uma cor por bloco, e os
+ * tokens semânticos do produto são cinco. As classes ficam LITERAIS aqui porque
+ * o Tailwind só gera o que lê no fonte.
+ */
+const CORES_DOS_BLOCOS = {
+  sky: { chip: "bg-sky-500/15 text-sky-400", borda: "border-l-sky-500" },
+  violet: { chip: "bg-violet-500/15 text-violet-400", borda: "border-l-violet-500" },
+  orange: { chip: "bg-orange-500/15 text-orange-400", borda: "border-l-orange-500" },
+  teal: { chip: "bg-teal-500/15 text-teal-400", borda: "border-l-teal-500" },
+  cyan: { chip: "bg-cyan-500/15 text-cyan-400", borda: "border-l-cyan-500" },
+  amber: { chip: "bg-amber-500/15 text-amber-400", borda: "border-l-amber-500" },
+  rose: { chip: "bg-rose-500/15 text-rose-400", borda: "border-l-rose-500" },
+  yellow: { chip: "bg-yellow-500/15 text-yellow-400", borda: "border-l-yellow-500" },
+  emerald: { chip: "bg-emerald-500/15 text-emerald-400", borda: "border-l-emerald-500" },
+  green: { chip: "bg-green-500/15 text-green-400", borda: "border-l-green-500" },
+  indigo: { chip: "bg-indigo-500/15 text-indigo-400", borda: "border-l-indigo-500" },
+} as const;
+
+function bloco(
+  type: NodeType,
+  rotulo: string,
+  icon: NodeVisual["icon"],
+  cor: keyof typeof CORES_DOS_BLOCOS,
+  defaultConfig: () => unknown,
+): NodeVisual {
+  return {
+    type,
+    paletteLabel: rotulo,
+    icon,
+    chipClassName: CORES_DOS_BLOCOS[cor].chip,
+    borderClassName: CORES_DOS_BLOCOS[cor].borda,
+    defaultLabel: rotulo,
+    defaultConfig: defaultConfig as NodeVisual["defaultConfig"],
+  };
 }
 
 export const NODE_VISUALS: Record<NodeType, NodeVisual> = {
@@ -174,6 +211,52 @@ export const NODE_VISUALS: Record<NodeType, NodeVisual> = {
     defaultLabel: "Fim do fluxo",
     defaultConfig: () => ({ outcome: "exhausted" }),
   },
+  // ── Fork jhoow: os 11 blocos de FLUXOS (cor e ícone do pedido do dono) ──
+  mensagem: bloco("mensagem", "Mensagem", ChatText, "sky", () => ({ itens: [{ id: "t1", tipo: "texto", texto: "Olá, {nome}!" }] })),
+  etiquetas: bloco("etiquetas", "Etiquetas", Tag, "violet", () => ({ operacao: "adicionar", etiquetas: ["nova_etiqueta"] })),
+  aguardar_resposta: bloco("aguardar_resposta", "Aguardar resposta", Hourglass, "orange", () => ({
+    sem_limite: false,
+    tempo: { valor: 1, unidade: "dias" },
+    responder_citando: false,
+  })),
+  notificacao: bloco("notificacao", "Notificação", Bell, "teal", () => ({
+    nome: "Notificação",
+    ddi: "55",
+    numero: "11999999999",
+    mensagem: "{nome} precisa de atenção.",
+  })),
+  condicional: bloco("condicional", "Condicional", GitBranch, "cyan", () => ({
+    regra: "todas",
+    condicoes: [{ id: "c1", campo: { tipo: "etiqueta" }, operador: "contem", valor: "" }],
+  })),
+  distribuidor: bloco("distribuidor", "Distribuidor", ArrowsSplit, "amber", () => ({
+    modo: "fixo_por_contato",
+    saidas: [
+      { id: "s1", nome: "Saída 1" },
+      { id: "s2", nome: "Saída 2" },
+    ],
+  })),
+  conexao_fluxo: bloco("conexao_fluxo", "Conexão de fluxo", LinkSimple, "rose", () => ({
+    fluxo_id: "00000000-0000-4000-8000-000000000000",
+    retornar: false,
+  })),
+  pixel: bloco("pixel", "Pixel", Target, "yellow", () => ({ pixel_id: "configurar", evento: "Lead", page_id: "{page_id}", moeda: "BRL" })),
+  intervalo: bloco("intervalo", "Intervalo inteligente", Timer, "emerald", () => ({ modo: "duracao", valor: 30, unidade: "minutos" })),
+  bloco_ia: bloco("bloco_ia", "Bloco de IA", Robot, "green", () => ({
+    provedor: "anthropic",
+    modelo: "claude-sonnet-5-5",
+    mensagem: "{last_user_message}",
+    salvar_em: "ai.response",
+    enviar_resposta: true,
+    prompt: "",
+    entender: { audio: false, imagem: false, pdf: false },
+    condicionais: [],
+    contexto: { ativo: false, interacoes: 5 },
+  })),
+  kanban: bloco("kanban", "Kanban", Kanban, "indigo", () => ({
+    acao: "adicionar",
+    pipeline_id: "00000000-0000-4000-8000-000000000000",
+  })),
 };
 
 /**
@@ -264,6 +347,53 @@ export function describeNodeConfig(
     case "end": {
       const c = config as ConfigOf<"end">;
       return t(RESULTADOS_DO_FIM[c.outcome]);
+    }
+    // ── Blocos de FLUXOS (fork jhoow) ──
+    case "mensagem": {
+      const c = config as ConfigOf<"mensagem">;
+      return `${c.itens.length} ${c.itens.length === 1 ? t("item") : t("itens")}`;
+    }
+    case "etiquetas": {
+      const c = config as ConfigOf<"etiquetas">;
+      return `${c.operacao === "remover" ? "−" : "+"} ${c.etiquetas.join(", ")}`;
+    }
+    case "aguardar_resposta": {
+      const c = config as ConfigOf<"aguardar_resposta">;
+      return c.sem_limite || !c.tempo ? t("sem limite de tempo") : `${t("até")} ${c.tempo.valor} ${t(c.tempo.unidade)}`;
+    }
+    case "notificacao": {
+      const c = config as ConfigOf<"notificacao">;
+      return `+${c.ddi} ${c.numero}`;
+    }
+    case "condicional": {
+      const c = config as ConfigOf<"condicional">;
+      return `${c.condicoes.length} ${c.condicoes.length === 1 ? t("condição") : t("condições")}`;
+    }
+    case "distribuidor": {
+      const c = config as ConfigOf<"distribuidor">;
+      return `${c.saidas.length} ${t("saídas")}`;
+    }
+    case "conexao_fluxo": {
+      const c = config as ConfigOf<"conexao_fluxo">;
+      return c.retornar ? t("vai e volta") : t("segue no outro fluxo");
+    }
+    case "pixel": {
+      const c = config as ConfigOf<"pixel">;
+      return c.evento;
+    }
+    case "intervalo": {
+      const c = config as ConfigOf<"intervalo">;
+      if (c.modo === "duracao") return `${c.valor} ${t(c.unidade)}`;
+      if (c.modo === "data") return c.quando;
+      return `${c.janelas.length} ${t("janelas de horário")}`;
+    }
+    case "bloco_ia": {
+      const c = config as ConfigOf<"bloco_ia">;
+      return c.modelo;
+    }
+    case "kanban": {
+      const c = config as ConfigOf<"kanban">;
+      return t(c.acao === "adicionar" ? "cria o card" : c.acao === "mover" ? "move o card" : "remove o card");
     }
     default: {
       const exhaustive: never = type;

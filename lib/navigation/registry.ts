@@ -41,6 +41,7 @@ import {
   Users,
   UsersThree,
   WebhooksLogo,
+  Lightning,
 } from "@/lib/ui/icons";
 
 import {
@@ -97,6 +98,7 @@ const ICONS = {
   Users,
   UsersThree,
   WebhooksLogo,
+  Lightning,
 };
 export interface NavDestination extends Omit<NavMetadata, "icon"> {
   icon: PhosphorIcon;

@@ -4,28 +4,26 @@ import { rascunhoDoFluxo } from "@/lib/followup/rascunho";
 import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
-import { SUPERFICIES_DO_RELOGIO } from "@/lib/followup/api-schemas";
 import type { FollowupFlowDetailRow } from "@/hooks/followup/useFollowupFlow";
-import { FlowBuilder } from "./_components/FlowBuilder";
+import { FlowBuilder } from "@/app/app/ai/followups/[id]/_components/FlowBuilder";
 
 export const dynamic = "force-dynamic";
 
 const DETAIL_COLUMNS =
   "id, name, status, active_version_id, draft_graph, handoff_policy, trigger_config, surface, created_at, updated_at";
 
-export default async function FollowupFlowBuilderPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+/**
+ * Editor de um FLUXO (fork jhoow, Etapa 2). É o editor de follow-up — canvas,
+ * salvar, publicar, rollback — aberto com `surface = "fluxo"`: a paleta oferece
+ * só os blocos de fluxo (`NOS_DA_SUPERFICIE.fluxo`), a barra esconde o gatilho
+ * de relógio e o handoff, e o canvas ganha grade e mini-mapa.
+ */
+export default async function FluxoEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
   const user = await requireAuth();
   const activeOrg = await resolveActiveOrg(user);
   if (!activeOrg) redirect("/app");
-  if (ROLE_RANK[activeOrg.role] < ROLE_RANK.manager) {
-    redirect("/403");
-  }
+  if (ROLE_RANK[activeOrg.role] < ROLE_RANK.manager) redirect("/403");
 
   const supabase = await createClient();
   const [{ data: pointer }, { data: versionRows }] = await Promise.all([
@@ -34,9 +32,7 @@ export default async function FollowupFlowBuilderPage({
       .select(DETAIL_COLUMNS)
       .eq("id", id)
       .eq("organization_id", activeOrg.orgId)
-      // Roteiro de atendimento não abre no editor de follow-up (prova do #1130),
-      // nem fluxo do construtor (fork jhoow) — ele abre em /app/fluxos/[id].
-      .in("surface", [...SUPERFICIES_DO_RELOGIO])
+      .eq("surface", "fluxo")
       .maybeSingle(),
     supabase
       .from("followup_flow_versions")
@@ -45,17 +41,13 @@ export default async function FollowupFlowBuilderPage({
       .eq("pointer_id", id)
       .order("created_at", { ascending: false }),
   ]);
-
   if (!pointer) notFound();
 
-  // Mesma regra da rota: rascunho ausente COM versão publicada abre o que está
-  // NO AR. Ver `lib/followup/rascunho.ts`.
   const draft_graph = await rascunhoDoFluxo(
     supabase,
     pointer as unknown as { draft_graph: unknown; active_version_id: string | null },
     activeOrg.orgId,
   );
-
   const flow: FollowupFlowDetailRow = {
     ...(pointer as unknown as Omit<FollowupFlowDetailRow, "versions_count" | "previous_version_id">),
     draft_graph,

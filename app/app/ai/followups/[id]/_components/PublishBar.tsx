@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useState } from "react";
 
@@ -36,7 +37,7 @@ import {
   useUpdateHandoffPolicy,
   type FollowupFlowDetailRow,
 } from "@/hooks/followup/useFollowupFlow";
-import { Trash, TreeStructure } from "@/lib/ui/icons";
+import { ArrowLeft, Trash, TreeStructure } from "@/lib/ui/icons";
 import { FlowStatusBadge } from "../../_components/FlowStatusBadge";
 import { DeleteFollowupFlowButton } from "../../_components/DeleteFollowupFlowButton";
 import { RenameFollowupFlowButton } from "../../_components/RenameFollowupFlowButton";
@@ -83,6 +84,11 @@ export function PublishBar({
   const rollback = useRollbackFollowupFlow(flowId);
   const handoffPolicy = useUpdateHandoffPolicy(flowId);
   const deRoteiro = flow.surface === "atendimento";
+  // Fluxo do construtor (fork jhoow): o gatilho mora em Configurações › Gatilhos
+  // de Fluxo e a política de handoff não se aplica — a barra mostra o essencial.
+  const deFluxo = flow.surface === "fluxo";
+  const semControlesDoRelogio = deRoteiro || deFluxo;
+  const listHref = deRoteiro ? "/app/ai/atendimento" : deFluxo ? "/app/fluxos" : "/app/ai/followups";
 
   const onSave = () => {
     save.mutate(graph, { onSuccess: () => onSaved(graph) });
@@ -131,6 +137,15 @@ export function PublishBar({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3">
       <div className="flex items-center gap-1">
+        {deFluxo && (
+          <Link
+            href={listHref}
+            aria-label={t("Voltar para Fluxos")}
+            className="mr-1 flex h-8 w-8 items-center justify-center rounded-md text-text-muted hover:bg-surface-elevated hover:text-text"
+          >
+            <ArrowLeft size={16} aria-hidden />
+          </Link>
+        )}
         <h1 className="text-sm font-semibold text-text">{flow.name}</h1>
         <RenameFollowupFlowButton
           flowId={flowId}
@@ -151,9 +166,9 @@ export function PublishBar({
             Início do grafo) e encerra quando um humano assume (0397): o gatilho
             de relógio e a política de handoff do follow-up não valem para ele —
             na prova do #1130 esta barra aparecia igual e confundia. */}
-        {!deRoteiro && <TriggerConfigControl flowId={flowId} triggerConfig={flow.trigger_config} />}
+        {!semControlesDoRelogio && <TriggerConfigControl flowId={flowId} triggerConfig={flow.trigger_config} />}
 
-        {!deRoteiro && (
+        {!semControlesDoRelogio && (
           <Select value={flow.handoff_policy} onValueChange={(v) => handoffPolicy.mutate(v as FollowupFlowDetailRow["handoff_policy"])}>
             <SelectTrigger className="w-56" aria-label={t("Política de handoff")}>
               <SelectValue />
@@ -251,7 +266,7 @@ export function PublishBar({
             flowId={flowId}
             flowName={flow.name}
             redirectToList
-            listHref={deRoteiro ? "/app/ai/atendimento" : "/app/ai/followups"}
+            listHref={listHref}
           />
         )}
       </div>

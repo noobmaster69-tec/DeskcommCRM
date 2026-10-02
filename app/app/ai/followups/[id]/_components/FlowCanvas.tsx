@@ -6,6 +6,7 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
+  MiniMap,
   ConnectionLineType,
   addEdge,
   useNodesState,
@@ -375,9 +376,14 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             // nós seguintes nascendo fora da vista (medido no trace do e2e
             // followup-cartoes: scale 1 → 2 logo após o primeiro clique).
             fitView={initial.nodes.length > 0}
+            // Fluxos (fork jhoow): grade com encaixe e mini-mapa — fluxo de
+            // venda passa de 100 blocos, e sem mapa a pessoa se perde no canvas.
+            snapToGrid={surface === "fluxo"}
+            snapGrid={[20, 20]}
           >
-            <Background />
+            <Background gap={surface === "fluxo" ? 20 : undefined} />
             <Controls />
+            {surface === "fluxo" && <MiniMap pannable zoomable position="bottom-right" />}
           </ReactFlow>
           <Button
             type="button"

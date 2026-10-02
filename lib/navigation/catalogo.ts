@@ -17,7 +17,7 @@ import type { CapacidadeDaOrganizacao } from "@/lib/organizacao/capacidades";
  * Doutrina: docs/doctrine/sistema-vivo.md — "por qual porta se chega até mim?"
  */
 
-export type NavGroupId = "atendimento" | "crm" | "ia" | "canais" | "analise" | "organizacao";
+export type NavGroupId = "atendimento" | "operacoes" | "crm" | "ia" | "canais" | "analise" | "organizacao";
 
 export interface NavGroup {
   id: NavGroupId;
@@ -92,6 +92,9 @@ export interface NavMetadata {
 // (`/app/crm`, `/app/ai`, `/app/analise`) continuam existindo e no ⌘K.
 export const NAV_GROUPS: NavGroup[] = [
   { id: "atendimento", label: "Atendimento" },
+  // Fork jhoow (Etapa 2): o construtor de FLUXOS — conversa automatizada
+  // conduzida pelo grafo, sem IA obrigatória. Grupo próprio, pedido do dono.
+  { id: "operacoes", label: "Operações" },
   { id: "crm", label: "CRM" },
   { id: "ia", label: "Agente de IA" },
   { id: "canais", label: "Canais" },
@@ -496,6 +499,16 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
+    // Fork jhoow (Etapa 2): o construtor visual de fluxos (surface `fluxo`).
+    href: "/app/fluxos",
+    label: "Fluxos",
+    description: "Conversas automatizadas que você monta arrastando blocos: mensagens, esperas, decisões, pixel e funil.",
+    icon: "Lightning",
+    group: "operacoes",
+    minRole: "manager",
+    sidebar: true,
+  },
+  {
     href: "/app/ai/followups",
     label: "Follow-ups",
     description: "Como o agente retoma uma conversa que esfriou, para nenhuma morrer no silêncio.",
@@ -514,7 +527,9 @@ export const NAV_CATALOG = [
     // configurável por empresa — o padrão não cresce; a porta mora no hub de IA
     // e na busca, e quem usa pode pô-la no menu dela.
     href: "/app/ai/atendimento",
-    label: "Fluxos de atendimento",
+    // Fork jhoow: era "Fluxos de atendimento" — renomeado para não confundir
+    // com o construtor de Fluxos (grupo Operações), decisão do dono.
+    label: "Perguntas da IA",
     description: "Perguntas que a IA conduz durante a conversa, com as respostas guardadas na ficha do cliente.",
     icon: "ListChecks",
     group: "ia",

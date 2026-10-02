@@ -35,6 +35,8 @@ export const PUBLISH_ERROR_CODES = [
   'roteiro_ramificado',
   'campo_repetido',
   'roteiro_em_ciclo',
+  // Fork jhoow: a superfície tem teto de nós próprio (`LIMITE_DE_NOS_DA_SUPERFICIE`).
+  'grafo_grande_demais',
 ] as const;
 export type PublishErrorCode = (typeof PUBLISH_ERROR_CODES)[number];
 
@@ -150,6 +152,21 @@ export const NOS_DA_SUPERFICIE: Record<FollowupFlowSurface, readonly NodeType[]>
   followup: ['trigger', 'wait', 'condition', 'ai_classify', 'match_reply', 'repeat', 'action', 'internal_task', 'end'],
   crm_automation: ['trigger', 'wait', 'condition', 'ai_classify', 'match_reply', 'repeat', 'action', 'internal_task', 'end'],
   atendimento: ['trigger', 'collect', 'skill', 'end'],
+  // Fork jhoow — FLUXOS. Fase A: só Início e Fim (o encanamento de salvar e
+  // publicar); cada fase acrescenta aqui os blocos cujo executor ela entrega.
+  fluxo: ['trigger', 'end'],
+};
+
+/**
+ * Teto de nós na PUBLICAÇÃO, por superfície. O formato do grafo aceita até
+ * `MAX_NOS_DO_GRAFO` (o fluxo de venda passa de 100 blocos); o follow-up segue
+ * no teto de sempre, que é decisão de produto dele e não do formato.
+ */
+export const LIMITE_DE_NOS_DA_SUPERFICIE: Record<FollowupFlowSurface, number> = {
+  followup: 60,
+  crm_automation: 60,
+  atendimento: 60,
+  fluxo: 250,
 };
 
 /**
@@ -193,6 +210,13 @@ function validarSuperficie(
   roteiro?: RoteiroDoPublish,
 ): void {
   const permitidos = new Set<NodeType>(NOS_DA_SUPERFICIE[surface]);
+  if (graph.nodes.length > LIMITE_DE_NOS_DA_SUPERFICIE[surface]) {
+    errors.push({
+      node_id: null,
+      code: 'grafo_grande_demais',
+      message: `Este tipo de fluxo aceita até ${LIMITE_DE_NOS_DA_SUPERFICIE[surface]} caixas.`,
+    });
+  }
   for (const n of [...graph.nodes].sort(byId)) {
     if (!permitidos.has(n.type)) {
       errors.push({
@@ -201,7 +225,9 @@ function validarSuperficie(
         message:
           surface === 'atendimento'
             ? `A caixa "${n.label}" não é de roteiro de atendimento — use Pergunta, Skill e Fim.`
-            : `A caixa "${n.label}" é de roteiro de atendimento e não roda num follow-up.`,
+            : surface === 'fluxo'
+              ? `O bloco "${n.label}" ainda não roda em Fluxos.`
+              : `A caixa "${n.label}" não roda num follow-up.`,
       });
     }
   }

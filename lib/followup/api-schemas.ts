@@ -13,7 +13,11 @@ import { MAX_THRESHOLD_MINUTES, MIN_THRESHOLD_MINUTES } from "./gap-de-retorno";
  * perguntas conduzido no turno, módulo opcional `fluxos_atendimento`). A UI não
  * recorta mais por ela; o CHECK do banco espelha esta tupla.
  */
-export const FOLLOWUP_FLOW_SURFACES = ["followup", "crm_automation", "atendimento"] as const;
+// `fluxo` (migration 9002, fork jhoow): o construtor visual de FLUXOS em
+// /app/fluxos — conversa automatizada conduzida pelo grafo, sem IA obrigatória.
+export const FOLLOWUP_FLOW_SURFACES = ["followup", "crm_automation", "atendimento", "fluxo"] as const;
+/** As superfícies que a tela de Follow-ups (e o seletor de fluxos do agente) lista. */
+export const SUPERFICIES_DO_RELOGIO = ["followup", "crm_automation"] as const;
 export type FollowupFlowSurface = (typeof FOLLOWUP_FLOW_SURFACES)[number];
 
 export const createFollowupFlowSchema = z.strictObject({
@@ -21,6 +25,8 @@ export const createFollowupFlowSchema = z.strictObject({
   // Superfície do fluxo (default do banco = 'followup'). A tela de Atendimento
   // cria com 'atendimento'; a de Follow-ups, sem o campo.
   surface: z.enum(FOLLOWUP_FLOW_SURFACES).optional(),
+  /** Pasta da lista de Fluxos (só `surface: "fluxo"`). Ausente/nula = raiz. */
+  pasta_id: z.string().uuid().nullable().optional(),
 });
 
 // `cancel_on_reply` (Task 5.2 — reatividade): se true, um enrollment `waiting_reply`

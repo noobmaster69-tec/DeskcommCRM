@@ -102,7 +102,7 @@ const TEXTO_DO_MODULO: Record<ModuloOpcional, { nome: string; oQueFaz: string }>
     oQueFaz: "O agente consulta o banco de outro sistema da empresa, como um ERP ou outro CRM.",
   },
   fluxos_atendimento: {
-    nome: "Fluxos de atendimento",
+    nome: "Perguntas da IA",
     oQueFaz: "A IA conduz um roteiro de perguntas na conversa e grava as respostas na ficha do cliente.",
   },
   propostas: {

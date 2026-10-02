@@ -101,6 +101,7 @@ describe("GET /api/v1/ai/followup-flows — roteiros fora da lista de follow-ups
       select: () => cadeia,
       eq: (c: string, v: unknown) => (filtros.push(["eq", c, v]), cadeia),
       neq: (c: string, v: unknown) => (filtros.push(["neq", c, v]), cadeia),
+      in: (c: string, v: unknown) => (filtros.push(["in", c, v]), cadeia),
       order: async () => ({ data: [], error: null }),
     };
     return { filtros, client: { from: () => cadeia } };
@@ -111,7 +112,16 @@ describe("GET /api/v1/ai/followup-flows — roteiros fora da lista de follow-ups
     deps.client.mockResolvedValue(client);
     const res = await GET(new NextRequest("http://localhost/api/v1/ai/followup-flows"));
     expect(res.status).toBe(200);
-    expect(filtros).toContainEqual(["neq", "surface", "atendimento"]);
+    // Fork jhoow: era `neq atendimento`, que deixaria passar `fluxo` — agora a
+    // lista pede as superfícies do relógio pelo nome.
+    expect(filtros).toContainEqual(["in", "surface", ["followup", "crm_automation"]]);
+  });
+
+  it("?surface=fluxo: só os fluxos do construtor (fork jhoow)", async () => {
+    const { filtros, client } = clientDaLista();
+    deps.client.mockResolvedValue(client);
+    await GET(new NextRequest("http://localhost/api/v1/ai/followup-flows?surface=fluxo"));
+    expect(filtros).toContainEqual(["eq", "surface", "fluxo"]);
   });
 
   it("?surface=atendimento: só os roteiros", async () => {

@@ -1,6 +1,20 @@
 import { z } from 'zod';
 
 import { PRIORIDADES_DA_TAREFA } from '@/lib/tarefas/tipos';
+import {
+  aguardarRespostaConfigSchema,
+  blocoIaConfigSchema,
+  condicionalConfigSchema,
+  conexaoFluxoConfigSchema,
+  distribuidorConfigSchema,
+  etiquetasConfigSchema,
+  intervaloConfigSchema,
+  kanbanConfigSchema,
+  mensagemConfigSchema,
+  notificacaoConfigSchema,
+  pixelConfigSchema,
+  TIPOS_DE_BLOCO_DO_FLUXO,
+} from './blocos-do-fluxo';
 
 /**
  * Flow graph schema for the follow-up automation system.
@@ -22,6 +36,9 @@ export const NODE_TYPES = [
   // equipe, a mensagem sai de uma pessoa.
   'internal_task',
   'end',
+  // Os 11 blocos do construtor de FLUXOS (fork jhoow) — só na superfície
+  // `fluxo` (`NOS_DA_SUPERFICIE`). Formato em `blocos-do-fluxo.ts`.
+  ...TIPOS_DE_BLOCO_DO_FLUXO,
 ] as const;
 export type NodeType = (typeof NODE_TYPES)[number];
 
@@ -408,6 +425,26 @@ export const endConfigSchema = z.strictObject({
  * Flow node schema — discriminated union based on node type.
  * Each node type has its specific config schema.
  */
+/** Um bloco de FLUXO: o mesmo envelope dos nós de follow-up, com o `config` do tipo. */
+function noDoFluxo<T extends string, C extends z.ZodType>(type: T, config: C) {
+  return z.strictObject({
+    id: z.string().min(1),
+    type: z.literal(type),
+    label: z.string().min(1).max(60),
+    position: z.strictObject({ x: z.number(), y: z.number() }),
+    config,
+  });
+}
+
+/**
+ * Teto de nós e arestas do GRAFO. Fluxo de venda real passa de 100 blocos (o
+ * principal do dono do fork tem 111 no Leona), então o teto do formato é o do
+ * fluxo; o follow-up continua limitado a 60 na publicação
+ * (`LIMITE_DE_NOS_DA_SUPERFICIE` em `validate-publish.ts`).
+ */
+export const MAX_NOS_DO_GRAFO = 250;
+export const MAX_ARESTAS_DO_GRAFO = 500;
+
 export const flowNodeSchema = z.discriminatedUnion('type', [
   // Trigger node: entry point, no config
   z.strictObject({
@@ -528,6 +565,18 @@ export const flowNodeSchema = z.discriminatedUnion('type', [
     }),
     config: endConfigSchema,
   }),
+  // Blocos do construtor de FLUXOS (fork jhoow) — ver `blocos-do-fluxo.ts`.
+  noDoFluxo('mensagem', mensagemConfigSchema),
+  noDoFluxo('etiquetas', etiquetasConfigSchema),
+  noDoFluxo('aguardar_resposta', aguardarRespostaConfigSchema),
+  noDoFluxo('notificacao', notificacaoConfigSchema),
+  noDoFluxo('condicional', condicionalConfigSchema),
+  noDoFluxo('distribuidor', distribuidorConfigSchema),
+  noDoFluxo('conexao_fluxo', conexaoFluxoConfigSchema),
+  noDoFluxo('pixel', pixelConfigSchema),
+  noDoFluxo('intervalo', intervaloConfigSchema),
+  noDoFluxo('bloco_ia', blocoIaConfigSchema),
+  noDoFluxo('kanban', kanbanConfigSchema),
 ]);
 
 export type FlowNode = z.infer<typeof flowNodeSchema>;
@@ -624,8 +673,8 @@ export type FlowSettings = z.infer<typeof flowSettingsSchema>;
  */
 export const flowGraphSchema = z
   .strictObject({
-    nodes: z.array(flowNodeSchema).min(2).max(60),
-    edges: z.array(flowEdgeSchema).max(120),
+    nodes: z.array(flowNodeSchema).min(2).max(MAX_NOS_DO_GRAFO),
+    edges: z.array(flowEdgeSchema).max(MAX_ARESTAS_DO_GRAFO),
     settings: flowSettingsSchema.optional(),
   })
   .superRefine((grafo, ctx) => {

@@ -150,4 +150,15 @@ export {
   ArrowsOutSimple,
   // /admin/modulos: módulo opcional com tabela própria (ADR-0002)
   Stack,
+  // Fork jhoow — construtor de FLUXOS (blocos, lista e pastas)
+  ChatText,
+  Hourglass,
+  ArrowsSplit,
+  LinkSimple,
+  Target,
+  Timer,
+  Lightning,
+  FolderSimple,
+  FolderPlus,
+  ArrowLeft,
 } from "@phosphor-icons/react/dist/ssr";

@@ -192,7 +192,7 @@ test("liga o módulo, cria um roteiro pela tela, o cliente responde pelo WhatsAp
     await test.step("o dono do servidor liga o módulo em /admin/sistema", async () => {
       await loginComoDono(page, lerCreds());
       await page.goto("/admin/sistema");
-      const chave = page.getByRole("switch", { name: "Fluxos de atendimento" });
+      const chave = page.getByRole("switch", { name: "Perguntas da IA" });
       await expect(chave).toBeVisible();
       if ((await chave.getAttribute("aria-checked")) !== "true") await chave.click();
       await expect(chave).toHaveAttribute("aria-checked", "true");
@@ -205,7 +205,7 @@ test("liga o módulo, cria um roteiro pela tela, o cliente responde pelo WhatsAp
     await test.step("o gerente cria e publica o roteiro pela tela", async () => {
       await loginGerente(page, creds);
       await page.goto("/app/ai/atendimento");
-      await expect(page.getByRole("heading", { name: "Fluxos de atendimento", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Perguntas da IA", exact: true })).toBeVisible();
 
       await page.getByRole("button", { name: "Novo fluxo de atendimento" }).first().click();
       const dialogo = page.getByRole("dialog");

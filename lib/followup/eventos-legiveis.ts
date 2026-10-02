@@ -135,6 +135,18 @@ const TIPO_DO_NO: Record<FlowNode["type"], string> = {
   // #1540 — não é "Mensagem": é o passo que NÃO fala com o cliente.
   internal_task: "Lembrete interno",
   end: "Fim",
+  // Blocos de FLUXOS (fork jhoow)
+  mensagem: "Mensagem",
+  etiquetas: "Etiquetas",
+  aguardar_resposta: "Aguardar resposta",
+  notificacao: "Notificação",
+  condicional: "Condicional",
+  distribuidor: "Distribuidor",
+  conexao_fluxo: "Conexão de fluxo",
+  pixel: "Pixel",
+  intervalo: "Intervalo inteligente",
+  bloco_ia: "Bloco de IA",
+  kanban: "Kanban",
 };
 
 const DESFECHO: Record<string, string> = {
@@ -154,6 +166,19 @@ export function tipoDoNo(tipo: FlowNode["type"]): string {
 export function resumoDoNo(node: FlowNode): NoDoDossie {
   const base = { id: node.id, tipo: node.type, rotulo: node.label };
   switch (node.type) {
+    // Blocos de FLUXOS (fork jhoow): o resumo detalhado chega com o executor.
+    case "mensagem":
+    case "etiquetas":
+    case "aguardar_resposta":
+    case "notificacao":
+    case "condicional":
+    case "distribuidor":
+    case "conexao_fluxo":
+    case "pixel":
+    case "intervalo":
+    case "bloco_ia":
+    case "kanban":
+      return { ...base, resumo: TIPO_DO_NO[node.type].toLowerCase() };
     case "trigger":
       return { ...base, resumo: "onde o follow-up começa" };
     case "wait":

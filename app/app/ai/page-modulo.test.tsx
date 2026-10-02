@@ -29,7 +29,7 @@ describe("hub de IA × módulo de fluxos de atendimento", () => {
     // Controle positivo: o hub desenhou (o roteador, vizinho do cartão, está lá).
     expect(document.querySelector('a[href="/app/ai/routers"]')).not.toBeNull();
     expect(porta()).toBeNull();
-    expect(screen.queryByText("Fluxos de atendimento")).toBeNull();
+    expect(screen.queryByText("Perguntas da IA")).toBeNull();
   });
 
   it("ligado: o cartão aparece", async () => {

@@ -13,12 +13,15 @@ import { requireRole } from "@/lib/auth/require-role";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { moduloLigado } from "@/lib/instalacao/modulos";
-import { createFollowupFlowSchema } from "@/lib/followup/api-schemas";
+import { createFollowupFlowSchema, SUPERFICIES_DO_RELOGIO } from "@/lib/followup/api-schemas";
+import { grafoInicialDoFluxo } from "@/lib/followup/grafo-inicial-do-fluxo";
 import { traduzir } from "@/lib/i18n/dicionario";
 
 export const dynamic = "force-dynamic";
 
 const LIST_COLUMNS = "id, name, status, active_version_id, handoff_policy, updated_at";
+/** A lista de Fluxos precisa também da pasta e do tamanho do grafo (coluna BLOCOS). */
+const LIST_COLUMNS_FLUXO = `${LIST_COLUMNS}, pasta_id, draft_graph`;
 
 /**
  * `?surface=atendimento` lista os roteiros de atendimento (a tela deles chega no
@@ -33,15 +36,19 @@ export async function GET(req?: NextRequest): Promise<Response> {
   if (!authz.ok) return authz.response;
   const { org: activeOrg } = authz;
 
-  const querRoteiros = req?.nextUrl.searchParams.get("surface") === "atendimento";
+  // `?surface=atendimento` e `?surface=fluxo` listam a superfície pedida; sem
+  // parâmetro, só os fluxos do RELÓGIO (follow-up e automação). Era
+  // `neq atendimento`, e o primeiro fluxo do construtor (fork jhoow) apareceria
+  // na tela de Follow-ups e abriria no editor errado — o mesmo defeito do #1130.
+  const pedida = req?.nextUrl.searchParams.get("surface");
   const supabase = await createClient();
   const base = supabase
     .from("followup_flow_pointers")
-    .select(LIST_COLUMNS)
+    .select(pedida === "fluxo" ? LIST_COLUMNS_FLUXO : LIST_COLUMNS)
     .eq("organization_id", activeOrg.orgId);
-  const { data, error } = await (querRoteiros
-    ? base.eq("surface", "atendimento")
-    : base.neq("surface", "atendimento")
+  const { data, error } = await (pedida === "atendimento" || pedida === "fluxo"
+    ? base.eq("surface", pedida)
+    : base.in("surface", [...SUPERFICIES_DO_RELOGIO])
   ).order("updated_at", { ascending: false });
   if (error) return fail("internal_error", error.message, 500, { requestId });
   return ok(data ?? [], { requestId });
@@ -88,6 +95,12 @@ export async function POST(req: NextRequest): Promise<Response> {
       organization_id: activeOrg.orgId,
       name: parsed.data.name,
       ...(parsed.data.surface !== undefined ? { surface: parsed.data.surface } : {}),
+      // Fluxo do construtor nasce com Início → Fim (o grafo exige dois nós para
+      // salvar) e na pasta escolhida. A FK composta da 9002 garante que a pasta
+      // é da mesma organização: pasta de outra empresa vira 23503, não vazamento.
+      ...(parsed.data.surface === "fluxo"
+        ? { draft_graph: grafoInicialDoFluxo(), pasta_id: parsed.data.pasta_id ?? null }
+        : {}),
     })
     .select("*")
     .single();
@@ -95,6 +108,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   if (insErr || !created) {
     if (insErr?.code === "23505") {
       return fail("conflict", t("Já existe um fluxo com este nome."), 409, { requestId });
+    }
+    if (insErr?.code === "23503") {
+      return fail("not_found", t("Pasta não encontrada."), 404, { requestId });
     }
     return fail("internal_error", insErr?.message ?? "followup_flow_insert_failed", 500, {
       requestId,

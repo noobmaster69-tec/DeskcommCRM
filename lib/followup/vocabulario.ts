@@ -58,6 +58,16 @@ import {
   type waitConfigSchema,
 } from "./graph-schema";
 import type { EnrollmentOutcome, EnrollmentStatus } from "./node-handlers";
+import type {
+  EVENTOS_DO_PIXEL,
+  MODOS_DO_DISTRIBUIDOR,
+  OPERACOES_DE_ETIQUETA,
+  OPERADORES_DA_CONDICAO,
+  PROVEDORES_DO_BLOCO_DE_IA,
+  REGRAS_DA_CONDICIONAL,
+  UNIDADES_DE_ESPERA,
+  UNIDADES_DO_INTERVALO,
+} from "./blocos-do-fluxo";
 
 type ConditionConfig = z.infer<typeof conditionConfigSchema>;
 type Check = ConditionConfig["checks"][number];
@@ -599,3 +609,62 @@ export const GATILHOS: Record<TipoDeGatilho, string> = {
   inbound_after_silence: "Cliente voltou",
   conversation_end: "Fim da conversa",
 };
+
+// ── Fluxos (fork jhoow, Etapa 2): os enums dos 11 blocos, como a tela fala ──
+
+export const OPERACOES_DE_ETIQUETA_NA_TELA: Record<(typeof OPERACOES_DE_ETIQUETA)[number], string> = {
+  adicionar: "Adicionar etiquetas",
+  remover: "Remover etiquetas",
+};
+
+export const UNIDADES_DE_ESPERA_NA_TELA: Record<(typeof UNIDADES_DE_ESPERA)[number], string> = {
+  minutos: "Minutos",
+  horas: "Horas",
+  dias: "Dias",
+};
+
+export const UNIDADES_DO_INTERVALO_NA_TELA: Record<(typeof UNIDADES_DO_INTERVALO)[number], string> = {
+  segundos: "Segundos",
+  minutos: "Minutos",
+  horas: "Horas",
+  dias: "Dias",
+};
+
+export const REGRAS_DA_CONDICIONAL_NA_TELA: Record<(typeof REGRAS_DA_CONDICIONAL)[number], string> = {
+  todas: "TODAS as condições (e)",
+  qualquer: "QUALQUER condição (ou)",
+};
+
+export const OPERADORES_DA_CONDICAO_NA_TELA: Record<(typeof OPERADORES_DA_CONDICAO)[number], string> = {
+  igual: "é igual a",
+  diferente: "é diferente de",
+  contem: "contém",
+  nao_contem: "não contém",
+  maior: "é maior que",
+  menor: "é menor que",
+  entre: "está entre",
+  vazio: "está vazio",
+  nao_vazio: "não está vazio",
+};
+
+export const MODOS_DO_DISTRIBUIDOR_NA_TELA: Record<(typeof MODOS_DO_DISTRIBUIDOR)[number], string> = {
+  proximo: "Distribuir sempre para o próximo",
+  fixo_por_contato: "Prevenir repetição",
+};
+
+export const EVENTOS_DO_PIXEL_NA_TELA: Record<(typeof EVENTOS_DO_PIXEL)[number], string> = {
+  Purchase: "Compra",
+  Lead: "Lead",
+  InitiateCheckout: "Início de pagamento",
+  AddToCart: "Adicionar ao carrinho",
+  ViewContent: "Ver conteúdo",
+  CompleteRegistration: "Cadastro concluído",
+};
+
+export const PROVEDORES_DO_BLOCO_DE_IA_NA_TELA: Record<(typeof PROVEDORES_DO_BLOCO_DE_IA)[number], string> = {
+  openai: "GPT (OpenAI)",
+  google: "Gemini (Google)",
+  anthropic: "Anthropic",
+  groq: "Groq",
+};
+

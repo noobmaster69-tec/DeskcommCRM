@@ -198,7 +198,7 @@ const MODULOS_NA_TELA: ReadonlyArray<{ modulo: ModuloPorFlag; id: string; rotulo
   {
     modulo: "fluxos_atendimento",
     id: "modulo-fluxos-atendimento",
-    rotulo: "Fluxos de atendimento",
+    rotulo: "Perguntas da IA",
     descricao:
       "Ligado, cada empresa pode montar roteiros de perguntas que a IA conduz durante a conversa (nome, CPF, interesse…), e as respostas aparecem na ficha do cliente. Desligado, a tela, o menu e o roteiro no atendimento da IA somem.",
   },

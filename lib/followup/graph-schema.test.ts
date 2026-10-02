@@ -21,6 +21,8 @@ import {
   nodeBranches,
   branchIdForCondition,
   conditionForBranch,
+  MAX_NOS_DO_GRAFO,
+  MAX_ARESTAS_DO_GRAFO,
 } from './graph-schema';
 import type { NodeType, FlowGraph, FlowNode, FlowEdge } from './graph-schema';
 import { toReactFlow, fromReactFlow } from './graph-mappers';
@@ -40,6 +42,18 @@ describe('graph-schema', () => {
         'action',
         'internal_task',
         'end',
+        // Os 11 blocos de FLUXOS (fork jhoow) — só na superfície `fluxo`.
+        'mensagem',
+        'etiquetas',
+        'aguardar_resposta',
+        'notificacao',
+        'condicional',
+        'distribuidor',
+        'conexao_fluxo',
+        'pixel',
+        'intervalo',
+        'bloco_ia',
+        'kanban',
       ]);
     });
 
@@ -988,8 +1002,11 @@ describe('graph-schema', () => {
       expect(result.success).toBe(false);
     });
 
-    it('rejects graph with > 60 nodes', () => {
-      const nodes = Array.from({ length: 61 }, (_, i) => ({
+    // Fork jhoow: o teto do FORMATO subiu de 60 para MAX_NOS_DO_GRAFO (fluxo de
+    // venda passa de 100 blocos); o follow-up segue limitado a 60 na
+    // PUBLICAÇÃO (`LIMITE_DE_NOS_DA_SUPERFICIE`, coberto em fluxos-fase-a.test).
+    it('rejects graph with > MAX_NOS_DO_GRAFO nodes', () => {
+      const nodes = Array.from({ length: MAX_NOS_DO_GRAFO + 1 }, (_, i) => ({
         id: `n${i}`,
         type: 'trigger' as const,
         label: `Node ${i}`,
@@ -1003,7 +1020,7 @@ describe('graph-schema', () => {
       expect(result.success).toBe(false);
     });
 
-    it('rejects graph with > 120 edges', () => {
+    it('rejects graph with > MAX_ARESTAS_DO_GRAFO edges', () => {
       const nodes = [
         {
           id: 'trigger-1',
@@ -1020,7 +1037,7 @@ describe('graph-schema', () => {
           config: { outcome: 'converted' as const },
         },
       ];
-      const edges = Array.from({ length: 121 }, (_, i) => ({
+      const edges = Array.from({ length: MAX_ARESTAS_DO_GRAFO + 1 }, (_, i) => ({
         id: `edge${i}`,
         source: 'trigger-1',
         target: 'end-1',
