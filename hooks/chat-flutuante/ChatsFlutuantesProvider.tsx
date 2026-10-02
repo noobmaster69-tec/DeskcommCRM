@@ -61,7 +61,7 @@ const Ctx = createContext<ChatsFlutuantesCtx | null>(null);
 export const LARGURA_MINIMA_DO_CHAT_FLUTUANTE = 768;
 
 export function chaveDoArmazenamento(userId: string, orgId: string | null): string {
-  return `deskcomm:chats-flutuantes:${userId}:${orgId ?? "sem-org"}`;
+  return `chats-flutuantes:${userId}:${orgId ?? "sem-org"}`;
 }
 
 /** Lê o que foi gravado, descartando qualquer forma que não seja a nossa. */

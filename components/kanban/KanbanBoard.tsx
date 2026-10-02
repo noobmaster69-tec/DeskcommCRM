@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd";
 import { useT } from "@/hooks/i18n/useT";
 import { Card } from "@/components/ui/card";
@@ -148,10 +148,13 @@ export function KanbanBoard({
   const [dossieId, setDossieId] = useState<string | null>(leadInicial ?? null);
   // O deep link também vale com o quadro JÁ montado: o "Ver negócio" do chat
   // flutuante navega para este mesmo quadro com outro `?lead=`, e só o estado
-  // inicial nunca o veria.
-  useEffect(() => {
+  // inicial nunca o veria. Ajustado no render (não em efeito): só quando o
+  // `?lead=` MUDA, então fechar o dossiê continua não reabrindo.
+  const [leadVisto, setLeadVisto] = useState(leadInicial);
+  if (leadInicial !== leadVisto) {
+    setLeadVisto(leadInicial);
     if (leadInicial) setDossieId(leadInicial);
-  }, [leadInicial]);
+  }
   const [internalSelected, setInternalSelected] = useState<Set<string>>(new Set());
   const selectedLeadIds = useMemo(
     () => (selectedIds ? new Set(selectedIds) : internalSelected),

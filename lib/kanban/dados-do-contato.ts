@@ -1,4 +1,4 @@
-import { ehIdentificadorTecnico } from "@/lib/contacts/rotulo-do-contato";
+import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { linksParaExibir } from "@/lib/leads/links-de-contato";
 import type { Lead } from "@/lib/types/leads";
 
@@ -43,15 +43,14 @@ export function anexarDadosDoContato(leads: Lead[], contatos: LinhaDoContatoNoQu
     if (contato.is_anonymized) continue;
     const links = linksParaExibir(contato.custom_fields);
     // `543134@lid` no topo do card é a doença que a spec 16 mediu: identificador
-    // técnico não é nome, e o card cai no título.
-    const nomeDoWhatsapp = (contato.display_name ?? "").trim();
+    // técnico não é nome, e o card cai no título. Só o `display_name` entra:
+    // o card quer o nome do PERFIL, não a cadeia inteira (o `name` é o título).
+    const nomeDoWhatsapp = nomeDoContato({ display_name: contato.display_name });
     const dados: DadosDoContato = {
       ...(contato.phone_number ? { contact_phone: contato.phone_number } : {}),
       ...(contato.email ? { contact_email: contato.email } : {}),
       ...(links.length > 0 ? { contact_links: links } : {}),
-      ...(nomeDoWhatsapp && !ehIdentificadorTecnico(nomeDoWhatsapp)
-        ? { contact_whatsapp_name: nomeDoWhatsapp }
-        : {}),
+      ...(nomeDoWhatsapp ? { contact_whatsapp_name: nomeDoWhatsapp } : {}),
       ...(contato.avatar_storage_path ? { contact_has_avatar: true } : {}),
     };
     if (Object.keys(dados).length > 0) porContato.set(contato.id, dados);
