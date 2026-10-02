@@ -9,6 +9,21 @@
  */
 import type { Locale } from "date-fns";
 import { format, formatDistanceToNowStrict } from "date-fns";
+import { PALETA_DE_ETIQUETAS, estiloDoChip } from "@/lib/tags/cor-da-etiqueta";
+
+/**
+ * A cor do círculo de iniciais: ESTÁVEL por contato (o mesmo id dá sempre a
+ * mesma cor, em qualquer tela e sessão) e tirada da paleta das etiquetas, que
+ * já resolve a frente legível de cada cor. O cinza da paleta fica de fora: é o
+ * "sem cor" do resto do produto, e aqui toda pessoa tem cor.
+ */
+export function estiloDasIniciais(semente: string): React.CSSProperties | undefined {
+  const cores = PALETA_DE_ETIQUETAS.slice(0, -1);
+  if (!semente || cores.length === 0) return undefined;
+  let h = 0;
+  for (let i = 0; i < semente.length; i++) h = (h * 31 + semente.charCodeAt(i)) | 0;
+  return estiloDoChip(cores[Math.abs(h) % cores.length]);
+}
 
 /** Duas letras para o lugar da foto: primeira e última palavra, ou o fallback. */
 export function initials(name: string | null | undefined, fallback: string): string {

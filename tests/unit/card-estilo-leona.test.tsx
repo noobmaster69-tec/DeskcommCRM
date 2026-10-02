@@ -1,11 +1,11 @@
 /**
- * O CARD DO FUNIL NO ESTILO KOMMO — foto, quem (pequeno) e o que disse (grande).
+ * O CARD DO FUNIL COMPACTO, NO ESTILO LEONA (~80px).
  *
- * Pedido do dono do produto ao ver o funil com conversas reais: o card mostrava
- * só o título do negócio, e para saber o que o cliente tinha dito era preciso
- * abrir o Inbox. Agora o topo do card é a foto do WhatsApp (a mesma do Inbox),
- * o nome que a pessoa pôs no próprio perfil, a hora e a última mensagem em
- * destaque. O título do negócio só aparece quando difere do nome.
+ * Pedido do dono do produto (fork jhoow): avatar à esquerda (foto do WhatsApp
+ * ou iniciais num círculo colorido), nome em cima e telefone embaixo, hora no
+ * canto, a última mensagem em 2 linhas e, com mensagem não lida, nome em
+ * negrito + badge vermelho com o número. Saíram do card o atalho "Abrir no
+ * Inbox" (o clique já abre o chat), o dono e o tempo na etapa.
  *
  * Os dados saem do que o quadro já lê (`anexarDadosDoContato`), sem consulta
  * nova — o lado dos dados é o segundo bloco deste arquivo.
@@ -27,14 +27,17 @@ vi.mock("@/components/ui/avatar", () => ({
   Avatar: ({ children }: { children: ReactNode }) => <span data-testid="avatar">{children}</span>,
   // eslint-disable-next-line @next/next/no-img-element -- duplo de teste, não página
   AvatarImage: ({ src }: { src: string }) => <img data-testid="foto" src={src} alt="" />,
-  AvatarFallback: ({ children }: { children: ReactNode }) => <span data-testid="iniciais">{children}</span>,
+  AvatarFallback: ({ children, style }: { children: ReactNode; style?: React.CSSProperties }) => (
+    <span data-testid="iniciais" style={style}>
+      {children}
+    </span>
+  ),
 }));
 vi.mock("@/components/kanban/KanbanCardActions", () => ({ KanbanCardActions: () => null }));
-vi.mock("@/components/kanban/ContatoNoCard", () => ({ ContatoNoCard: () => null }));
-vi.mock("@/components/kanban/OwnerBadge", () => ({ OwnerBadge: () => null }));
 
 import { KanbanCard } from "@/components/kanban/KanbanCard";
 import { anexarDadosDoContato } from "@/lib/kanban/dados-do-contato";
+import { phoneForDisplay } from "@/lib/channels/phone-variants";
 import { buildCardInput } from "@/lib/kanban/card-state";
 import type { Lead } from "@/lib/types/leads";
 
@@ -84,26 +87,55 @@ function renderCard(l: Lead) {
   return render(<KanbanCard card={card} lead={l} index={0} pipelineId="p1" />);
 }
 
-describe("o card estilo Kommo", () => {
-  it("a última mensagem é o texto grande; o nome e a hora ficam na linha pequena", () => {
-    renderCard(lead());
+describe("o card compacto estilo Leona", () => {
+  it("nome em cima, telefone embaixo, hora no canto e a última mensagem", () => {
+    renderCard(lead({ contact_phone: "+5511999998888" }));
 
-    const mensagem = screen.getByText("Oi! Quanto custa o retrato em tela?");
-    expect(mensagem.className, "a mensagem é o destaque do card").toContain("font-medium");
-    expect(screen.getByText("Maria Silva").className).toContain("truncate");
+    expect(screen.getByRole("button", { name: "Maria Silva" })).toBeInTheDocument();
+    expect(screen.getByText(phoneForDisplay("+5511999998888"))).toBeInTheDocument();
     expect(screen.getByText("14:32")).toBeInTheDocument();
+    const mensagem = screen.getByText("Oi! Quanto custa o retrato em tela?");
+    expect(mensagem.className, "a prévia ocupa 2 linhas reservadas").toContain("line-clamp-2");
   });
 
-  it("título igual ao nome NÃO se repete na linha pequena", () => {
+  it("⭐ com não lidas: nome em negrito e o NÚMERO num badge vermelho", () => {
     renderCard(lead());
 
-    expect(screen.queryByText(/Maria Silva · /)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Maria Silva" }).className).toContain("font-semibold");
+    const badge = screen.getByLabelText("3 sem ler");
+    expect(badge).toHaveTextContent("3");
+    expect(badge.className).toContain("bg-destructive");
   });
 
-  it("negócio renomeado mostra 'nome · título'", () => {
-    renderCard(lead({ title: "Retrato casal" }));
+  it("sem não lidas: nome normal e nenhum badge", () => {
+    renderCard(lead({ conversa: { id: "conv-1", preview: "ok", last_message_at: hojeAs1432(), unread: 0 } }));
 
-    expect(screen.getByText("Maria Silva · Retrato casal")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Maria Silva" }).className).not.toContain("font-semibold");
+    expect(screen.queryByLabelText(/sem ler/)).not.toBeInTheDocument();
+  });
+
+  it("muitas não lidas não estouram o badge", () => {
+    renderCard(lead({ conversa: { id: "conv-1", preview: "ok", last_message_at: hojeAs1432(), unread: 250 } }));
+
+    expect(screen.getByLabelText("250 sem ler")).toHaveTextContent("99+");
+  });
+
+  it("⭐ saíram do card: 'Abrir no Inbox', o dono e o tempo na etapa", () => {
+    renderCard(lead());
+
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Abrir no Inbox/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sem responsável/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/em Novo/)).not.toBeInTheDocument();
+  });
+
+  it("o valor aparece pequeno quando existe, e nenhum '—' quando não", () => {
+    const { unmount } = renderCard(lead({ value_cents: 150000 }));
+    expect(screen.getByText(/1\.500/)).toBeInTheDocument();
+    unmount();
+
+    renderCard(lead());
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
   });
 
   it("com foto, a imagem sai da MESMA rota do Inbox", () => {
@@ -112,32 +144,31 @@ describe("o card estilo Kommo", () => {
     expect(screen.getByTestId("foto")).toHaveAttribute("src", "/api/v1/contacts/c1/avatar");
   });
 
-  it("sem foto não pede a rota (seria 404) e mostra as iniciais", () => {
-    renderCard(lead());
+  it("⭐ sem foto: iniciais num círculo colorido, a MESMA cor para o mesmo contato", () => {
+    const { unmount } = renderCard(lead());
+    const primeira = screen.getByTestId("iniciais");
+    expect(primeira).toHaveTextContent("MS");
+    const cor = primeira.style.backgroundColor;
+    expect(cor, "o círculo tem cor").not.toBe("");
+    unmount();
 
+    renderCard(lead({ title: "Outro título" }));
+    expect(screen.getByTestId("iniciais").style.backgroundColor).toBe(cor);
+  });
+
+  it("negócio renomeado sem conversa mostra o título na linha de baixo", () => {
+    renderCard(lead({ conversa: null, title: "Retrato casal" }));
+
+    expect(screen.getByRole("button", { name: "Maria Silva" })).toBeInTheDocument();
+    expect(screen.getByText("Retrato casal")).toBeInTheDocument();
+  });
+
+  it("negócio sem contato nem conversa (criado à mão) usa o título como nome", () => {
+    renderCard(lead({ contact_id: null, conversa: null, contact_whatsapp_name: undefined, title: "Proposta ACME" }));
+
+    expect(screen.getByRole("button", { name: "Proposta ACME" })).toBeInTheDocument();
     expect(screen.queryByTestId("foto")).not.toBeInTheDocument();
-    expect(screen.getByTestId("iniciais")).toHaveTextContent("MS");
-  });
-
-  it("a linha do atalho não repete a mensagem — vira 'Abrir no Inbox' com as não lidas", () => {
-    renderCard(lead());
-
-    expect(screen.getAllByText("Oi! Quanto custa o retrato em tela?")).toHaveLength(1);
-    expect(screen.getByRole("link")).toHaveTextContent("Abrir no Inbox");
-    expect(screen.getByLabelText("3 sem ler")).toHaveTextContent("3");
-  });
-
-  it("negócio sem conversa (criado à mão) segue com o título em destaque", () => {
-    renderCard(lead({ conversa: null, contact_whatsapp_name: undefined, title: "Proposta ACME" }));
-
-    expect(screen.getByText("Proposta ACME").className).toContain("font-medium");
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
-  });
-
-  it("negócio sem contato não desenha foto", () => {
-    renderCard(lead({ contact_id: null, conversa: null }));
-
-    expect(screen.queryByTestId("avatar")).not.toBeInTheDocument();
+    expect(screen.getByTestId("iniciais")).toHaveTextContent("PA");
   });
 });
 

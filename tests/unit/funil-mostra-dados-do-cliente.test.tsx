@@ -1,20 +1,19 @@
 /**
  * O FUNIL MOSTRA OS DADOS DO CLIENTE — telefone, e-mail e links (Instagram, site,
- * Google Meu Negócio…) no card e nas abas do dossiê.
+ * Google Meu Negócio…) nas abas do dossiê. O card compacto (estilo Leona) mostra
+ * só o telefone; e-mail e links saíram dele junto com o `ContatoNoCard`.
  *
- * Três garantias que um teste só de "renderiza" não daria:
+ * Garantias que um teste só de "renderiza" não daria:
  *
- *  1. o link é `<a href>`, então só http(s) pode virar clicável — a defesa vale
- *     no card mesmo que o valor chegue por outro caminho que não o servidor;
- *  2. salvar links troca o `custom_fields` INTEIRO (o PATCH substitui o objeto),
+ *  1. salvar links troca o `custom_fields` INTEIRO (o PATCH substitui o objeto),
  *     então o que não é link tem que ir junto — perder um campo personalizado da
  *     organização ao salvar um Instagram seria o pior tipo de defeito: silencioso;
- *  3. o card lê os links do QUADRO, não do contato: salvar sem reler o quadro
+ *  2. o card lê os dados do QUADRO, não do contato: salvar sem reler o quadro
  *     parece "não fez nada" onde a pessoa mais olha.
  *
  * Mais a fiação, lida da fonte (a mesma técnica dos irmãos deste diretório): a
- * rota lê os dados do contato na MESMA consulta dos marcadores, o card e o
- * dossiê renderizam os componentes.
+ * rota lê os dados do contato na MESMA consulta dos marcadores, o card mostra o
+ * telefone e o dossiê renderiza as abas.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -45,7 +44,6 @@ vi.mock("next/link", () => ({
 }));
 
 import { ContatoDoNegocio } from "@/components/kanban/ContatoDoNegocio";
-import { ContatoNoCard } from "@/components/kanban/ContatoNoCard";
 
 const RAIZ = process.cwd();
 const fonte = (arquivo: string) => readFileSync(join(RAIZ, arquivo), "utf8");
@@ -71,72 +69,6 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
-
-describe("ContatoNoCard", () => {
-  it("não renderiza nada quando o negócio não tem dado de contato", () => {
-    const { container } = render(<ContatoNoCard lead={{}} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("⭐ mostra telefone, e-mail e um link por rede, abrindo em outra aba", () => {
-    render(
-      <ContatoNoCard
-        lead={{
-          contact_phone: "+5511999998888",
-          contact_email: "ana@exemplo.com",
-          contact_links: [
-            { tipo: "instagram", href: "https://www.instagram.com/loja" },
-            { tipo: "google_meu_negocio", href: "https://maps.app.goo.gl/x" },
-          ],
-        }}
-      />,
-    );
-
-    expect(screen.getByText("+5511999998888")).toBeInTheDocument();
-    expect(screen.getByText("ana@exemplo.com")).toBeInTheDocument();
-
-    const instagram = screen.getByRole("link", { name: "Abrir Instagram" });
-    expect(instagram).toHaveAttribute("href", "https://www.instagram.com/loja");
-    expect(instagram).toHaveAttribute("target", "_blank");
-    expect(instagram).toHaveAttribute("rel", expect.stringContaining("noopener"));
-    expect(screen.getByRole("link", { name: "Abrir Google Meu Negócio" })).toHaveAttribute(
-      "href",
-      "https://maps.app.goo.gl/x",
-    );
-  });
-
-  it("⭐ só renderiza link http(s) — javascript: que chegue por fora não vira clicável", () => {
-    render(
-      <ContatoNoCard
-        lead={{
-          contact_links: [
-            { tipo: "site", href: "javascript:alert(1)" },
-            { tipo: "instagram", href: "https://www.instagram.com/loja" },
-          ],
-        }}
-      />,
-    );
-
-    const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute("href", "https://www.instagram.com/loja");
-  });
-
-  it("⭐ clicar num link NÃO abre o dossiê (o card inteiro tem onClick)", () => {
-    const abrirDossie = vi.fn();
-    render(
-      <div onClick={abrirDossie}>
-        <ContatoNoCard
-          lead={{ contact_links: [{ tipo: "site", href: "https://exemplo.com.br/" }] }}
-        />
-      </div>,
-    );
-
-    fireEvent.click(screen.getByRole("link", { name: "Abrir Site" }));
-
-    expect(abrirDossie).not.toHaveBeenCalled();
-  });
-});
 
 describe("ContatoDoNegocio — as abas do dossiê", () => {
   it("negócio sem contato vinculado avisa, sem consultar nada", () => {
@@ -267,8 +199,8 @@ describe("a fiação — quem usa a regra a chama", () => {
     expect(rota).toMatch(/leads:\s*leadsComMarcadores\.leads/);
   });
 
-  it("o card e o dossiê renderizam os componentes novos", () => {
-    expect(fonte("components/kanban/KanbanCard.tsx")).toMatch(/<ContatoNoCard\s+lead=\{lead\}/);
+  it("o card mostra o telefone e o dossiê renderiza as abas", () => {
+    expect(fonte("components/kanban/KanbanCard.tsx")).toMatch(/phoneForDisplay\(lead\.contact_phone\)/);
     expect(fonte("components/kanban/LeadDossier.tsx")).toMatch(
       /<ContatoDoNegocio\s+contactId=\{lead\.contact_id\}\s+pipelineId=\{pipelineId\}/,
     );

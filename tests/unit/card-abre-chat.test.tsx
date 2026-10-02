@@ -18,7 +18,6 @@ vi.mock("@hello-pangea/dnd", () => ({
 }));
 vi.mock("@/hooks/i18n/useT", () => ({ useT: () => (texto: string) => texto }));
 vi.mock("@/hooks/i18n/useLocaleDeData", () => ({ useLocaleDeData: () => ptBR }));
-vi.mock("@/components/kanban/ContatoNoCard", () => ({ ContatoNoCard: () => null }));
 vi.mock("@/components/kanban/OwnerBadge", () => ({ OwnerBadge: () => null }));
 // O menu de verdade puxa permissões e mutações; aqui só importa SE ele recebe
 // a porta do dossiê e o que ela faz.

@@ -7,8 +7,8 @@
  *
  * O fio é o `ChatThread` e a resposta é o `Composer` do Inbox — anexos, áudio,
  * emoji, templates e nota interna vêm de graça, e a correção que entrar lá
- * entra aqui. O motivo que o `ConversaSlot` dava para NÃO pôr composer no card
- * ("duas cópias divergem") continua de pé: não há segunda cópia.
+ * entra aqui. O motivo que o antigo atalho do card dava para NÃO pôr composer
+ * no quadro ("duas cópias divergem") continua de pé: não há segunda cópia.
  *
  * A regra de quando o composer fecha (contato bloqueado, janela de 24h) também
  * é a mesma, em `lib/inbox/bloqueio-do-envio.ts`.
