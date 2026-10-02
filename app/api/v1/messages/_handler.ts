@@ -50,6 +50,7 @@ import { sendTemplateForSession } from "@/lib/channels/meta/send-template-for-se
 import { emitirFalhaDeEntrega } from "@/lib/messaging/falha-de-entrega";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { aplicarEfeitosPosSaida } from "@/lib/channels/pos-saida";
 import type { Message } from "@/lib/types/messaging";
 
 type SB = SupabaseClient;
@@ -1202,6 +1203,27 @@ export async function sendMessageHandler(
     .eq("organization_id", c.organization_id);
 
   }
+
+  // Quem falou primeiro pela TELA também vira card — só se o contato nunca teve
+  // um (ver `lib/channels/pos-saida.ts`). Envio que falhou não conta como "falou".
+  // Service role porque o chamador pode ser a sessão do navegador, e a RLS de
+  // um atendente não é quem decide se a demanda nasce; a org vem de `c`, já
+  // conferida acima.
+  if (!c.is_group && message.status !== "failed") {
+    try {
+      await aplicarEfeitosPosSaida(createAdminClient(), {
+        organizationId: c.organization_id,
+        contactId: c.contact_id,
+        conversationId: c.id,
+        origem: "crm",
+      });
+    } catch (err) {
+      // `aplicarEfeitosPosSaida` não lança; isto guarda o `createAdminClient()`.
+      // A mensagem já saiu — o card faltando não pode virar 500 para quem enviou.
+      console.error("[messages.send] pos-saida falhou", err instanceof Error ? err.message : err);
+    }
+  }
+
   const a = actorAuditPayload(ctx.actor);
   // Dois atores, uma linha (#1613): o `actor_user_id` continua sendo quem
   // AUTENTICOU — nulo num envio por token, como sempre foi —, o token vai no

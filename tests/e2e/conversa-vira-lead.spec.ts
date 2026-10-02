@@ -16,7 +16,9 @@
  *  1. mensagem nova de contato desconhecido ⇒ card no funil de entrada, com o
  *     nome de quem escreveu;
  *  2. a timeline explica de onde ele veio ("Entrou pelo WhatsApp");
- *  3. a segunda mensagem do MESMO contato não abre um segundo card.
+ *  3. a segunda mensagem do MESMO contato não abre um segundo card;
+ *  4. quem fala primeiro pelo celular (`fromMe`) também abre card
+ *     (`lib/channels/pos-saida.ts`).
  */
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -137,5 +139,41 @@ test.describe("a conversa vira lead", () => {
       page.getByText(NOME, { exact: false }),
       "duas mensagens, um card",
     ).toHaveCount(1);
+  });
+
+  test("quem fala PRIMEIRO pelo celular também abre card", async ({ page }) => {
+    // Outro número: este contato nunca escreveu e nunca teve card. O envio
+    // chega como o WAHA entrega o que o dono digitou no celular — `fromMe`,
+    // destinatário em `to`, sem nome (o pushName do envio é o da loja).
+    // Os quatro dígitos finais NÃO podem ser os do sufixo: o card do inbound se
+    // chama `Cliente Nascimento {sufixo}` e faria este teste passar pelo card
+    // errado.
+    const fim = String((Number(sufixo.slice(-4)) + 5000) % 10000).padStart(4, "0");
+    const destino = `55318${sufixo.slice(0, 2)}${fim}`;
+    const r = await page.request.post(`/api/v1/webhooks/waha/${creds.nascimento!.webhook_token}`, {
+      data: {
+        event: "message",
+        session: creds.nascimento!.session_name,
+        payload: {
+          id: `e2e-nasc-${sufixo}-saida-1`,
+          from: "5531900000000@c.us",
+          to: `${destino}@c.us`,
+          fromMe: true,
+          body: "Oi! Aqui é da loja, vi que você se interessou pelos retratos.",
+          timestamp: Math.floor(Date.now() / 1000),
+        },
+      },
+    });
+    expect(r.status(), "o webhook precisa ACEITAR o envio").toBe(200);
+
+    await login(page);
+    await page.goto(`/app/pipelines/${creds.nascimento!.pipeline_default_id}`);
+
+    // Sem nome no cadastro, o card leva o telefone formatado — os quatro
+    // últimos dígitos ficam juntos em qualquer formato de exibição.
+    await expect(
+      page.getByText(new RegExp(fim)).first(),
+      "o envio para um contato novo tem de virar card no funil de entrada",
+    ).toBeVisible({ timeout: 20_000 });
   });
 });

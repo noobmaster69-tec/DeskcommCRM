@@ -104,6 +104,7 @@ const ORIGEM_PADRAO: OrigemDoNascimento = {
  */
 export type MotivoSemLead =
   | "ja_existe" // o contato já tem lead aberto: um por demanda, não um por mensagem
+  | "ja_teve_lead" // pedido só o PRIMEIRO lead, e o contato já teve um (aberto ou fechado)
   | "contato_bloqueado" // pediu para sair; criar oportunidade seria desrespeito registrado
   | "sem_funil_de_entrada" // a organização não tem funil padrão — falha de configuração, visível
   | "sem_etapa" // o funil existe e não tem etapa utilizável
@@ -122,6 +123,16 @@ export interface DadosDoNascimento {
   nomeDoContato: string | null;
   /** Rotulo/source/motivo do canal de origem -- default preserva o WhatsApp. */
   origem?: OrigemDoNascimento;
+  /**
+   * Só nasce se o contato NUNCA teve lead — aberto, ganho ou perdido.
+   *
+   * É a régua do ENVIO (`lib/channels/pos-saida.ts`): quem fala primeiro é a
+   * loja, e a loja também fala com quem já comprou — entregar o pedido,
+   * avisar de prazo. Com a régua da entrada ("sem lead ABERTO"), cada entrega
+   * pós-venda abriria uma demanda nova que ninguém pediu. Quando o CLIENTE
+   * volta a escrever, a entrada continua abrindo demanda nova como sempre.
+   */
+  apenasPrimeiroLead?: boolean;
 }
 
 /**
@@ -277,17 +288,27 @@ export async function garantirLeadDaConversa(
 
   if (contato?.is_blocked === true) return { criado: false, motivo: "contato_bloqueado" };
 
-  // 2 · já existe demanda aberta?
-  const { data: existente } = await db
+  // 2 · já existe demanda aberta? (ou, na régua do envio, qualquer demanda)
+  let busca = db
     .from("crm_leads")
-    .select("id")
+    .select("id,status")
     .eq("organization_id", organizationId)
-    .eq("contact_id", contactId)
-    .eq("status", "open")
-    .limit(1)
-    .maybeSingle();
+    .eq("contact_id", contactId);
+  if (!dados.apenasPrimeiroLead) busca = busca.eq("status", "open");
+  const { data: existente, error: erroDaBusca } = await busca.limit(1).maybeSingle();
 
-  if (existente) return { criado: false, motivo: "ja_existe" };
+  if (existente) {
+    return {
+      criado: false,
+      motivo: (existente as { status?: string }).status === "open" ? "ja_existe" : "ja_teve_lead",
+    };
+  }
+  // Na régua do envio a leitura falha FECHADA: sem saber se o contato já foi
+  // cliente, criar card arriscaria reabrir quem só recebeu uma entrega. Na
+  // entrada segue o comportamento de sempre (a RPC abaixo ainda deduplica).
+  if (erroDaBusca && dados.apenasPrimeiroLead) {
+    return { criado: false, motivo: "erro", detalhe: erroDaBusca.message.slice(0, 120) };
+  }
 
   // 3 · onde entra
   //
