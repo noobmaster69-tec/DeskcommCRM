@@ -67,6 +67,8 @@ export const DEFAULT_VISIBILITY_MODE: VisibilityMode = "own_and_unassigned"; // 
 
 export interface UserOrgMembership {
   interface_settings?: InterfaceSettings;
+  /** Telas e grupos que a PRÓPRIA pessoa escondeu do menu (migration 9001). */
+  menu_oculto?: string[];
   organization_id: string;
   organization_name: string;
   role: Role;
@@ -160,6 +162,8 @@ export interface AuthUser {
 
 export interface ActiveOrg {
   interface_settings?: InterfaceSettings;
+  /** Telas e grupos que a PRÓPRIA pessoa escondeu do menu (migration 9001). */
+  menu_oculto?: string[];
   /** Moeda da organização — o rótulo do valor do negócio sai dela. */
   currency?: string | null;
   /** País da organização (ISO-3166 alpha-2); nulo = Brasil. */

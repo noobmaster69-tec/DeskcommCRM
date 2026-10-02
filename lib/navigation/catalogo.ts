@@ -841,6 +841,15 @@ export const NAV_CATALOG = [
     section: "Sua conta",
   },
   {
+    // Fork jhoow (P6): o menu lateral PESSOAL — esconder telas e grupos.
+    href: "/app/settings/aparencia",
+    label: "Aparência",
+    description: "Escolha quais telas e grupos aparecem no seu menu lateral.",
+    icon: "Palette",
+    group: "organizacao",
+    section: "Sua conta",
+  },
+  {
     href: "/app/settings/security",
     label: "Segurança",
     description: "Verificação em duas etapas, códigos de recuperação e sessões.",

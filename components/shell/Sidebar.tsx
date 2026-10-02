@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useT } from "@/hooks/i18n/useT";
 import { usePathname } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { CaretDoubleLeft, CaretDoubleRight, Gear } from "@/lib/ui/icons";
 import { cn } from "@/lib/utils";
 import { toggleSidebar } from "@/app/actions/shell/toggleSidebar";
@@ -15,6 +15,7 @@ import { LogotipoDoProduto, SimboloDoProduto } from "@/components/branding/Marca
 import { marcaEhADoProduto } from "@/lib/branding";
 import { useMarcaDaInstalacao } from "@/lib/branding/contexto";
 import { GRUPO_NO_RODAPE, sidebarGroups } from "@/lib/navigation/registry";
+import { aplicarMenuOculto, chaveDoMenuOculto, lerMenuOculto } from "@/lib/navigation/menu-pessoal";
 
 interface SidebarContentProps {
   collapsed: boolean;
@@ -50,7 +51,25 @@ export function SidebarContent({
   );
   // Configurações sai da área que rola e vai para o rodapé fixo: medido em
   // 1280x768, ele caía fora da dobra mesmo em telas de 1080px.
-  const grupos = todos.filter((g) => g.group.id !== GRUPO_NO_RODAPE);
+  // A preferência PESSOAL de menu (fork jhoow, P6) é a última camada e só
+  // esconde. Vem do servidor junto com a organização ativa; o espelho no
+  // navegador só entra se o servidor não a trouxe (lido depois de montar, para
+  // servidor e navegador pintarem o mesmo menu).
+  const [ocultoDoNavegador, setOcultoDoNavegador] = useState<string[] | null>(null);
+  const ocultoDoServidor = activeOrg?.menu_oculto;
+  useEffect(() => {
+    if (ocultoDoServidor !== undefined) return;
+    try {
+      const bruto = window.localStorage.getItem(chaveDoMenuOculto(user.id, activeOrg?.orgId ?? null));
+      if (bruto) setOcultoDoNavegador(lerMenuOculto(JSON.parse(bruto)));
+    } catch {
+      // Storage bloqueado ou valor estragado: o menu fica inteiro.
+    }
+  }, [ocultoDoServidor, user.id, activeOrg?.orgId]);
+  const grupos = aplicarMenuOculto(
+    todos.filter((g) => g.group.id !== GRUPO_NO_RODAPE),
+    ocultoDoServidor ?? ocultoDoNavegador ?? [],
+  );
   const rodape = todos.find((g) => g.group.id === GRUPO_NO_RODAPE)?.group.hub;
 
   const brand = useMarcaDaInstalacao();

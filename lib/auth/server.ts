@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { combinarInterfaces } from "@/lib/navigation/interface";
+import { lerMenuOculto } from "@/lib/navigation/menu-pessoal";
 /**
  * Server-side auth helpers — load AuthUser, resolve active org, gate routes.
  *
@@ -22,6 +23,7 @@ const ACTIVE_ORG_COOKIE = "active_org";
 
 interface RawMembershipRow {
   interface_settings?: unknown;
+  menu_oculto?: unknown;
   organization_id: string;
   role: string;
   /** Só para ORDENAR — a lista decide qual organização fica ativa sem cookie. */
@@ -189,7 +191,7 @@ export const loadAuthUser = cache(async (): Promise<AuthUser | null> => {
           // issue #1341 acabou de engordar), e o alias traz só as portas da EMPRESA.
           // `timezone` veio do main (fuso da organização nas listas, #1290) e convive
           // com o alias: um embed por relação, sem renomear o que já existia.
-          "organization_id, role, interface_settings, accepted_at, organizations(display_name, locale, timezone, currency, country), interface_da_empresa:organizations(interface_settings)",
+          "organization_id, role, interface_settings, menu_oculto, accepted_at, organizations(display_name, locale, timezone, currency, country), interface_da_empresa:organizations(interface_settings)",
         )
         .eq("user_id", user.id)
         .is("revoked_at", null)
@@ -243,6 +245,9 @@ export const loadAuthUser = cache(async (): Promise<AuthUser | null> => {
       // portas da instalação, o vínculo escolhe menos dentro dele. Até aqui o
       // vínculo decidia sozinho, então a escolha da empresa não existia.
       interface_settings: combinarInterfaces(empresa?.interface_settings, row.interface_settings),
+      // Preferência PESSOAL de menu (migration 9001): só esconde; o filtro
+      // roda depois de papel, empresa e vínculo (`aplicarMenuOculto`).
+      menu_oculto: lerMenuOculto(row.menu_oculto),
       locale: org?.locale ?? null,
       timezone: org?.timezone ?? null,
       currency: org?.currency ?? null,
@@ -317,6 +322,7 @@ export const resolveActiveOrg = cache(async (authUser: AuthUser): Promise<Active
     name: ativo.organization_name,
     role: ativo.role,
     interface_settings: ativo.interface_settings,
+    menu_oculto: ativo.menu_oculto ?? [],
     timezone: ativo.timezone ?? null,
     currency: ativo.currency ?? null,
     country: ativo.country ?? null,

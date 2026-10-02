@@ -143,6 +143,8 @@ describe("loadAuthUser — falha de permissão não vira 'sem organização'", (
         currency: null,
         country: null,
         interface_settings: { preset: "completa" },
+        // Fork jhoow (P6): preferência pessoal de menu; sem coluna, lista vazia.
+        menu_oculto: [],
       },
     ]);
   });

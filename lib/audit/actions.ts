@@ -85,6 +85,9 @@ export const AUDIT_ACTIONS = [
    * o valor de agora e a escolha anterior não se reconstrói.
    */
   "org.interface_changed",
+  // Fork jhoow (P6, migration 9001): a pessoa mudou o PRÓPRIO menu lateral.
+  // Só esconde telas; a trilha diz quando, para "o Radar sumiu" ter resposta.
+  "me.menu_changed",
   "member.accepted",
   "member.role_changed",
   "member.revoked",

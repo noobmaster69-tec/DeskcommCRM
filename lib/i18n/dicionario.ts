@@ -48,6 +48,15 @@ export const DICIONARIO: Traducoes = {
   "Violeta": { es: "Violeta" },
   "Turquesa": { es: "Turquesa" },
   "Rosa": { es: "Rosa" },
+  // ─── APARÊNCIA › MENU LATERAL (fork jhoow, P6) ───
+  "Aparência": { es: "Apariencia" },
+  "Escolha quais telas e grupos aparecem no seu menu lateral.": { es: "Elige qué pantallas y grupos aparecen en tu menú lateral." },
+  "Mostrar o grupo": { es: "Mostrar el grupo" },
+  "Mostrar": { es: "Mostrar" },
+  "Mostrar tudo": { es: "Mostrar todo" },
+  "Menu atualizado.": { es: "Menú actualizado." },
+  "Não foi possível salvar o menu.": { es: "No se pudo guardar el menú." },
+  "Desligue o que você não usa. Esconder do menu não tira o acesso: a tela continua na busca (⌘K).": { es: "Desactiva lo que no usas. Ocultar del menú no quita el acceso: la pantalla sigue en la búsqueda (⌘K)." },
   // ─── EMPRESAS, PESSOAS E IMPORTAÇÃO (metade B2B do #1621, de @renatofortal) ───
   "Arquivo": {"es": "Archivo"},
   "Atualizado": {"es": "Actualizado"},
