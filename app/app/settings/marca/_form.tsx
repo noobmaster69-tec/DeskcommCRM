@@ -36,6 +36,7 @@ import {
   type DistanciaAteSuaCor,
   type Tom,
 } from "@/lib/branding/linguagem";
+import { ATALHOS_DE_COR } from "@/lib/branding/atalhos-de-cor";
 import { ehHexValido, K, normalizarHex } from "@/lib/branding/rampa";
 import { REGUA_DO_PRODUTO } from "@/lib/branding/regua-do-produto";
 import {
@@ -47,6 +48,7 @@ import {
 } from "@/lib/branding/resolve";
 import { marcaDaOrganizacaoSchema } from "@/lib/schemas/settings";
 import { useT } from "@/hooks/i18n/useT";
+import { cn } from "@/lib/utils";
 
 interface Props {
   /**
@@ -281,6 +283,32 @@ export function FormularioDaMarcaDaOrganizacao({ gravada, instalacao, ambiente }
 
         <div className="space-y-2">
           <Label htmlFor="org_accent_hex">{t("Cor da sua marca")}</Label>
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("Cores prontas")}>
+            {ATALHOS_DE_COR.map((atalho) => {
+              const escolhido = ehHexValido(hexLimpo) && normalizarHex(hexLimpo) === atalho.hex;
+              return (
+                <button
+                  key={atalho.hex}
+                  type="button"
+                  onClick={() => setHex(atalho.hex)}
+                  aria-pressed={escolhido}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs transition-colors",
+                    escolhido
+                      ? "border-accent bg-accent-soft font-semibold text-accent-text"
+                      : "border-border text-text hover:bg-surface-elevated",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className="h-3.5 w-3.5 rounded-full"
+                    style={{ backgroundColor: atalho.hex }}
+                  />
+                  {t(atalho.nome)}
+                </button>
+              );
+            })}
+          </div>
           <div className="flex items-center gap-3">
             {/* Atalho, nunca o controle principal: o seletor do navegador escolhe
                 UM pixel e não mostra o que o sistema faz com ele. Quem ensina é a

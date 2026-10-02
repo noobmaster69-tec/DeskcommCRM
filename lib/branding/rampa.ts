@@ -10,7 +10,7 @@
  * pré-buildada e cada dependência nova é superfície de advisory num produto que o
  * cliente hospeda. As conversões (sRGB ↔ OKLab, de Björn Ottosson) cabem em 60 linhas.
  *
- * A régua é `app/globals.css`. `rampaDeSemente('#506d48')` reproduz os 11 stops Sage
+ * A régua é `app/globals.css`. `rampaDeSemente('#386bf8')` reproduz os 11 stops do produto
  * com Δ ≤ 2/255 por canal — medido, e vigiado por
  * `tests/unit/branding-rampa.test.ts`, que LÊ os stops esperados do próprio CSS.
  */
@@ -257,7 +257,7 @@ function lightnessDoStop(indice: number, Lsemente: number): number {
  * O stop K recebe o hex LITERAL no fim, e não o resultado da ida-e-volta por OKLab:
  * a conversão erra ±1/255 por arredondamento, e o seletor de cor mostraria ao cliente
  * uma cor que a UI não usa. Um pixel de diferença ninguém vê; a desconfiança de ver
- * `#506d48` no campo e `#516d49` na tela custa caro.
+ * `#386bf8` no campo e `#396bf9` na tela custa caro.
  */
 export function rampaDeSemente(semente: string): Rampa {
   const { L: Ls, C: Cs, h } = hexParaOklch(semente);

@@ -43,6 +43,11 @@ export const DICIONARIO: Traducoes = {
   "Expandir": { es: "Expandir" },
   "Minimizar": { es: "Minimizar" },
   "Não foi possível carregar a conversa.": { es: "No se pudo cargar la conversación." },
+  // ─── ATALHOS DE COR (Configurações › Marca) ───
+  "Cores prontas": { es: "Colores listos" },
+  "Violeta": { es: "Violeta" },
+  "Turquesa": { es: "Turquesa" },
+  "Rosa": { es: "Rosa" },
   // ─── EMPRESAS, PESSOAS E IMPORTAÇÃO (metade B2B do #1621, de @renatofortal) ───
   "Arquivo": {"es": "Archivo"},
   "Atualizado": {"es": "Actualizado"},

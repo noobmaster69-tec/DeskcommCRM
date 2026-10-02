@@ -34,7 +34,7 @@ describe("régua congelada em módulo", () => {
     // acima contra um módulo igualmente vazio, e a derivação inteira mediria
     // nada. Os números vêm do mesmo commit que `branding-contraste.test.ts`.
     expect(REGUA_DO_PRODUTO.rampaDoProduto).toHaveLength(11);
-    expect(REGUA_DO_PRODUTO.claro.papeis).toHaveLength(6);
+    expect(REGUA_DO_PRODUTO.claro.papeis).toHaveLength(8);
     expect(REGUA_DO_PRODUTO.escuro.papeis).toHaveLength(6);
     expect(REGUA_DO_PRODUTO.claro.base).toHaveLength(3);
     expect(REGUA_DO_PRODUTO.escuro.semanticas).toHaveLength(4);

@@ -72,14 +72,17 @@ export type TipoDePapel = keyof typeof PISOS;
  * `--color-accent-fg` é CALCULADO, nunca fixo: `#ffffff` sobre um accent amarelo é
  * ilegível, e é justamente a marca amarela que o cliente cola sem avisar.
  *
- * Preto ou branco sempre resolve — o mínimo teórico de `max(razão vs preto, vs branco)`
- * é 4,58, acima do piso de 4,5. Este par nunca reprova; ele existe para garantir que o
- * cálculo aconteça, não para pegar defeito.
+ * BRANCO sempre que o branco alcança o piso de texto (4,5:1); preto só quando o
+ * branco não alcança. Pedido do dono do produto (fork jhoow, Onix + Azul): botão
+ * azul com letra branca, e não com a letra que dá o MAIOR contraste — no azul
+ * da marca (#386bf8) o preto ganharia por pouco e o botão ficaria com letra escura.
+ *
+ * Continua sempre resolvendo: quando o branco fica abaixo de 4,5, o preto passa —
+ * o mínimo teórico de `max(razão vs preto, vs branco)` é 4,58. Este par nunca
+ * reprova; ele existe para garantir que o cálculo aconteça, não para pegar defeito.
  */
 export function melhorFrenteSobre(fundo: string): string {
-  return razaoDeContraste("#ffffff", fundo) >= razaoDeContraste("#000000", fundo)
-    ? "#ffffff"
-    : "#000000";
+  return razaoDeContraste("#ffffff", fundo) >= PISOS.texto ? "#ffffff" : "#000000";
 }
 
 // ── Dicromacia (Machado, Oliveira & Fernandes 2009 — severidade 1.0) ─────────
@@ -297,6 +300,8 @@ function lerFonte(valor: string): Fonte | null {
 
 const CHAVES_DE_BASE = ["--color-bg", "--color-surface", "--color-surface-elevated"] as const;
 const SEMANTICAS = ["success", "warning", "error", "info"] as const;
+/** Tokens da rampa que pintam LETRA, não borda nem ícone (Onix + Azul). */
+const TOKENS_DE_TEXTO: ReadonlySet<string> = new Set(["--color-accent-text", "--color-link"]);
 
 /**
  * Extrai do TEXTO do `app/globals.css` tudo o que a derivação precisa medir.
@@ -305,6 +310,8 @@ const SEMANTICAS = ["success", "warning", "error", "info"] as const;
  *  - token terminado em `-fg` é TEXTO, medido contra o token de mesmo nome sem o sufixo;
  *  - token terminado em `-soft` é SUPERFÍCIE (algo é pintado nela), não papel;
  *  - regra que declara `background`+`color` juntos é um par de TEXTO já pronto (`::selection`);
+ *  - `--color-accent-text` e `--color-link` são TEXTO (letra azul do item ativo e
+ *    link), medidos contra todas as superfícies do tema com o piso de texto;
  *  - qualquer outra referência direta a `var(--color-accent-NNN)` é COMPONENTE, medido
  *    contra todas as superfícies do tema.
  *
@@ -391,7 +398,8 @@ function montarTema(
       continue;
     }
     if (fonte.tipo === "grau") {
-      papeis.push({ token: d.prop, tipo: "componente", fonte, contra: null });
+      const tipo = TOKENS_DE_TEXTO.has(d.prop) ? "texto" : "componente";
+      papeis.push({ token: d.prop, tipo, fonte, contra: null });
     }
   }
 
@@ -449,7 +457,7 @@ function montarTema(
     indices: {
       accent: accent.indice,
       hover: hover.indice,
-      // `--color-accent-soft` no escuro é `rgba(130,160,119,0.16)` — verde Sage CRU, que
+      // `--color-accent-soft` no escuro é um `rgba()` literal (o azul do produto a 16%), que
       // sobreviveria intacto a qualquer override da rampa. Sem índice, ele é reancorado
       // no stop do accent (ver `resolverSoft`); é a única forma de ele acompanhar a marca.
       soft: soft.tipo === "grau" ? soft.indice : null,

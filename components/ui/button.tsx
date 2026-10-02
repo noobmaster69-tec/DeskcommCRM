@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * Button — Sage design system.
  * Variants:
  *   - primary (default): accent fill, branded CTA
- *   - secondary: surface-elevated com border, ação neutra
+ *   - secondary: transparente com borda, ação neutra (Onix + Azul)
  *   - ghost: transparent, hover suave (toolbar/inline)
  *   - destructive: error fill (delete/cancel destrutivo)
  *   - outline: alias de secondary com background transparente (compat shadcn)
@@ -34,15 +34,15 @@ const buttonVariants = cva(
         default:
           "bg-accent text-accent-foreground hover:bg-accent-hover shadow-xs",
         secondary:
-          "bg-surface-elevated text-text border border-border hover:border-accent hover:text-accent",
+          "bg-transparent text-text border border-border hover:border-accent hover:text-accent-text",
         outline:
-          "bg-transparent text-text border border-border hover:border-accent hover:text-accent",
+          "bg-transparent text-text border border-border hover:border-accent hover:text-accent-text",
         ghost:
-          "bg-transparent text-text hover:bg-accent-soft hover:text-accent",
+          "bg-transparent text-text hover:bg-accent-soft hover:text-accent-text",
         destructive:
           "bg-error text-white hover:brightness-95 shadow-xs",
         link:
-          "bg-transparent text-accent underline underline-offset-4 decoration-1 hover:decoration-2 h-auto p-0",
+          "bg-transparent text-link underline underline-offset-4 decoration-1 hover:decoration-2 h-auto p-0",
       },
       // Alturas de toque: abaixo de `lg` (mesmo corte que o resto da casca
       // usa pra decidir "é celular/tablet, é mouse") toda variante bate os
