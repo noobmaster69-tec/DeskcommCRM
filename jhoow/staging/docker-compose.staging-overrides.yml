@@ -1,0 +1,32 @@
+services:
+  app:
+    image: ghcr.io/noobmaster69-tec/deskcommcrm:jhoow-main
+    mem_limit: 512m
+    mem_reservation: 256m
+  worker:
+    image: ghcr.io/noobmaster69-tec/deskcomm-worker:jhoow-main
+    mem_limit: 384m
+    mem_reservation: 192m
+  scheduler:
+    image: ghcr.io/noobmaster69-tec/deskcomm-scheduler:jhoow-main
+    mem_limit: 128m
+  waha:
+    mem_limit: 768m
+  nginx-bridge:
+    image: alpine/socat:1.8.0.0
+    container_name: deskcomm-staging-nginx-bridge
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    command: ["tcp-listen:3100,fork,reuseaddr", "tcp-connect:app:3000"]
+    networks:
+      - proxy
+      - default
+    depends_on:
+      - app
+    mem_limit: 32m
+
+networks:
+  proxy:
+    name: deskcommcrm-staging_proxy
+    external: true
