@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { useT } from "@/hooks/i18n/useT";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
-import { ArrowRight, CaretDoubleLeft, CaretDoubleRight, CaretDown, Gear } from "@/lib/ui/icons";
+import { useTransition } from "react";
+import { CaretDoubleLeft, CaretDoubleRight, Gear } from "@/lib/ui/icons";
 import { cn } from "@/lib/utils";
 import { toggleSidebar } from "@/app/actions/shell/toggleSidebar";
 import { useAuth } from "@/hooks/auth/AuthProvider";
@@ -15,8 +15,6 @@ import { LogotipoDoProduto, SimboloDoProduto } from "@/components/branding/Marca
 import { marcaEhADoProduto } from "@/lib/branding";
 import { useMarcaDaInstalacao } from "@/lib/branding/contexto";
 import { GRUPO_NO_RODAPE, sidebarGroups } from "@/lib/navigation/registry";
-
-const CHAVE_GRUPOS_FECHADOS = "sidebar-grupos-fechados";
 
 interface SidebarContentProps {
   collapsed: boolean;
@@ -54,36 +52,6 @@ export function SidebarContent({
   // 1280x768, ele caía fora da dobra mesmo em telas de 1080px.
   const grupos = todos.filter((g) => g.group.id !== GRUPO_NO_RODAPE);
   const rodape = todos.find((g) => g.group.id === GRUPO_NO_RODAPE)?.group.hub;
-
-  /**
-   * Grupo fechado é preferência POR NAVEGADOR, não por conta: começa vazio (tudo
-   * aberto) em toda renderização — servidor, primeira pintura do cliente e nos
-   * testes, que nunca clicam em nada — e só muda depois do mount, se o
-   * `localStorage` tiver algo salvo. Guardar o CONJUNTO DOS FECHADOS, e não dos
-   * abertos, é o que faz "sem preferência salva" já significar "tudo aberto".
-   */
-  const [gruposFechados, setGruposFechados] = useState<Set<string>>(() => new Set());
-  useEffect(() => {
-    try {
-      const salvo = window.localStorage.getItem(CHAVE_GRUPOS_FECHADOS);
-      if (salvo) setGruposFechados(new Set(JSON.parse(salvo) as string[]));
-    } catch {
-      // Storage bloqueado (aba privada) — fica tudo aberto, que é o padrão.
-    }
-  }, []);
-  function toggleGrupo(id: string) {
-    setGruposFechados((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        window.localStorage.setItem(CHAVE_GRUPOS_FECHADOS, JSON.stringify([...next]));
-      } catch {
-        // Clique continua funcionando nesta sessão; só não sobrevive a um F5.
-      }
-      return next;
-    });
-  }
 
   const brand = useMarcaDaInstalacao();
   /**
@@ -124,6 +92,19 @@ export function SidebarContent({
   // Só quando NINGUÉM — nem a instalação, nem a organização — pôs marca própria:
   // é a condição de `lib/branding.ts`, avaliada sobre o que a barra vai mostrar.
   const marcaDoProduto = marcaEhADoProduto({ name: nome, logoUrl: logo ?? null });
+
+  const botaoDeRecolher = showCollapseControl ? (
+    <button
+      type="button"
+      onClick={() => startTransition(() => toggleSidebar(collapsed))}
+      disabled={isPending}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
+      aria-label={collapsed ? t("Expandir sidebar") : t("Recolher sidebar")}
+      title={collapsed ? t("Expandir sidebar") : t("Recolher sidebar")}
+    >
+      {collapsed ? <CaretDoubleRight size={14} aria-hidden /> : <CaretDoubleLeft size={14} aria-hidden />}
+    </button>
+  ) : null;
 
   return (
     <>
@@ -188,9 +169,23 @@ export function SidebarContent({
             {[...nome][0]?.toUpperCase() ?? brand.initial}
           </span>
         )}
+        {/* Recolher/expandir fica no TOPO (fork jhoow, P5). Aberta, ao lado da
+            marca; recolhida (64px), numa linha própria logo abaixo dela. O
+            estado continua no cookie `sidebar_collapsed`, lido no servidor —
+            a barra já nasce no tamanho certo, sem piscar. */}
+        {!collapsed && botaoDeRecolher && <div className="ml-auto">{botaoDeRecolher}</div>}
       </div>
+      {collapsed && botaoDeRecolher && (
+        <div className="flex justify-center border-b py-1.5">{botaoDeRecolher}</div>
+      )}
       {/*
         A DENSIDADE É MEDIDA, NÃO ESTÉTICA.
+
+        ⚠️ FORK JHOOW (P5): os hubs de CRM, IA e Análise saíram do menu por
+        decisão do dono, e TODA tela do grupo aparece aqui — o menu passou a
+        rolar de propósito. Quem poda é a preferência de menu de cada pessoa
+        (Configurações › Aparência), não um hub. O histórico abaixo explica por
+        que o upstream escolheu o contrário; não recriar hub sem falar com o dono.
 
         O e2e `navegacao.spec.ts` exige que o menu inteiro caiba em 1280×900 sem
         rolar — porque um grupo abaixo da dobra é indistinguível de um grupo que
@@ -237,9 +232,6 @@ export function SidebarContent({
       <nav className="flex-1 space-y-2 overflow-y-auto p-2" aria-label={t("Navegação principal")}>
         {grupos.map(({ group, items }) => {
           const tituloId = `nav-grupo-${group.id}`;
-          // Recolhido o sidebar inteiro (rail de 64px), o grupo sempre mostra
-          // seus itens — não há onde desenhar cabeçalho nem seta para fechá-lo.
-          const aberto = collapsed || !gruposFechados.has(group.id);
           return (
             <div key={group.id} className="space-y-1">
               {/* Colapsado, o sidebar tem 64px: seis rótulos ali seriam ilegíveis.
@@ -247,27 +239,13 @@ export function SidebarContent({
               {collapsed ? (
                 <div aria-hidden className="mx-2 border-t first:hidden" />
               ) : (
-                <h2 id={tituloId}>
-                  <button
-                    type="button"
-                    onClick={() => toggleGrupo(group.id)}
-                    aria-expanded={aberto}
-                    className="flex w-full items-center justify-between rounded-md px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-surface-elevated hover:text-foreground"
-                  >
-                    {t(group.label)}
-                    <CaretDown
-                      size={12}
-                      weight="bold"
-                      className={cn(
-                        "shrink-0 text-text-subtle transition-transform",
-                        !aberto && "-rotate-90",
-                      )}
-                      aria-hidden
-                    />
-                  </button>
+                // Grupo SEMPRE aberto (fork jhoow, P5): o que aparece é decidido
+                // pela preferência de menu, não por seta de recolher.
+                <h2 id={tituloId} className="px-3 py-1 text-xs font-medium text-muted-foreground">
+                  {t(group.label)}
                 </h2>
               )}
-              {aberto && (
+              {(
                 <ul
                   aria-labelledby={collapsed ? undefined : tituloId}
                   aria-label={collapsed ? t(group.label) : undefined}
@@ -304,26 +282,6 @@ export function SidebarContent({
                       </li>
                     );
                   })}
-                  {group.hub && (
-                    <li>
-                      <Link
-                        href={group.hub.href}
-                        title={collapsed ? t(group.hub.label) : undefined}
-                        aria-current={pathname === group.hub.href ? "page" : undefined}
-                        onClick={onNavigate}
-                        className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-1 text-sm transition-colors",
-                          pathname === group.hub.href
-                            ? "bg-accent-soft font-semibold text-accent-text"
-                            : "text-foreground hover:bg-surface-elevated",
-                          collapsed && "justify-center px-2",
-                        )}
-                      >
-                        <ArrowRight size={18} aria-hidden />
-                        {!collapsed && <span className="truncate">{t(group.hub.label)}</span>}
-                      </Link>
-                    </li>
-                  )}
                 </ul>
               )}
             </div>
@@ -350,25 +308,6 @@ export function SidebarContent({
           </Link>
         )}
         <VersionFooter collapsed={collapsed} onNavigate={onNavigate} />
-        {showCollapseControl && (
-          <button
-            type="button"
-            onClick={() => startTransition(() => toggleSidebar(collapsed))}
-            disabled={isPending}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-surface-elevated hover:text-foreground",
-              collapsed && "justify-center px-2",
-            )}
-            aria-label={collapsed ? t("Expandir sidebar") : t("Recolher sidebar")}
-          >
-            {collapsed ? (
-              <CaretDoubleRight size={14} aria-hidden />
-            ) : (
-              <CaretDoubleLeft size={14} aria-hidden />
-            )}
-            {!collapsed && <span>{t("Recolher")}</span>}
-          </button>
-        )}
       </div>
     </>
   );

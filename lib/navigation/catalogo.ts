@@ -86,12 +86,16 @@ export interface NavMetadata {
  * se raspa". Tarefas foi o quinto. Raspar de novo devolveria 13px e adiaria a
  * mesma conversa para a sexta tela.
  */
+// Fork jhoow (P5): CRM, IA e Análise perderam o link "Ver tudo em …" — todas
+// as telas do grupo aparecem direto no menu, e quem poda é a preferência de
+// menu de cada pessoa (Configurações › Aparência). As páginas de hub
+// (`/app/crm`, `/app/ai`, `/app/analise`) continuam existindo e no ⌘K.
 export const NAV_GROUPS: NavGroup[] = [
   { id: "atendimento", label: "Atendimento" },
-  { id: "crm", label: "CRM", hub: { href: "/app/crm", label: "Ver tudo em CRM" } },
-  { id: "ia", label: "Agente de IA", hub: { href: "/app/ai", label: "Ver tudo em IA" } },
+  { id: "crm", label: "CRM" },
+  { id: "ia", label: "Agente de IA" },
   { id: "canais", label: "Canais" },
-  { id: "analise", label: "Análise", hub: { href: "/app/analise", label: "Ver tudo em Análise" } },
+  { id: "analise", label: "Análise" },
   {
     id: "organizacao",
     label: "Organização",

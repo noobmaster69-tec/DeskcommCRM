@@ -75,17 +75,12 @@ describe("Sidebar agrupado", () => {
   it("leva às Etapas do funil pelo CRM, e não por Configurações", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
-    // ⚠️ O CAMINHO MUDOU, A PROPRIEDADE NÃO. Etapas do funil saiu do menu para
-    // dentro do hub do CRM quando Tarefas virou o quinto destino do grupo e o
-    // menu passou a rolar. A porta continua sendo CRM — "Ver tudo em CRM" leva
-    // a `/app/crm`, e é lá que a tela aparece —, nunca Configurações, que é o
-    // enterro que originou toda esta reorganização.
-    //
-    // O que este teste prende é a porta EXISTIR no grupo certo do sidebar; que
-    // ela desemboca na tela é o e2e `navegacao.spec.ts` que percorre, clicando.
-    const hub = screen.getByRole("link", { name: /Ver tudo em CRM/ });
-    expect(hub).toHaveAttribute("href", "/app/crm");
-    expect(screen.queryByRole("link", { name: "Etapas do funil" })).toBeNull();
+    // Fork jhoow (P5): sem hub, a tela está DIRETO no grupo CRM do menu. A
+    // propriedade que este teste sempre prendeu continua: a porta é o CRM,
+    // nunca Configurações.
+    const crm = document.querySelector('[aria-labelledby="nav-grupo-crm"]');
+    const etapas = screen.getByRole("link", { name: "Etapas do funil" });
+    expect(crm?.contains(etapas)).toBe(true);
   });
 
   it("o número de Casos mora no item de Casos, e o da Fila no item de Inbox", () => {
@@ -97,8 +92,8 @@ describe("Sidebar agrupado", () => {
     expect(fila).toHaveLength(1);
     expect(casos[0]!.closest("a")).toHaveAttribute("href", "/app/ai/cases");
     expect(fila[0]!.closest("a")).toHaveAttribute("href", "/app/inbox");
-    // Roteadores saiu do menu para Casos caber (a folga era menos de uma linha).
-    expect(screen.queryByRole("link", { name: "Roteadores" })).toBeNull();
+    // Fork jhoow (P5): toda tela do grupo IA está no menu — Roteadores voltou.
+    expect(screen.getByRole("link", { name: "Roteadores" })).toBeInTheDocument();
     cleanup();
     // Recolhido, o contador vira ponto — é o componente que decide, com esta dica.
     render(<Sidebar collapsed />);
@@ -111,7 +106,7 @@ describe("Sidebar agrupado", () => {
     expect(screen.getByRole("link", { name: "Funis" })).toHaveAttribute("href", "/app/kanban");
   });
 
-  it("desenterra Audit Log — e Nuvemshop ficou de fora, por escolha", () => {
+  it("desenterra Audit Log — e Nuvemshop está no menu (fork jhoow, P5)", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
     // ⚠️ O CAMINHO MUDOU, A PROPRIEDADE NÃO. O que esta linha sempre prendeu é
@@ -126,19 +121,13 @@ describe("Sidebar agrupado", () => {
     //
     // Canal oficial não está aqui de propósito: virou aba de Conexões no PR
     // #105, e Conexões é a porta.
-    const hubAnalise = screen.getByRole("link", { name: /Ver tudo em Análise/ });
-    expect(hubAnalise).toHaveAttribute("href", "/app/analise");
-    expect(screen.queryByRole("link", { name: /Audit Log/ })).toBeNull();
+    // Fork jhoow (P5): sem hub, Audit Log está direto no grupo Análise.
+    const analise = document.querySelector('[aria-labelledby="nav-grupo-analise"]');
+    expect(analise?.contains(screen.getByRole("link", { name: /Audit Log/ }))).toBe(true);
 
-    // NUVEMSHOP SAIU, e esta linha é a reversão explícita de uma decisão que
-    // este mesmo teste travava: a integração tinha sido "desenterrada" para o
-    // menu justamente por não ter link nenhum. O dono do produto pediu para
-    // ocultá-la — não usa a integração —, então o que era garantia virou o
-    // contrário, e fica dito aqui para ninguém "consertar" de volta sem saber.
-    //
-    // Some do MENU, não do produto: a rota e a página seguem de pé e o ⌘K
-    // continua achando (`searchable()` filtra por papel, nunca por `sidebar`).
-    expect(screen.queryByRole("link", { name: /Nuvemshop/ })).toBeNull();
+    // NUVEMSHOP VOLTOU AO MENU, por decisão do dono do produto no fork (P5:
+    // "todas as telas no menu"). Quem não usa a esconde na preferência de menu.
+    expect(screen.getByRole("link", { name: /Nuvemshop/ })).toBeInTheDocument();
   });
 
   it("Configurações fica no rodapé, nunca dependendo de scroll", () => {
@@ -160,10 +149,10 @@ describe("Sidebar agrupado", () => {
     expect(titulos).toContain("Atendimento");
   });
 
-  it("oferece o hub dos grupos que têm um", () => {
+  it("não há mais 'Ver tudo em …' no menu (fork jhoow, P5)", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
-    expect(screen.getByRole("link", { name: /Ver tudo em IA/ })).toHaveAttribute("href", "/app/ai");
+    expect(screen.queryByRole("link", { name: /Ver tudo em/ })).toBeNull();
   });
 
   it("colapsado esconde os títulos mas mantém os links", () => {

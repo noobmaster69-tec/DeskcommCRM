@@ -32,6 +32,12 @@ const BASE = path.join(RAIZ, "app", "app");
  */
 const NAV_ALLOWLIST: Record<string, string> = {
   "/app": "redirect para /app/inbox — não é tela, é o ponto de entrada",
+  "/app/crm":
+    "hub do CRM — fork jhoow (P5): o link 'Ver tudo em CRM' saiu do menu porque TODAS as telas do grupo aparecem nele; a página segue no ar para links salvos",
+  "/app/ai":
+    "hub da IA — fork jhoow (P5): o link 'Ver tudo em IA' saiu do menu porque TODAS as telas do grupo aparecem nele; a página segue no ar para links salvos",
+  "/app/analise":
+    "hub de Análise — fork jhoow (P5): o link 'Ver tudo em Análise' saiu do menu porque TODAS as telas do grupo aparecem nele; a página segue no ar para links salvos",
   "/app/ai/agents/new":
     "sub-fluxo de criar agente, alcançado pelo botão dentro da lista de Agentes",
   "/app/team/invite": "sub-fluxo de convite, alcançado de dentro de Equipe",
