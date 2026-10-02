@@ -37,6 +37,12 @@ import type { Idioma } from "./idiomas";
 type Traducoes = Record<string, Partial<Record<Exclude<Idioma, "pt-BR">, string>>>;
 
 export const DICIONARIO: Traducoes = {
+  // ─── CHAT FLUTUANTE (components/chat-flutuante) ───
+  "Ver negócio": { es: "Ver negocio" },
+  "Chats abertos": { es: "Chats abiertos" },
+  "Expandir": { es: "Expandir" },
+  "Minimizar": { es: "Minimizar" },
+  "Não foi possível carregar a conversa.": { es: "No se pudo cargar la conversación." },
   // ─── EMPRESAS, PESSOAS E IMPORTAÇÃO (metade B2B do #1621, de @renatofortal) ───
   "Arquivo": {"es": "Archivo"},
   "Atualizado": {"es": "Actualizado"},

@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { DotsThree, PencilSimple, Users } from "@/lib/ui/icons";
+import { DotsThree, Kanban, PencilSimple, Users } from "@/lib/ui/icons";
 import { useWinLead, useEditLead } from "@/hooks/kanban/useUpdateLead";
 import { useBulkAction } from "@/hooks/kanban/useBulkAction";
 import { usePropostaEnviadaDoLead } from "@/hooks/kanban/usePropostaEnviadaDoLead";
@@ -37,9 +37,15 @@ import type { Lead } from "@/lib/types/leads";
 interface KanbanCardActionsProps {
   lead: Lead;
   pipelineId: string;
+  /**
+   * Abre o dossiê do negócio. Com o chat flutuante, o clique no card abre a
+   * CONVERSA — e o dossiê precisava de outra porta. Opcional: sem ela o item
+   * não aparece (o menu montado sozinho num teste segue igual).
+   */
+  onVerNegocio?: () => void;
 }
 
-export function KanbanCardActions({ lead, pipelineId }: KanbanCardActionsProps) {
+export function KanbanCardActions({ lead, pipelineId, onVerNegocio }: KanbanCardActionsProps) {
   const t = useT();
   const [loseOpen, setLoseOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -115,6 +121,11 @@ export function KanbanCardActions({ lead, pipelineId }: KanbanCardActionsProps) 
           align="end"
           onClick={(e) => e.stopPropagation()}
         >
+          {onVerNegocio && (
+            <DropdownMenuItem onSelect={onVerNegocio}>
+              <Kanban size={14} className="mr-2" /> {t("Ver negócio")}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             onSelect={() => {
               setEditOpen(true);

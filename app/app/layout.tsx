@@ -24,6 +24,8 @@ import { IdiomaProvider } from "@/lib/i18n/IdiomaProvider";
 import { listarConexoesCaidas, type ConexaoCaida } from "@/lib/channels/health";
 import { VoiceCallProvider } from "@/components/voice/VoiceCallContext";
 import { ProvedorDaOcupacaoDoRodape } from "@/lib/ui/rodape-ocupado";
+import { ChatsFlutuantesProvider } from "@/hooks/chat-flutuante/ChatsFlutuantesProvider";
+import { DockDeChats } from "@/components/chat-flutuante/DockDeChats";
 import { acessoFoiRevogado } from "@/lib/auth/vinculo-revogado";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -204,14 +206,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // que ocupa e ninguém descontaria, que é exatamente o defeito da #1305.
   const shell = (
     <ProvedorDaOcupacaoDoRodape>
-      <VoiceCallProvider>
-        <AppShell
-          sidebarCollapsed={collapsed}
-          podeAtender={Boolean(activeOrg && roleAtLeast(activeOrg.role, "agent"))}
-        >
-          {children}
-        </AppShell>
-      </VoiceCallProvider>
+      {/* Os chats flutuantes envolvem a casca inteira: o card do funil (dentro
+          dela) abre o chat, e o dock (irmão dela) o desenha — por cima de
+          qualquer página, sobrevivendo à navegação. Dentro do contrato do
+          rodapé porque o dock LÊ a reserva para não cobrir o painel de voz. */}
+      <ChatsFlutuantesProvider userId={user.id} orgId={activeOrg?.orgId ?? null}>
+        <VoiceCallProvider>
+          <AppShell
+            sidebarCollapsed={collapsed}
+            podeAtender={Boolean(activeOrg && roleAtLeast(activeOrg.role, "agent"))}
+          >
+            {children}
+          </AppShell>
+        </VoiceCallProvider>
+        <DockDeChats />
+      </ChatsFlutuantesProvider>
     </ProvedorDaOcupacaoDoRodape>
   );
 

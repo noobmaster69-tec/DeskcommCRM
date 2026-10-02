@@ -3,6 +3,7 @@ import { Draggable } from "@hello-pangea/dnd";
 import type { MouseEvent } from "react";
 import { useT } from "@/hooks/i18n/useT";
 import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
+import { useChatsFlutuantes } from "@/hooks/chat-flutuante/ChatsFlutuantesProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { initials, relativeTime } from "@/lib/contacts/apresentacao-na-lista";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,7 @@ export function KanbanCard({
   const state = resolveCardState(card, t);
   const age = stageAgeLabel(card.hoursInStage, t);
   const localeDaData = useLocaleDeData();
+  const chats = useChatsFlutuantes();
 
   // A identidade estilo Kommo: foto, o nome que a pessoa pôs no WhatsApp e a
   // última mensagem. Tudo derivado do que o quadro já carrega (`withConversas`
@@ -136,6 +138,13 @@ export function KanbanCard({
     }
     if (e.metaKey || e.ctrlKey) {
       onSelect?.(card.id, "alterna");
+      return;
+    }
+    // Com conversa, o clique abre o CHAT flutuante (pedido do dono do produto);
+    // o dossiê passa para o "Ver negócio" do menu ⋮ e do cabeçalho do chat.
+    // Sem conversa (negócio criado à mão) ou fora do provedor, segue o dossiê.
+    if (chats && lead.conversa) {
+      chats.abrirChat(lead.conversa.id, { leadId: lead.id, pipelineId });
       return;
     }
     onOpen?.(card.id);
@@ -288,7 +297,11 @@ export function KanbanCard({
                 </button>
               </h3>
             </div>
-            <KanbanCardActions lead={lead} pipelineId={pipelineId} />
+            <KanbanCardActions
+              lead={lead}
+              pipelineId={pipelineId}
+              onVerNegocio={onOpen ? () => onOpen(card.id) : undefined}
+            />
           </div>
 
           {/* ② valor — altura reservada mesmo sem valor, senão o card encolhe. */}
