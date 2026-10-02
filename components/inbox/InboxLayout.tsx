@@ -4,6 +4,7 @@ import { useT } from "@/hooks/i18n/useT";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/auth/AuthProvider";
 import { bloqueioDoEnvio } from "@/lib/inbox/bloqueio-do-envio";
+import { abaPadraoDoInbox, chaveDaAbaDoInbox, lerAbaGravada } from "@/lib/inbox/aba-do-inbox";
 import { JanelaFechadaAviso } from "@/components/inbox/JanelaFechadaAviso";
 import { NumeroForaDoAr } from "@/components/inbox/NumeroForaDoAr";
 import { useClaimConversation } from "@/hooks/inbox/useClaimConversation";
@@ -16,7 +17,7 @@ import {
 } from "@/hooks/inbox/useConversationsRealtime";
 import { useConversation, isNotFound } from "@/hooks/inbox/useConversation";
 import { ConversationList } from "./ConversationList";
-import { InboxFilters, type InboxFiltersValue, type InboxTab } from "./InboxFilters";
+import { InboxFilters, visibleInboxTabs, type InboxFiltersValue, type InboxTab } from "./InboxFilters";
 import { ChatThread } from "./ChatThread";
 import { Composer, type ComposerHandle } from "./Composer";
 import { ConversationHeader } from "./ConversationHeader";
@@ -115,10 +116,11 @@ const FILTER_TABS: InboxTab[] = ["unassigned", "mine", "all", "closed", "archive
 
 /**
  * Lê ?filter= (G4-02, deep-link). ?filter=all é HONRADO mesmo para agent — a
- * lista volta RLS-scoped (a tab só some cosmeticamente); default: fila.
+ * lista volta RLS-scoped (a tab só some cosmeticamente). Sem parâmetro, o
+ * padrão vem de `abaPadraoDoInbox` ("Todas" para quem a vê).
  */
-function parseFilterParam(v: string | null): InboxTab {
-  return v && FILTER_TABS.includes(v as InboxTab) ? (v as InboxTab) : "unassigned";
+function parseFilterParam(v: string | null, padrao: InboxTab): InboxTab {
+  return v && FILTER_TABS.includes(v as InboxTab) ? (v as InboxTab) : padrao;
 }
 
 interface InboxLayoutProps {
@@ -136,8 +138,31 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const tab = parseFilterParam(searchParams.get("filter"));
+  const abaPadrao = abaPadraoDoInbox(activeOrg?.role, activeOrg?.visibility_mode);
+  const filtroNaUrl = searchParams.get("filter");
+  const tab = parseFilterParam(filtroNaUrl, abaPadrao);
   const idNaUrl = searchParams.get("id");
+  const chaveDaAba = chaveDaAbaDoInbox(user.id, orgId);
+
+  // Sem `?filter=`, volta para a última aba escolhida. Lido DEPOIS de montar
+  // (servidor e navegador pintam o mesmo padrão; a hidratação não diverge), e
+  // escrito na URL — a URL continua sendo a única dona da aba.
+  useEffect(() => {
+    if (filtroNaUrl) return;
+    let gravada: InboxTab | null = null;
+    try {
+      const visiveis = activeOrg
+        ? visibleInboxTabs(activeOrg.role, activeOrg.visibility_mode)
+        : FILTER_TABS;
+      gravada = lerAbaGravada(window.localStorage.getItem(chaveDaAba), visiveis);
+    } catch {
+      // Storage bloqueado (aba privada): fica o padrão.
+    }
+    if (!gravada || gravada === abaPadrao) return;
+    const params = new URLSearchParams(searchParams);
+    params.set("filter", gravada);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [filtroNaUrl, chaveDaAba, abaPadrao, activeOrg, searchParams, router, pathname]);
 
   // tab vive na URL (?filter=); os demais filtros são estado local de sessão.
   const [aux, setAux] = useState<Omit<InboxFiltersValue, "tab">>({
@@ -152,11 +177,16 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
         const params = new URLSearchParams(searchParams);
         params.set("filter", next.tab);
         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+        try {
+          window.localStorage.setItem(chaveDaAba, next.tab);
+        } catch {
+          // Storage bloqueado: a escolha vale só nesta visita.
+        }
       }
       const { tab: _t, ...rest } = next;
       setAux(rest);
     },
-    [tab, searchParams, router, pathname],
+    [tab, searchParams, router, pathname, chaveDaAba],
   );
 
   // Desliga só os AUXILIARES e mantém a aba: a aba é onde a pessoa está, e
