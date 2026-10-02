@@ -6,7 +6,7 @@ import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
 import { useChatsFlutuantes } from "@/hooks/chat-flutuante/ChatsFlutuantesProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { estiloDasIniciais, initials, relativeTime } from "@/lib/contacts/apresentacao-na-lista";
-import { phoneForDisplay } from "@/lib/channels/phone-variants";
+import { phoneForDisplay, samePhone } from "@/lib/channels/phone-variants";
 import { cn } from "@/lib/utils";
 import { formatValorDoNegocio, MOEDA_PADRAO } from "@/lib/money";
 import type { Lead } from "@/lib/types/leads";
@@ -95,7 +95,17 @@ export function KanbanCard({
   // e `withMarcadoresDoContato` na rota do board) — nenhuma leitura nova.
   const nomeDoWhatsapp = lead.contact_whatsapp_name ?? null;
   const telefone = lead.contact_phone ? phoneForDisplay(lead.contact_phone) : null;
-  const nome = nomeDoWhatsapp || card.title.trim() || telefone || t("Sem nome");
+  // Contato sem nome no WhatsApp ganha o próprio número como título do
+  // negócio. Aí o número É o nome: vai para cima e não se repete embaixo.
+  const tituloEhOTelefone = Boolean(
+    lead.contact_phone && card.title.trim() && samePhone(card.title, lead.contact_phone),
+  );
+  const nome =
+    nomeDoWhatsapp ||
+    (tituloEhOTelefone ? telefone : card.title.trim()) ||
+    telefone ||
+    t("Sem nome");
+  const telefoneEmbaixo = nome === telefone ? null : telefone;
   const previa = lead.conversa?.preview?.trim() || null;
   const hora = relativeTime(lead.conversa?.last_message_at ?? null, localeDaData);
   const naoLidas = lead.conversa?.unread ?? 0;
@@ -299,7 +309,7 @@ export function KanbanCard({
               </div>
 
               <div className="flex h-4 items-center gap-2 text-[11px] leading-4 text-text-muted">
-                <span className="min-w-0 flex-1 truncate tabular-nums">{telefone ?? ""}</span>
+                <span className="min-w-0 flex-1 truncate tabular-nums">{telefoneEmbaixo ?? ""}</span>
                 {value && <span className="shrink-0 font-medium tabular-nums text-text">{value}</span>}
                 {naoLidas > 0 && (
                   // O número, não um ponto: "3 sem ler" e "12 sem ler" pedem

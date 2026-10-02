@@ -156,6 +156,17 @@ describe("o card compacto estilo Leona", () => {
     expect(screen.getByTestId("iniciais").style.backgroundColor).toBe(cor);
   });
 
+  it("⭐ contato sem nome: o número vira o nome e NÃO se repete embaixo", () => {
+    // Medido no staging: o card dizia "+5511961170212" duas vezes, uma em cima
+    // de outra — o título do negócio desse contato é o próprio número.
+    renderCard(
+      lead({ contact_whatsapp_name: undefined, title: "+5511961170212", contact_phone: "+5511961170212" }),
+    );
+
+    expect(screen.getAllByText(phoneForDisplay("+5511961170212"))).toHaveLength(1);
+    expect(screen.getByRole("button", { name: phoneForDisplay("+5511961170212") })).toBeInTheDocument();
+  });
+
   it("negócio renomeado sem conversa mostra o título na linha de baixo", () => {
     renderCard(lead({ conversa: null, title: "Retrato casal" }));
 
