@@ -56,7 +56,8 @@ describe("0156 · o quadro montado no onboarding", () => {
       sql(`select count(*)::text || '|' || count(*) filter (where agent_stage_hint is not null)::text
              from public.crm_stages where pipeline_id = '${pipeline}'::uuid;`),
     );
-    expect(linha).toBe("8|0");
+    // 8 do seed + a Etapa de entrada (9007), que também não tem destino.
+    expect(linha).toBe("9|0");
   });
 
   it("troca o quadro inteiro e ensina o destino de cada coluna", () => {
@@ -70,7 +71,8 @@ describe("0156 · o quadro montado no onboarding", () => {
             where p.id = '${pipeline}'::uuid group by p.name;`),
     );
     expect(estado).toBe(
-      "Agendamentos :: Novo contato/new, Já respondi/contacted, Consulta marcada/won, Não vai marcar/lost",
+      // A Etapa de entrada (9007) sobrevive à troca e fica à frente.
+      "Agendamentos :: Etapa de entrada/-, Novo contato/new, Já respondi/contacted, Consulta marcada/won, Não vai marcar/lost",
     );
   });
 
@@ -94,10 +96,10 @@ describe("0156 · o quadro montado no onboarding", () => {
     }
     expect(levantou, "o banco precisa recusar dois ganhos no mesmo funil").toBe(true);
 
-    // E o funil continua com as 8 colunas que tinha antes da tentativa.
+    // E o funil continua com as 9 colunas que tinha antes da tentativa (8 do seed + a entrada, 9007).
     expect(
       lastLine(sql(`select count(*)::text from public.crm_stages where pipeline_id='${pipeline}'::uuid;`)),
-    ).toBe("8");
+    ).toBe("9");
   });
 
   it("recusa funil de OUTRA organização", () => {
@@ -109,7 +111,7 @@ describe("0156 · o quadro montado no onboarding", () => {
     // E o funil de B ficou intacto.
     expect(
       lastLine(sql(`select count(*)::text from public.crm_stages where pipeline_id='${b.pipeline}'::uuid;`)),
-    ).toBe("8");
+    ).toBe("9");
   });
 
   it("recusa funil que já tem negócio — em vez de deixar o RESTRICT estourar", () => {

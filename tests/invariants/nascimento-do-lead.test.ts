@@ -89,6 +89,10 @@ beforeAll(async () => {
     [ORG_GANHO_PRIMEIRO],
   );
   const funilTorto = rows[0]!.id;
+  // O funil nasce principal e ganha a Etapa de entrada (9007), que viria antes
+  // de tudo e esconderia o caso. Este cenário é o funil TORTO de um clone sem
+  // ela: tirá-la é o que mantém a pergunta ("ganho antes da etapa aberta").
+  await pool.query("delete from crm_stages where pipeline_id = $1 and is_entry", [funilTorto]);
   await pool.query(
     `insert into crm_stages (organization_id, pipeline_id, name, slug, position, is_won, is_lost) values
        ($1, $2, 'Ganho',   'ganho-torto',   0, true,  false),

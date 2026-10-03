@@ -74,10 +74,14 @@ function numero(saida: string): number {
 
 /** O bloco da 9004 no apêndice do baseline, como o `update.sh` o reaplica. */
 function blocoDaMigration(): string {
+  return blocoDoBaseline("-- ---- CRMs: o nível acima dos funis (migration 9004) ----");
+}
+
+/** Um bloco rotulado do apêndice do baseline. */
+function blocoDoBaseline(rotulo: string): string {
   const baseline = readFileSync(join(__dirname, "..", "..", "supabase", "baseline.sql"), "utf8");
-  const rotulo = "-- ---- CRMs: o nível acima dos funis (migration 9004) ----";
   const inicio = baseline.lastIndexOf(rotulo);
-  if (inicio < 0) throw new Error("bloco da 9004 ausente do baseline");
+  if (inicio < 0) throw new Error(`bloco ausente do baseline: ${rotulo}`);
   const proximo = baseline.indexOf("\n-- ---- ", inicio + rotulo.length);
   return baseline.slice(inicio, proximo < 0 ? undefined : proximo);
 }
@@ -183,10 +187,12 @@ describe("organização nova e funil sem crm_id", () => {
 
 describe("fronteiras", () => {
   it("funil NÃO aponta para CRM de outra organização (FK composta)", () => {
+    // Só os não principais: o principal bateria antes no índice "um principal
+    // por CRM" (9007, 23505) e esconderia a pergunta, que é sobre a FK.
     expect(
       sqlstate(`update public.crm_pipelines
                    set crm_id = (select id from public.crm_crms where organization_id = '${ORG_B}' and is_default)
-                 where organization_id = '${ORG_A}';`),
+                 where organization_id = '${ORG_A}' and not is_primary;`),
     ).toBe("23503");
   });
 
@@ -229,6 +235,10 @@ describe("backfill e reaplicação (update.sh)", () => {
     const crmsAntes = sql(`select count(*) from public.crm_crms`);
     sql(blocoDaMigration());
     sql(blocoDaMigration());
+    // O update.sh aplica o baseline INTEIRO, em ordem: depois da 9004 vem a 9007,
+    // que redefine fn_crm_duplicar para conviver com o funil principal. Reaplicar
+    // só a 9004 deixaria a versão antiga para o caso de duplicar, lá embaixo.
+    sql(blocoDoBaseline("-- ---- funil principal e etapa de entrada (migration 9007) ----"));
     expect(sql(`select count(*) || ':' || string_agg(id::text || crm_id::text, ',' order by id)
                   from public.crm_pipelines`)).toBe(antes);
     expect(sql(`select count(*) from public.crm_crms`)).toBe(crmsAntes);
