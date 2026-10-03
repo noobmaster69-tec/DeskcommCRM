@@ -212,12 +212,18 @@ export const NAV_CATALOG = [
     // viewport: o <h1> dizia "Pipelines", o estado vazio dizia "Sem pipelines
     // configurados" e o botão embaixo dizia "Criar meu primeiro funil".
     //
-    // Ficou "Funis" porque é o que esta tela É: a lista dos funis, de onde se
-    // abre o quadro de cada um. "Pipeline" é palavra de quem construiu o
+    // Ficou "Funis" porque é o que esta tela ERA: a lista dos funis, de onde se
+    // abria o quadro de cada um. "Pipeline" é palavra de quem construiu o
     // sistema; "funil de vendas" é palavra de quem vende.
-    href: "/app/kanban",
-    label: "Funis",
-    description: "Seus funis de venda — clique em um para abrir o quadro de clientes.",
+    //
+    // Desde os CRMs (migration 9004, fork jhoow) a porta é "CRMs": a grade dos
+    // CRMs, e dentro de cada um os funis dele. Mesmo lugar no menu, mesmo ícone.
+    // O `href` mudou JUNTO com os dados que o guardam como identificador
+    // (menu oculto e interface por organização/vínculo) — migration 9005.
+    // `/app/kanban` segue respondendo, como redirecionamento.
+    href: "/app/crms",
+    label: "CRMs",
+    description: "Cada CRM agrupa seus funis e os leads que passam por eles.",
     icon: "Kanban",
     group: "crm",
     section: "O dia a dia da venda",

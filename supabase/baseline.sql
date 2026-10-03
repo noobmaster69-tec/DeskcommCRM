@@ -44370,6 +44370,70 @@ $$;
 revoke execute on function public.fn_crm_duplicar(uuid, text, text) from public, anon;
 grant execute on function public.fn_crm_duplicar(uuid, text, text) to authenticated, service_role;
 
+-- ---- CRMs: as métricas dos cards numa passada só (migration 9006) ----
+-- 9006 (fork jhoow, CRMs, Fase B) — `fn_crms_com_metricas` (9004) fazia um
+-- `left join lateral` por CRM, e o plano lia `crm_leads` INTEIRA uma vez para
+-- cada CRM. Medido num pg15 descartável com o baseline (3 CRMs, 10 funis):
+--   10 mil negócios  →  6–11 ms
+--  100 mil negócios  → 80–115 ms, `Seq Scan on crm_leads ... loops=3`
+-- O custo crescia com (negócios × CRMs). Aqui os negócios são agrupados por
+-- funil UMA vez e só então somados por CRM: uma leitura da tabela, qualquer que
+-- seja o número de CRMs. Medido no mesmo banco depois da troca:
+--   10 mil negócios  →  ~3,5 ms
+--  100 mil negócios  → 34–41 ms
+-- Cache (Redis/visão materializada) segue desnecessário nessa escala.
+--
+-- Mesmo contrato (nome, argumentos, colunas, ordem, security invoker, grants):
+-- a tela e a API não mudam. `create or replace` — reaplicável.
+create or replace function public.fn_crms_com_metricas(p_org uuid)
+returns table (
+  id uuid,
+  name text,
+  slug text,
+  description text,
+  is_default boolean,
+  avatar_bg_color text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  leads_count bigint,
+  funis_count bigint,
+  last_updated_at timestamptz
+)
+language sql
+stable
+security invoker
+set search_path = public, pg_temp
+as $$
+  with funis as (
+    select p.id, p.crm_id
+      from public.crm_pipelines p
+     where p.organization_id = p_org
+       and not p.is_archived
+  ),
+  por_funil as (
+    select l.pipeline_id, count(*) as leads, max(l.updated_at) as ultimo
+      from public.crm_leads l
+      join funis f on f.id = l.pipeline_id
+     where l.organization_id = p_org
+     group by l.pipeline_id
+  )
+  select c.id, c.name, c.slug, c.description, c.is_default, c.avatar_bg_color,
+         c.created_at, c.updated_at,
+         coalesce(sum(pf.leads), 0)::bigint,
+         count(f.id),
+         max(pf.ultimo)
+    from public.crm_crms c
+    left join funis f on f.crm_id = c.id
+    left join por_funil pf on pf.pipeline_id = f.id
+   where c.organization_id = p_org
+     and c.archived_at is null
+   group by c.id
+   order by c.is_default desc, c.name asc
+$$;
+
+revoke execute on function public.fn_crms_com_metricas(uuid) from public, anon;
+grant execute on function public.fn_crms_com_metricas(uuid) to authenticated, service_role;
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
 -- ⚠️ DE PROPÓSITO, NENHUMA FUNÇÃO É CRIADA DEPOIS DESTE BLOCO. Apêndice que cria
@@ -45914,3 +45978,69 @@ comment on column public.ai_agent_versions.inbound_debounce_ms is
 alter table public.ai_agent_versions
   add constraint ai_agent_versions_inbound_debounce_ms_check
   check (inbound_debounce_ms is null or (inbound_debounce_ms >= 0 and inbound_debounce_ms <= 60000));
+
+-- ---- menu: a porta "Funis" (/app/kanban) vira "CRMs" (/app/crms) (migration 9005) ----
+-- 9005 (fork jhoow, CRMs, Fase B) — o item do grupo CRM no menu passou a ser a
+-- grade de CRMs, em `/app/crms`. No catálogo de navegação o `href` é também o
+-- IDENTIFICADOR do item, e três lugares o guardam como dado:
+--   * `user_organizations.menu_oculto`      — o que a pessoa escondeu do menu (9001);
+--   * `user_organizations.interface_settings.destinos` — a interface do vínculo;
+--   * `organizations.interface_settings.destinos`      — a interface da empresa.
+-- Sem esta reescrita, quem escondeu "Funis" veria "CRMs" aparecer de volta, e
+-- uma interface simplificada perderia a porta do funil: o leitor descarta id que
+-- o catálogo não conhece, em silêncio.
+--
+-- Reaplicável: só toca linha que ainda cita `/app/kanban`. Não duplica — se a
+-- lista já tinha `/app/crms`, sobra um — e preserva a ordem do resto.
+
+update public.user_organizations uo
+   set menu_oculto = (
+     select coalesce(jsonb_agg(item order by ord), '[]'::jsonb)
+       from (
+         select distinct on (item) item, ord
+           from (
+             select case when e #>> '{}' = '/app/kanban' then to_jsonb('/app/crms'::text) else e end as item, ord
+               from jsonb_array_elements(uo.menu_oculto) with ordinality as t(e, ord)
+           ) trocados
+          order by item, ord
+       ) unicos
+   )
+ where uo.menu_oculto @> '["/app/kanban"]'::jsonb;
+
+update public.user_organizations uo
+   set interface_settings = jsonb_set(
+     uo.interface_settings,
+     '{destinos}',
+     (
+       select coalesce(jsonb_agg(item order by ord), '[]'::jsonb)
+         from (
+           select distinct on (item) item, ord
+             from (
+               select case when e #>> '{}' = '/app/kanban' then to_jsonb('/app/crms'::text) else e end as item, ord
+                 from jsonb_array_elements(uo.interface_settings->'destinos') with ordinality as t(e, ord)
+             ) trocados
+            order by item, ord
+         ) unicos
+     )
+   )
+ where jsonb_typeof(uo.interface_settings->'destinos') = 'array'
+   and uo.interface_settings->'destinos' @> '["/app/kanban"]'::jsonb;
+
+update public.organizations o
+   set interface_settings = jsonb_set(
+     o.interface_settings,
+     '{destinos}',
+     (
+       select coalesce(jsonb_agg(item order by ord), '[]'::jsonb)
+         from (
+           select distinct on (item) item, ord
+             from (
+               select case when e #>> '{}' = '/app/kanban' then to_jsonb('/app/crms'::text) else e end as item, ord
+                 from jsonb_array_elements(o.interface_settings->'destinos') with ordinality as t(e, ord)
+             ) trocados
+            order by item, ord
+         ) unicos
+     )
+   )
+ where jsonb_typeof(o.interface_settings->'destinos') = 'array'
+   and o.interface_settings->'destinos' @> '["/app/kanban"]'::jsonb;

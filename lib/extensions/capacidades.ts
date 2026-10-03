@@ -56,7 +56,7 @@ interface PortaDaCapacidade {
 export const PORTA_DA_CAPACIDADE: Record<ExtensionCapability, PortaDaCapacidade> = {
   "tasks.open": { destino: "/app/tasks", permissao: "navigation.tasks" },
   "inbox.open": { destino: "/app/inbox", permissao: "navigation.inbox" },
-  "kanban.open": { destino: "/app/kanban", permissao: "navigation.kanban" },
+  "kanban.open": { destino: "/app/crms", permissao: "navigation.kanban" },
   "contacts.open": { destino: "/app/contacts", permissao: "navigation.contacts" },
   "agenda.open": { destino: "/app/agenda", permissao: "navigation.agenda" },
   "radar.open": { destino: "/app/radar", permissao: "navigation.radar" },

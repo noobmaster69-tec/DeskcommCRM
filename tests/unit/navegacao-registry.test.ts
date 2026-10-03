@@ -114,7 +114,7 @@ describe("sidebarGroups", () => {
     // os três destinos de uso diário, na ordem de sempre.
     const crm = sidebarGroups(true, null).find((g) => g.group.id === "crm");
     const hrefs = crm?.items.map((i) => i.href) ?? [];
-    expect(hrefs.slice(0, 3)).toEqual(["/app/kanban", "/app/contacts", "/app/tasks"]);
+    expect(hrefs.slice(0, 3)).toEqual(["/app/crms", "/app/contacts", "/app/tasks"]);
     expect(hrefs).toContain("/app/comandas");
     expect(hrefs).toContain("/app/settings/tenant/pipelines");
     expect(NAV_GROUPS.find((g) => g.id === "crm")?.hub).toBeUndefined();
@@ -146,7 +146,7 @@ describe("hubSections", () => {
     expect(secoes.map((s) => s.section)).toEqual(["O dia a dia da venda", "Preparar a venda", "Fechar a venda"]);
     expect(secoes.flatMap((s) => s.items.map((i) => i.href))).toEqual([
       "/app/prospecting",
-      "/app/kanban",
+      "/app/crms",
       "/app/campaigns",
       "/app/contacts",
       "/app/companies",

@@ -20,7 +20,7 @@ import {
 import { useT } from "@/hooks/i18n/useT";
 import { UploadSimple } from "@/lib/ui/icons";
 
-import type { FunilDaLista } from "../_client";
+import type { FunilDaLista } from "../[slug]/_client";
 
 export interface ResumoDaImportacao {
   total_linhas: number;
@@ -91,7 +91,7 @@ export function ImportarLeads({ funis }: { funis: FunilDaLista[] }) {
   return (
     <>
       <Button variant="outline" onClick={() => setAberto(true)} data-testid="abrir-importar-leads">
-        {t("Importar planilha")}
+        <UploadSimple size={16} className="mr-2" aria-hidden /> {t("Importar planilha")}
       </Button>
 
       <Dialog open={aberto} onOpenChange={setAberto}>

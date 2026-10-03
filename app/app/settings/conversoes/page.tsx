@@ -389,7 +389,7 @@ export default async function ConversoesPage({
                         <td className="p-3">
                           <a
                             className="underline underline-offset-2"
-                            href={`/app/kanban?lead=${p.leadId}`}
+                            href={`/app/crms?lead=${p.leadId}`}
                           >
                             {p.tituloDoLead ?? t("(sem título)")}
                           </a>

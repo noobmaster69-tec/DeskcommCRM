@@ -106,7 +106,7 @@ describe("o vocabulário do funil na interface", () => {
   it("os dois destinos de funil têm nomes DIFERENTES", () => {
     // Eles listavam as mesmas linhas de `crm_pipelines`, lado a lado no grupo
     // CRM, e um deles se chamava "Kanban" — que não é o que a tela mostra.
-    const lista = NAV_DESTINATIONS.find((d) => d.href === "/app/kanban");
+    const lista = NAV_DESTINATIONS.find((d) => d.href === "/app/crms");
     const etapas = NAV_DESTINATIONS.find((d) => d.href === "/app/settings/tenant/pipelines");
     expect(lista?.label).toBeTruthy();
     expect(etapas?.label).toBeTruthy();

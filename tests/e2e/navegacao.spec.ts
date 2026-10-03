@@ -130,11 +130,13 @@ test.describe("navegação agrupada", () => {
     await page.waitForURL(/\/app\/products/);
   });
 
-  test("e a lista de funis é o item vizinho, com nome próprio", async ({ page }) => {
+  test("e a grade de CRMs é o item vizinho, com nome próprio", async ({ page }) => {
+    // Era "Funis", em /app/kanban. Desde os CRMs (migration 9004) a porta do
+    // grupo é a grade dos CRMs, e os funis ficam dentro de cada um.
     await loginAdmin(page);
-    await sidebar(page).getByRole("link", { name: "Funis", exact: true }).click();
-    await page.waitForURL(/\/app\/kanban/);
-    await expect(page.getByRole("heading", { name: "Funis", level: 1 })).toBeVisible();
+    await sidebar(page).getByRole("link", { name: "CRMs", exact: true }).click();
+    await page.waitForURL(/\/app\/crms$/);
+    await expect(page.getByRole("heading", { name: "CRMs", level: 1 })).toBeVisible();
   });
 
   test("chega em Conhecimento direto pelo menu, no grupo IA (fork jhoow, P5)", async ({ page }) => {
@@ -233,8 +235,8 @@ test.describe("navegação agrupada", () => {
         fullPage: true,
       });
 
-      await sidebar(page).getByRole("link", { name: "Funis", exact: true }).click();
-      await page.waitForURL(/\/app\/kanban/);
+      await sidebar(page).getByRole("link", { name: "CRMs", exact: true }).click();
+      await page.waitForURL(/\/app\/crms/);
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expectSemOverflowHorizontal(page, "shell mobile após navegar pelo drawer");
 

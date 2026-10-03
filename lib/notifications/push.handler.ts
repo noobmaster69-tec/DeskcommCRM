@@ -131,7 +131,7 @@ async function leadBits(organizationId: string, leadId: string): Promise<{
 }
 
 function hrefDoLead(pipelineId: string | null): string {
-  return pipelineId ? `/app/pipelines/${pipelineId}` : "/app/kanban";
+  return pipelineId ? `/app/pipelines/${pipelineId}` : "/app/crms";
 }
 
 async function enviarParaUsuario(

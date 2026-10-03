@@ -62,7 +62,7 @@ const PRAZO = 60_000;
  * varre tudo é o guarda estático, que alcança arquivo que ainda não existe e
  * roda em segundos.
  */
-const TELAS = ["/app/inbox", "/app/kanban", "/app/contacts", "/app/metrics", "/app/settings"];
+const TELAS = ["/app/inbox", "/app/crms", "/app/contacts", "/app/metrics", "/app/settings"];
 
 /**
  * Chaves que o dicionário traduz de verdade — o espanhol DIFERE do português.

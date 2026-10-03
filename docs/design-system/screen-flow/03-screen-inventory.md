@@ -59,7 +59,7 @@ date: 2026-04-28
 
 | # | Path | Persona | Estados | Componentes | RT | Prio |
 |---|---|---|---|---|---|---|
-| 16 | `/app/pipelines` | P3, P4 (manager+) | default, empty (só pipeline default seedado) | `<PipelineList>` | — | P1 |
+| 16 | `/app/pipelines` | P3, P4 (manager+) | redireciona para `/app/crms` (fork jhoow, CRMs): a lista de funis mora em `/app/crms/[slug]`, a grade dos CRMs em `/app/crms` | — | — | P1 |
 | 17 | `/app/pipelines/[pipelineId]` | P1, P3, P4 | default, empty (sem leads), loading, drag-conflict, bulk-mode | `<KanbanBoard>`, `<KanbanColumn>`, `<KanbanCard>`, `<BulkActionBar>` | sim | P0 |
 | 18 | `/app/pipelines/[pipelineId]/settings` | manager+ | default, edit-vocabulary, save-error | `<PipelineSettingsForm>` | — | P1 |
 | 19 | `/app/pipelines/[pipelineId]/stages` | manager+ | default, drag-reorder, has-leads-cannot-delete | `<StagesEditor>` | — | P1 |
@@ -236,7 +236,6 @@ não.
 <!-- inventario:nao-construido:inicio -->
 - `/onboarding/mfa-setup` (#7)
 - `/onboarding/configure-ai` (#10) — o passo existe como `/onboarding/setup-ai`
-- `/app/pipelines` (#16) — o board é `/app/kanban`; a gestão de funis é `/app/settings/tenant/pipelines`
 - `/app/pipelines/[pipelineId]/settings` (#18)
 - `/app/pipelines/[pipelineId]/stages` (#19)
 - `/app/pipelines/[pipelineId]/custom-fields` (#20)

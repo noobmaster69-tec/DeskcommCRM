@@ -28,7 +28,7 @@ describe("interface por vínculo é apresentação", () => {
         "/app/inbox",
         "/app/agenda",
         "/app/contacts",
-        "/app/kanban",
+        "/app/crms",
         "/app/tasks",
       ]),
     );

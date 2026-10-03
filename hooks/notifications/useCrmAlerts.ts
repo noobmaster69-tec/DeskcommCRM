@@ -38,7 +38,7 @@ export function useCrmAlerts(): void {
       if (!novo) return;
       const title = str(novo.title) || "Lead";
       const pipelineId = str(novo.pipeline_id);
-      const href = pipelineId ? `/app/pipelines/${pipelineId}` : "/app/kanban";
+      const href = pipelineId ? `/app/pipelines/${pipelineId}` : "/app/crms";
       const owner = str(novo.owner_user_id);
       const ownerAntes = str(antigo?.owner_user_id);
       const status = str(novo.status);

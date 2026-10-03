@@ -9739,6 +9739,36 @@ export const DICIONARIO: Traducoes = {
   "Fonte de conhecimento não encontrada.": { es: "Fuente de conocimiento no encontrada." },
   "Fonte não encontrada.": { es: "Fuente no encontrada." },
   "Funil não encontrado.": { es: "Embudo no encontrado." },
+  // ─── CRMs — a grade e o modal (fork jhoow, Fase B — app/app/crms) ───
+  CRMs: { es: "CRM" },
+  "Cada CRM agrupa seus funis e os leads que passam por eles.": {
+    es: "Cada CRM agrupa tus embudos y los leads que pasan por ellos.",
+  },
+  "Abrir CRM": { es: "Abrir CRM" },
+  "Novo CRM": { es: "Nuevo CRM" },
+  "Crie seu primeiro CRM": { es: "Crea tu primer CRM" },
+  "Um CRM agrupa funis com o mesmo público ou a mesma marca.": {
+    es: "Un CRM agrupa embudos con el mismo público o la misma marca.",
+  },
+  "Sem negócios ainda": { es: "Sin negocios todavía" },
+  "Atualizado agora": { es: "Actualizado ahora" },
+  "Atualizado há {n} min": { es: "Actualizado hace {n} min" },
+  "Atualizado há {n} h": { es: "Actualizado hace {n} h" },
+  "Atualizado ontem": { es: "Actualizado ayer" },
+  "Atualizado há {n} dias": { es: "Actualizado hace {n} días" },
+  Caminho: { es: "Ruta" },
+  "Cor de fundo do avatar": { es: "Color de fondo del avatar" },
+  "Definir como padrão": { es: "Definir como predeterminado" },
+  "Ex.: Clientes Girly": { es: "Ej.: Clientes Girly" },
+  "Funil novo sem CRM escolhido entra aqui. O padrão atual deixa de ser.": {
+    es: "Los embudos nuevos sin CRM elegido entran aquí. El predeterminado actual deja de serlo.",
+  },
+  "Letras minúsculas, números e hífen. Único na organização.": {
+    es: "Letras minúsculas, números y guion. Único en la organización.",
+  },
+  "Não consegui criar o CRM. Tente de novo.": { es: "No pude crear el CRM. Inténtalo de nuevo." },
+  "Opcional — para quem é este CRM": { es: "Opcional — para quién es este CRM" },
+  "Personalizar cor de fundo": { es: "Personalizar color de fondo" },
   // ─── CRMs (fork jhoow, migration 9004 — app/api/v1/crms) ───
   "CRM não encontrado.": { es: "CRM no encontrado." },
   "CRM não encontrado. Escolha um CRM ativo da organização.": {

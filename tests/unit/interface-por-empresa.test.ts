@@ -136,7 +136,7 @@ describe("a organização não consegue se trancar do lado de fora", () => {
     const hostis: unknown[] = [
       { preset: "simplificada" },
       { preset: "completa", destinos: ["/app/inbox"] },
-      combinarInterfaces({ preset: "completa", destinos: ["/app/inbox"] }, { preset: "completa", destinos: ["/app/kanban"] }),
+      combinarInterfaces({ preset: "completa", destinos: ["/app/inbox"] }, { preset: "completa", destinos: ["/app/crms"] }),
       combinarInterfaces({ preset: "simplificada" }, { preset: "completa", destinos: ["/app/tasks"] }),
     ];
     for (const escolha of hostis) {
@@ -174,7 +174,7 @@ describe("a organização não consegue se trancar do lado de fora", () => {
 
   it("controle: uma porta comum continua ocultável — senão a garantia seria vacuidade", () => {
     // Se TUDO fosse essencial, os casos acima passariam sem medir nada.
-    expect(hrefs({ preset: "completa", destinos: ["/app/inbox"] }, "admin")).not.toContain("/app/kanban");
+    expect(hrefs({ preset: "completa", destinos: ["/app/inbox"] }, "admin")).not.toContain("/app/crms");
   });
 });
 

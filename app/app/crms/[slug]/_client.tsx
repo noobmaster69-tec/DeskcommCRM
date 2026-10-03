@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useActiveOrg } from "@/hooks/auth/AuthProvider";
 import { useT } from "@/hooks/i18n/useT";
 
-import { ImportarLeads } from "./_components/ImportarLeads";
+import { ImportarLeads } from "../_components/ImportarLeads";
 import { EmptyPipeline } from "@/components/empty";
 import {
   AlertDialog,
@@ -36,6 +36,8 @@ import { useArquivarFunil, useCriarFunil, useEditarFunil } from "@/hooks/pipelin
 
 export interface FunilDaLista {
   id: string;
+  /** O CRM do funil (migration 9004). As rotas de funil o devolvem no corpo. */
+  crm_id?: string | null;
   name: string;
   slug: string;
   description: string | null;
@@ -90,6 +92,7 @@ export function FunisClient({
   arquivados: arquivadosDoServidor,
   podeGerenciar,
   podeImportar,
+  crmId,
 }: {
   funis: FunilDaLista[];
   /**
@@ -102,6 +105,12 @@ export function FunisClient({
   podeGerenciar: boolean;
   /** Espelha o `requireRole("agent")` de `POST /api/v1/leads/import`. */
   podeImportar: boolean;
+  /**
+   * O CRM desta tela (`/app/crms/[slug]`). Com ele, o funil novo nasce dentro
+   * do CRM e as respostas das rotas — que trazem os funis da organização
+   * INTEIRA — são recortadas para os deste CRM antes de virarem lista.
+   */
+  crmId?: string;
 }) {
   const t = useT();
   /**
@@ -138,7 +147,7 @@ export function FunisClient({
     setArquivados(arquivadosDoServidor);
   }
 
-  const criar = useCriarFunil();
+  const criar = useCriarFunil(crmId);
   const editar = useEditarFunil();
   const arquivar = useArquivarFunil();
 
@@ -160,8 +169,9 @@ export function FunisClient({
    * esperar o `router.refresh()`: o corpo JÁ é o que o banco tem.
    */
   function aplicarResposta(r: { data: { pipelines: FunilDaLista[]; arquivados: FunilDaLista[] } }) {
-    setFunis(r.data.pipelines);
-    setArquivados(r.data.arquivados);
+    const doCrm = (f: FunilDaLista) => !crmId || f.crm_id === crmId;
+    setFunis(r.data.pipelines.filter(doCrm));
+    setArquivados(r.data.arquivados.filter(doCrm));
   }
 
   function criarFunil() {

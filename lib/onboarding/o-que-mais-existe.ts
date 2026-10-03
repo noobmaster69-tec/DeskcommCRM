@@ -44,7 +44,7 @@ const CURADORIA: {
     ],
   },
   {
-    href: "/app/kanban",
+    href: "/app/crms",
     comoChamar: "O quadro de clientes",
     porQue: "Cada cliente vira um card, e ele mesmo move o card conforme a conversa anda.",
     comoFunciona: [

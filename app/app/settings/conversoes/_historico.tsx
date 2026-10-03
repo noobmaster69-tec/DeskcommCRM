@@ -233,7 +233,7 @@ export function HistoricoDeEnvios({
                     <div className="flex flex-wrap gap-2">
                       <a
                         className="underline underline-offset-2"
-                        href={`/app/kanban?lead=${l.leadId}`}
+                        href={`/app/crms?lead=${l.leadId}`}
                       >
                         {t("Abrir negócio")}
                       </a>

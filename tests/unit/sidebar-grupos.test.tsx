@@ -104,7 +104,7 @@ describe("Sidebar agrupado", () => {
   it("e os dois itens de funil não disputam o mesmo nome", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
-    expect(screen.getByRole("link", { name: "Funis" })).toHaveAttribute("href", "/app/kanban");
+    expect(screen.getByRole("link", { name: "CRMs" })).toHaveAttribute("href", "/app/crms");
   });
 
   it("desenterra Audit Log — e Nuvemshop está no menu (fork jhoow, P5)", () => {
@@ -167,7 +167,7 @@ describe("Sidebar agrupado", () => {
     comoPapel("admin");
     render(<Sidebar collapsed={false} />);
     expect(screen.getByRole("link", { name: /Inbox/ })).toHaveAttribute("aria-current", "page");
-    // "Kanban" saiu da interface; o item da mesma URL agora se chama "Funis".
-    expect(screen.getByRole("link", { name: "Funis" })).not.toHaveAttribute("aria-current");
+    // "Kanban" saiu da interface; o item virou "Funis" e, com os CRMs (9004), "CRMs".
+    expect(screen.getByRole("link", { name: "CRMs" })).not.toHaveAttribute("aria-current");
   });
 });

@@ -12,7 +12,7 @@ async function main() {
   await p.locator('input[type="password"]').pressSequentially(creds.password, { delay: 8 });
   await p.click('button[type="submit"]');
   await p.waitForURL(/\/app/, { timeout: 30000 });
-  for (const rota of ["/app/inbox", "/app/kanban", "/app/metrics"]) {
+  for (const rota of ["/app/inbox", "/app/crms", "/app/metrics"]) {
     await p.goto(`${BASE}${rota}`, { waitUntil: "networkidle" });
     await p.waitForTimeout(1200);
     const m = await p.evaluate(`({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth })`) as { sw: number; cw: number };

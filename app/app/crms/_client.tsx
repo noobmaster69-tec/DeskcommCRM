@@ -1,0 +1,203 @@
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useActiveOrg } from "@/hooks/auth/AuthProvider";
+import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
+import { useT } from "@/hooks/i18n/useT";
+import { melhorFrenteSobre } from "@/lib/branding/contraste";
+import { atualizacaoDoCrm } from "@/lib/crms/atualizado";
+import { ArrowRight, Kanban, Plus } from "@/lib/ui/icons";
+
+import type { FunilDaLista } from "./[slug]/_client";
+import { ImportarLeads } from "./_components/ImportarLeads";
+import { NovoCrm } from "./_components/NovoCrm";
+
+/** O que o card mostra — a linha de `fn_crms_com_metricas` + as iniciais. */
+export interface CrmDoCard {
+  id: string;
+  name: string;
+  slug: string;
+  is_default: boolean;
+  avatar_bg_color: string | null;
+  initials: string;
+  leads_count: number;
+  funis_count: number;
+  last_updated_at: string | null;
+}
+
+function CardDoCrm({ crm }: { crm: CrmDoCard }) {
+  const t = useT();
+  // Separador de milhar do idioma da tela ("12.480" em pt, "12,480" em en).
+  const formato = new Intl.NumberFormat(useTagDeIdioma());
+  const numero = (n: number) => formato.format(n);
+  const atualizacao = atualizacaoDoCrm(crm.last_updated_at);
+  const rodape = "n" in atualizacao ? t(atualizacao.frase).replace("{n}", String(atualizacao.n)) : t(atualizacao.frase);
+  const cor = crm.avatar_bg_color;
+
+  return (
+    <article
+      className="flex flex-col gap-5 rounded-xl border border-border bg-surface p-5 transition-colors hover:border-accent/60"
+      data-testid={`crm-card-${crm.slug}`}
+    >
+      <header className="flex items-start gap-3">
+        <span
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-elevated text-sm font-semibold"
+          style={cor ? { backgroundColor: cor, color: melhorFrenteSobre(cor), borderColor: cor } : undefined}
+          aria-hidden
+          data-testid={`crm-avatar-${crm.slug}`}
+        >
+          {crm.initials}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-base font-semibold text-foreground" title={crm.name}>
+              {crm.name}
+            </h2>
+            {crm.is_default ? (
+              <Badge
+                className="shrink-0 border-transparent bg-accent-soft text-[11px] font-medium text-accent-text"
+                data-testid={`crm-padrao-${crm.slug}`}
+              >
+                {t("Padrão")}
+              </Badge>
+            ) : null}
+          </div>
+          <p className="truncate font-mono text-xs text-muted-foreground">/{crm.slug}</p>
+        </div>
+      </header>
+
+      <dl className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs text-muted-foreground">{t("Leads")}</dt>
+          <dd className="text-3xl font-bold tabular-nums tracking-tight" data-testid={`crm-leads-${crm.slug}`}>
+            {numero(crm.leads_count)}
+          </dd>
+        </div>
+        <div className="flex flex-col gap-1">
+          <dt className="text-xs text-muted-foreground">{t("Funis")}</dt>
+          <dd className="text-3xl font-bold tabular-nums tracking-tight" data-testid={`crm-funis-${crm.slug}`}>
+            {numero(crm.funis_count)}
+          </dd>
+        </div>
+      </dl>
+
+      <footer className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-4">
+        <span className="text-xs text-muted-foreground" data-testid={`crm-atualizado-${crm.slug}`}>
+          {rodape}
+        </span>
+        <Link
+          href={`/app/crms/${crm.slug}`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-accent-text hover:underline"
+          data-testid={`abrir-crm-${crm.slug}`}
+        >
+          {t("Abrir CRM")} <ArrowRight size={14} aria-hidden />
+        </Link>
+      </footer>
+    </article>
+  );
+}
+
+export function CrmsClient({
+  crms,
+  funisParaImportar,
+  podeGerenciar,
+  podeImportar,
+}: {
+  crms: CrmDoCard[];
+  /** Os funis vivos da organização, já nomeados "CRM › Funil". */
+  funisParaImportar: FunilDaLista[];
+  /** Espelha o `requireRole("manager")` de `POST /api/v1/crms`. */
+  podeGerenciar: boolean;
+  /** Espelha o `requireRole("agent")` de `POST /api/v1/leads/import`. */
+  podeImportar: boolean;
+}) {
+  const t = useT();
+  const [novoAberto, setNovoAberto] = useState(false);
+  // A mesma regra do rodapé da lista de funis: com "Clientes pela agenda"
+  // ligado, a nota diz o que acontece; desligado, é a porta para ligar.
+  const clientesLigado = useActiveOrg()?.cliente_pela_agenda === true;
+
+  const modal = (
+    <NovoCrm
+      aberto={novoAberto}
+      aoFechar={() => setNovoAberto(false)}
+      jaExisteCrm={crms.length > 0}
+      slugsOcupados={crms.map((c) => c.slug)}
+    />
+  );
+
+  return (
+    <div className="flex h-full flex-col gap-6 p-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold tracking-tight">{t("CRMs")}</h1>
+          <p className="text-sm text-muted-foreground">
+            {t("Cada CRM agrupa seus funis e os leads que passam por eles.")}
+          </p>
+        </div>
+        {(podeImportar && funisParaImportar.length > 0) || podeGerenciar ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {podeImportar && funisParaImportar.length > 0 ? <ImportarLeads funis={funisParaImportar} /> : null}
+            {podeGerenciar ? (
+              <Button onClick={() => setNovoAberto(true)} data-testid="novo-crm">
+                <Plus size={16} className="mr-2" aria-hidden /> {t("Novo CRM")}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </header>
+
+      {crms.length === 0 ? (
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border p-10 text-center"
+          data-testid="crms-vazio"
+        >
+          <span className="flex size-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-text">
+            <Kanban size={28} weight="duotone" aria-hidden />
+          </span>
+          <div className="flex flex-col gap-1">
+            <p className="text-lg font-semibold">{t("Crie seu primeiro CRM")}</p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              {t("Um CRM agrupa funis com o mesmo público ou a mesma marca.")}
+            </p>
+          </div>
+          {podeGerenciar ? (
+            <Button onClick={() => setNovoAberto(true)} data-testid="novo-crm-vazio">
+              <Plus size={16} className="mr-2" aria-hidden /> {t("Novo CRM")}
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="crms-grade">
+          {crms.map((crm) => (
+            <CardDoCrm key={crm.id} crm={crm} />
+          ))}
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground" data-testid="crms-nota-clientes">
+        {clientesLigado
+          ? t(
+              "Quem já tem atendimento marcado entra pelo funil de clientes. Sem um funil marcado, entra pelo padrão.",
+            )
+          : t(
+              "Para separar quem já é cliente, ligue “Clientes pela agenda” em Configurações › Tipos de agendamento. Enquanto estiver desligado, todo contato novo entra pelo funil padrão.",
+            )}{" "}
+        {clientesLigado ? null : (
+          <Link
+            href="/app/settings/tenant/agenda"
+            className="inline-flex items-center gap-1 font-medium text-accent-text hover:underline"
+            data-testid="crms-nota-ligar"
+          >
+            {t("Abrir Tipos de agendamento")} <ArrowRight size={12} aria-hidden />
+          </Link>
+        )}
+      </p>
+
+      {podeGerenciar ? modal : null}
+    </div>
+  );
+}

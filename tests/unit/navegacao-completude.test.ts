@@ -46,6 +46,10 @@ const NAV_ALLOWLIST: Record<string, string> = {
   "/app/campaigns/settings":
     "padrões de campanha da organização, alcançados pelo botão dentro da lista de Campanhas — é ajuste que se faz uma vez, não tela de uso diário",
   "/app/settings/tenant/whatsapp": "redirect legado para /app/connections; mantido por links salvos",
+  "/app/kanban":
+    "redirect legado para /app/crms (a lista de funis virou a grade de CRMs, migration 9004); mantido por links salvos, notificações já entregues e extensões",
+  "/app/pipelines":
+    "redirect para /app/crms; nunca foi tela (o quadro é /app/pipelines/[id]) — existe para quem digita o endereço ou chega por link antigo",
   "/app/settings/canal-oficial":
     "redirect para /app/connections?aba=oficial desde o PR #105 — conectar canal passou a ter um lugar só. Conexões é a porta; a aba é navegação interna dela",
   "/app/settings/templates":

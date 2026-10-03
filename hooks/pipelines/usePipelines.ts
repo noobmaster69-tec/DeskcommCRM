@@ -48,6 +48,8 @@ export interface PatchDeFunil {
 /** O funil como as rotas o devolvem — a mesma forma que a página entrega por props. */
 export interface FunilDaResposta {
   id: string;
+  /** O CRM do funil (migration 9004). */
+  crm_id: string | null;
   name: string;
   slug: string;
   description: string | null;
@@ -68,10 +70,16 @@ function useReler() {
   return () => router.refresh();
 }
 
-export function useCriarFunil() {
+/**
+ * `crmId` é o CRM em cuja tela o funil está sendo criado (migration 9004). Sem
+ * ele, o funil cai no CRM padrão da organização — quem decide é o gatilho do
+ * banco, não a tela.
+ */
+export function useCriarFunil(crmId?: string) {
   const reler = useReler();
   return useMutation({
-    mutationFn: (name: string) => apiClient.post<Resposta>(ROTA, { name }),
+    mutationFn: (name: string) =>
+      apiClient.post<Resposta>(ROTA, crmId ? { name, crm_id: crmId } : { name }),
     onSettled: reler,
   });
 }

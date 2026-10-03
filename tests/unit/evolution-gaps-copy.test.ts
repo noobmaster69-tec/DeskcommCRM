@@ -82,7 +82,7 @@ describe("lacuna de funil — o botão fecha o ciclo, e o ciclo tem guarda", () 
   it("aponta para a tela que conserta, não para o quadro", () => {
     const l = lacunaDe(["new"]);
     expect(l.href).toBe("/app/settings/tenant/pipelines");
-    expect(l.href).not.toBe("/app/kanban");
+    expect(l.href).not.toBe("/app/crms");
   });
 
   it("o verbo do botão é de ação, não de observação", () => {
