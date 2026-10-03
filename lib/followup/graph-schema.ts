@@ -76,6 +76,9 @@ export const REPEAT_DONE_BRANCH_ID = 'done';
 /** As duas saídas do bloco `aguardar_resposta` (Fluxos, fork jhoow). */
 export const AGUARDAR_RESPONDEU_BRANCH_ID = 'respondeu';
 export const AGUARDAR_SEM_RESPOSTA_BRANCH_ID = 'sem_resposta';
+/** As duas saídas do bloco `condicional` (Fluxos, fork jhoow). */
+export const CONDICIONAL_SIM_BRANCH_ID = 'sim';
+export const CONDICIONAL_NAO_BRANCH_ID = 'nao';
 
 /** Branch ids the contract owns — a user-declared branch may not claim one. */
 export const RESERVED_BRANCH_IDS = [
@@ -87,6 +90,8 @@ export const RESERVED_BRANCH_IDS = [
   REPEAT_DONE_BRANCH_ID,
   AGUARDAR_RESPONDEU_BRANCH_ID,
   AGUARDAR_SEM_RESPOSTA_BRANCH_ID,
+  CONDICIONAL_SIM_BRANCH_ID,
+  CONDICIONAL_NAO_BRANCH_ID,
 ] as const;
 
 /** Id of a branch the user declared (a check, an AI class) — opaque, stable across renames. */
@@ -921,8 +926,20 @@ export function nodeBranches(node: BranchableNode): FlowBranch[] {
       ];
 
     // Fluxos (fork jhoow): as duas saídas cobrem tudo — respondeu ou o tempo
-    // acabou —, então não há saída de escape. O publish exige as duas ligadas.
+    // acabou —, então não há saída de escape. O publish exige as duas ligadas;
+    // sem tempo máximo ("aguardar indefinidamente") só existe "Respondeu".
     case 'aguardar_resposta':
+      if (node.config.sem_limite) {
+        return [
+          {
+            id: AGUARDAR_RESPONDEU_BRANCH_ID,
+            label: 'Respondeu',
+            check: null,
+            kind: 'match',
+            condition: { type: 'branch', branch_id: AGUARDAR_RESPONDEU_BRANCH_ID },
+          },
+        ];
+      }
       return [
         {
           id: AGUARDAR_RESPONDEU_BRANCH_ID,
@@ -939,6 +956,42 @@ export function nodeBranches(node: BranchableNode): FlowBranch[] {
           condition: { type: 'branch', branch_id: AGUARDAR_SEM_RESPOSTA_BRANCH_ID },
         },
       ];
+
+    // Condicional (fork jhoow): verdadeiro ou falso — as duas cobrem tudo.
+    case 'condicional':
+      return [
+        {
+          id: CONDICIONAL_SIM_BRANCH_ID,
+          label: 'Sim',
+          check: null,
+          kind: 'match',
+          condition: { type: 'branch', branch_id: CONDICIONAL_SIM_BRANCH_ID },
+        },
+        {
+          id: CONDICIONAL_NAO_BRANCH_ID,
+          label: 'Não',
+          check: null,
+          kind: 'match',
+          condition: { type: 'branch', branch_id: CONDICIONAL_NAO_BRANCH_ID },
+        },
+      ];
+
+    // Distribuidor (fork jhoow): uma saída por destino declarado; o id é o da
+    // saída (estável quando ela é renomeada).
+    case 'distribuidor':
+      return node.config.saidas.map((s) => ({
+        id: s.id,
+        label: s.nome,
+        check: null,
+        kind: 'match' as const,
+        condition: { type: 'branch' as const, branch_id: s.id },
+      }));
+
+    // Conexão de fluxo (fork jhoow): sem "voltar", o fluxo termina aqui (o
+    // contato segue no outro) e não há saída; com "voltar", a saída é por onde
+    // ele continua quando o outro fluxo chega ao Fim.
+    case 'conexao_fluxo':
+      return node.config.retornar ? [fallbackBranch(FALLBACK_ALWAYS_LABEL)] : [];
 
     default:
       return [fallbackBranch(FALLBACK_ALWAYS_LABEL)];

@@ -61,6 +61,41 @@ export async function dispararFluxo(
   });
   if (!acesso.permite) return { ok: false, codigo: "canal_em_modo_de_teste" };
 
+  return inscreverNoFluxo(admin, {
+    organizationId: org,
+    fluxoId: fluxo.id as string,
+    contactId: conversa.contact_id as string,
+    conversationId: conversa.id as string,
+    origem: { origem: "manual" },
+  });
+}
+
+/**
+ * Inscreve o contato no fluxo PUBLICADO, no Início, e enfileira o primeiro passo.
+ * É o miolo do disparo manual e da Conexão de fluxo (Fase C). `origem` vai no
+ * evento `fluxo.iniciado` — é por ele que o fluxo chamado sabe a quem voltar.
+ */
+export async function inscreverNoFluxo(
+  admin: SupabaseClient,
+  input: {
+    organizationId: string;
+    fluxoId: string;
+    contactId: string;
+    conversationId: string;
+    origem: Record<string, unknown>;
+  },
+): Promise<ResultadoDoDisparo> {
+  const org = input.organizationId;
+  const { data: fluxo } = await admin
+    .from("followup_flow_pointers")
+    .select("id, status, active_version_id")
+    .eq("organization_id", org)
+    .eq("id", input.fluxoId)
+    .eq("surface", "fluxo")
+    .maybeSingle();
+  if (!fluxo) return { ok: false, codigo: "fluxo_inexistente" };
+  if (fluxo.status !== "active" || !fluxo.active_version_id) return { ok: false, codigo: "fluxo_nao_publicado" };
+
   const { data: versao, error: vErr } = await admin
     .from("followup_flow_versions")
     .select("graph")
@@ -77,8 +112,8 @@ export async function dispararFluxo(
       organization_id: org,
       pointer_id: fluxo.id,
       version_id: fluxo.active_version_id,
-      contact_id: conversa.contact_id,
-      conversation_id: conversa.id,
+      contact_id: input.contactId,
+      conversation_id: input.conversationId,
       current_node_id: inicio.id,
       status: "active",
       next_eval_at: "infinity",
@@ -93,7 +128,7 @@ export async function dispararFluxo(
         .from("followup_enrollments")
         .select("followup_flow_pointers(name)")
         .eq("organization_id", org)
-        .eq("contact_id", conversa.contact_id)
+        .eq("contact_id", input.contactId)
         .in("status", ["active", "waiting_reply", "paused_handoff", "paused_manual"])
         .maybeSingle();
       const nome = (viva as unknown as { followup_flow_pointers?: { name?: string } } | null)?.followup_flow_pointers?.name;
@@ -107,11 +142,11 @@ export async function dispararFluxo(
     enrollment_id: criado.id,
     node_id: inicio.id,
     event_type: "fluxo.iniciado",
-    payload: { origem: "manual" },
+    payload: input.origem,
   });
   await enfileirarPassoDoFluxo(admin, {
     organizationId: org,
-    contactId: conversa.contact_id as string,
+    contactId: input.contactId,
     enrollmentId: criado.id as string,
     motivo: { tipo: "seguir" },
   });

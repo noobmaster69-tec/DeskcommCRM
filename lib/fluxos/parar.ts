@@ -82,5 +82,25 @@ export async function pararFluxoDaConversa(
     event_type: "fluxo.encerrado",
     payload: { motivo: "parado_manualmente", por: quem },
   });
+  // Quem chamou este fluxo com "voltar" (Conexão, Fase C) dorme esperando ele
+  // chegar ao Fim. Parar é parar tudo: o dormente do contato sai junto, senão
+  // acordaria depois e o fluxo "parado" voltaria a falar.
+  const contato = await contatoDaConversa(admin, org, conversationId);
+  if (contato) {
+    const { data: ponteiros } = await admin
+      .from("followup_flow_pointers")
+      .select("id")
+      .eq("organization_id", org)
+      .eq("surface", "fluxo");
+    const ids = (ponteiros ?? []).map((p) => p.id as string);
+    if (ids.length)
+      await admin
+        .from("followup_enrollments")
+        .update({ status: "cancelled", cancel_reason: "parado_manualmente", completed_at: agora, updated_at: agora })
+        .eq("organization_id", org)
+        .eq("contact_id", contato)
+        .eq("status", "dormente")
+        .in("pointer_id", ids);
+  }
   return vivo;
 }

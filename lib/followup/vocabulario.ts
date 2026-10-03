@@ -58,6 +58,8 @@ import {
   type waitConfigSchema,
   AGUARDAR_RESPONDEU_BRANCH_ID,
   AGUARDAR_SEM_RESPOSTA_BRANCH_ID,
+  CONDICIONAL_SIM_BRANCH_ID,
+  CONDICIONAL_NAO_BRANCH_ID,
 } from "./graph-schema";
 import type { EnrollmentOutcome, EnrollmentStatus } from "./node-handlers";
 import type {
@@ -403,6 +405,8 @@ export const RAMOS_RESERVADOS_EM_FRASE: Record<RamoReservado, string> = {
   [REPEAT_DONE_BRANCH_ID]: "quando as voltas acabaram",
   [AGUARDAR_RESPONDEU_BRANCH_ID]: "quando o contato mandou mensagem",
   [AGUARDAR_SEM_RESPOSTA_BRANCH_ID]: "quando o tempo acabou sem resposta",
+  [CONDICIONAL_SIM_BRANCH_ID]: "quando a condição é atendida",
+  [CONDICIONAL_NAO_BRANCH_ID]: "quando a condição não é atendida",
 };
 
 /**
@@ -463,6 +467,8 @@ export const RAMOS_RESERVADOS: Record<RamoReservado, string> = {
   [REPEAT_DONE_BRANCH_ID]: "Acabou",
   [AGUARDAR_RESPONDEU_BRANCH_ID]: "Respondeu",
   [AGUARDAR_SEM_RESPOSTA_BRANCH_ID]: "Não respondeu",
+  [CONDICIONAL_SIM_BRANCH_ID]: "Sim",
+  [CONDICIONAL_NAO_BRANCH_ID]: "Não",
 };
 
 // ─── classificação pela IA ───────────────────────────────────────────────

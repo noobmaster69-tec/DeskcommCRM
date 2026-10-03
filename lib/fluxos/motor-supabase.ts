@@ -15,8 +15,12 @@ import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { flowGraphSchema } from "@/lib/followup/graph-schema";
 import { reagirAMensagem, sinalizarPresenca } from "@/lib/messaging/presenca";
 import { logger } from "@/lib/logger";
-import type { DepsDoMotor, EnrollmentDoFluxo, MensagemDeSaida, MotivoDoPasso } from "./motor";
+import { fusoUtilizavel } from "@/lib/tempo/fusos";
+import type { DepsDoMotor, EnrollmentDoFluxo, MensagemDeSaida, MotivoDoPasso, OrigemDoFluxo } from "./motor";
 import { enfileirarPassoDoFluxo } from "./fila";
+import { inscreverNoFluxo } from "./disparar";
+import { executarKanban } from "./kanban";
+import { notificarEquipePeloCanal } from "./notificacao";
 
 const BUCKET = "whatsapp-media";
 
@@ -54,7 +58,7 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
       const { data, error } = await admin
         .from("followup_enrollments")
         .select(
-          "id, organization_id, version_id, contact_id, conversation_id, current_node_id, status, steps_taken, ponteiro:followup_flow_pointers!inner(surface)",
+          "id, organization_id, version_id, pointer_id, contact_id, conversation_id, current_node_id, status, steps_taken, ponteiro:followup_flow_pointers!inner(surface)",
         )
         .eq("organization_id", org)
         .eq("id", id)
@@ -78,7 +82,7 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
     async carregarContato(org, contactId) {
       const { data, error } = await admin
         .from("contacts")
-        .select("name, display_name, phone_number, custom_fields")
+        .select("name, display_name, phone_number, email, tags, custom_fields")
         .eq("organization_id", org)
         .eq("id", contactId)
         .maybeSingle();
@@ -86,6 +90,8 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
       return {
         nome: data ? nomeDoContato(data) : null,
         telefone: (data?.phone_number as string | null) ?? null,
+        email: (data?.email as string | null) ?? null,
+        etiquetas: ((data?.tags as string[] | null) ?? []).filter((t) => typeof t === "string"),
         campos: ((data?.custom_fields as Record<string, unknown> | null) ?? {}) as Record<string, unknown>,
       };
     },
@@ -263,5 +269,131 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
     },
 
     agora: () => new Date(),
+
+    // ── Fase C ────────────────────────────────────────────────────────────
+    async carregarConversa(org, conversationId) {
+      const { data, error } = await admin
+        .from("conversations")
+        .select("status, assigned_to_user_id, last_inbound_at")
+        .eq("organization_id", org)
+        .eq("id", conversationId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return {
+        status: (data?.status as string | null) ?? null,
+        atendente: (data?.assigned_to_user_id as string | null) ?? null,
+        ultimaEntradaEm: (data?.last_inbound_at as string | null) ?? null,
+      };
+    },
+
+    async fusoDaOrganizacao(org) {
+      const { data } = await admin.from("organizations").select("timezone").eq("id", org).maybeSingle();
+      return fusoUtilizavel(data?.timezone as string | null | undefined);
+    },
+
+    async distribuicoes(org, pointerId, noId, contactId) {
+      const base = () =>
+        admin
+          .from("followup_enrollment_events")
+          .select("payload, inscricao:followup_enrollments!inner(pointer_id)", { count: "exact" })
+          .eq("organization_id", org)
+          .eq("node_id", noId)
+          .eq("event_type", "fluxo.distribuido")
+          .eq("inscricao.pointer_id", pointerId);
+      const [{ count, error }, { data: doContato, error: e2 }] = await Promise.all([
+        base().limit(1),
+        base().eq("payload->>contato", contactId).order("created_at", { ascending: false }).limit(1),
+      ]);
+      if (error) throw new Error(error.message);
+      if (e2) throw new Error(e2.message);
+      const saida = (doContato?.[0]?.payload as { saida?: unknown } | undefined)?.saida;
+      return { total: count ?? 0, doContato: typeof saida === "string" ? saida : null };
+    },
+
+    async fluxoPublicado(org, fluxoId) {
+      const { data, error } = await admin
+        .from("followup_flow_pointers")
+        .select("status, active_version_id")
+        .eq("organization_id", org)
+        .eq("id", fluxoId)
+        .eq("surface", "fluxo")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return Boolean(data && data.status === "active" && data.active_version_id);
+    },
+
+    async iniciarFluxo(org, input) {
+      const r = await inscreverNoFluxo(admin, {
+        organizationId: org,
+        fluxoId: input.fluxoId,
+        contactId: input.contactId,
+        conversationId: input.conversationId,
+        origem: input.origem,
+      });
+      return r.ok ? { ok: true as const, enrollmentId: r.enrollmentId } : { ok: false as const, codigo: r.codigo };
+    },
+
+    async origem(org, enrollmentId) {
+      const { data, error } = await admin
+        .from("followup_enrollment_events")
+        .select("payload")
+        .eq("organization_id", org)
+        .eq("enrollment_id", enrollmentId)
+        .eq("event_type", "fluxo.iniciado")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data?.payload as OrigemDoFluxo | null) ?? null;
+    },
+
+    async retomar(org, enrollmentId, noId, contactId) {
+      const { data, error } = await admin
+        .from("followup_enrollments")
+        .update({ status: "active", updated_at: new Date().toISOString() })
+        .eq("organization_id", org)
+        .eq("id", enrollmentId)
+        .eq("status", "dormente")
+        .select("id");
+      if (error) {
+        // 23505: o contato já está noutro fluxo vivo — quem chamou não tem como voltar.
+        if (error.code === "23505") {
+          await admin
+            .from("followup_enrollments")
+            .update({ status: "cancelled", cancel_reason: "retorno_sem_vaga", completed_at: new Date().toISOString() })
+            .eq("organization_id", org)
+            .eq("id", enrollmentId)
+            .eq("status", "dormente");
+          return false;
+        }
+        throw new Error(error.message);
+      }
+      if (!data?.length) return false;
+      await enfileirarPassoDoFluxo(admin, {
+        organizationId: org,
+        contactId,
+        enrollmentId,
+        motivo: { tipo: "retorno", noId },
+      });
+      return true;
+    },
+
+    async cancelarChamador(org, enrollmentId, motivo) {
+      const { error } = await admin
+        .from("followup_enrollments")
+        .update({ status: "cancelled", cancel_reason: motivo, completed_at: new Date().toISOString() })
+        .eq("organization_id", org)
+        .eq("id", enrollmentId)
+        .eq("status", "dormente");
+      if (error) throw new Error(error.message);
+    },
+
+    async kanban(org, enrollment, config) {
+      return executarKanban(admin, org, enrollment.contact_id, enrollment.id, config);
+    },
+
+    async notificarEquipe(org, conversationId, numeroE164, texto) {
+      return notificarEquipePeloCanal(admin, { organizationId: org, conversationId, numeroE164, texto });
+    },
   };
 }

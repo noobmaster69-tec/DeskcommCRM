@@ -19,19 +19,32 @@
 import {
   AGUARDAR_RESPONDEU_BRANCH_ID,
   AGUARDAR_SEM_RESPOSTA_BRANCH_ID,
+  CONDICIONAL_NAO_BRANCH_ID,
+  CONDICIONAL_SIM_BRANCH_ID,
   type FlowEdge,
   type FlowGraph,
   type FlowNode,
 } from "@/lib/followup/graph-schema";
 import type { ItemDaMensagem } from "@/lib/followup/blocos-do-fluxo";
 import { interpolar, type ContextoDeVariaveis } from "./variaveis";
+import { avaliarCondicional } from "./condicao";
+import { fimDoIntervalo } from "./intervalo";
 
-export type StatusDoEnrollment = "active" | "waiting_reply" | "completed" | "cancelled" | "dead" | "paused_handoff";
+export type StatusDoEnrollment =
+  | "active"
+  | "waiting_reply"
+  /** Fase C: o fluxo chamou outro com "voltar" e espera ele chegar ao Fim. */
+  | "dormente"
+  | "completed"
+  | "cancelled"
+  | "dead"
+  | "paused_handoff";
 
 export interface EnrollmentDoFluxo {
   id: string;
   organization_id: string;
   version_id: string;
+  pointer_id: string;
   contact_id: string;
   conversation_id: string | null;
   current_node_id: string;
@@ -44,7 +57,11 @@ export type MotivoDoPasso =
   | { tipo: "seguir"; noId?: string; item?: number }
   | { tipo: "resposta"; mensagemId: string | null }
   | { tipo: "tempo_esgotado"; noId: string; visita: number }
-  | { tipo: "buffer"; noId: string; visita: number };
+  | { tipo: "buffer"; noId: string; visita: number }
+  /** Fase C: o Intervalo `noId` (na visita `visita`) terminou de esperar. */
+  | { tipo: "intervalo"; noId: string; visita: number }
+  /** Fase C: o fluxo chamado pela Conexão `noId` chegou ao Fim — seguir dali. */
+  | { tipo: "retorno"; noId: string };
 
 export interface RespostaDoLead {
   id: string;
@@ -65,6 +82,17 @@ export interface MensagemDeSaida {
   reply_to_message_id?: string;
 }
 
+export interface OrigemDoFluxo {
+  origem?: string;
+  /** Conexões encadeadas até aqui — o teto impede um laço A → B → A sem fim. */
+  saltos?: number;
+  /** Quem espera este fluxo chegar ao Fim para continuar (Conexão com "voltar"). */
+  retorno?: { enrollment_id: string; no_id: string } | null;
+  [k: string]: unknown;
+}
+
+export type ConfigDoKanban = Extract<FlowNode, { type: "kanban" }>["config"];
+
 export type ResultadoDoEnvio = "enviada" | "bloqueada" | { recusada: string };
 
 export interface DepsDoMotor {
@@ -73,7 +101,42 @@ export interface DepsDoMotor {
   carregarContato(
     org: string,
     contactId: string,
-  ): Promise<{ nome: string | null; telefone: string | null; campos: Record<string, unknown> }>;
+  ): Promise<{
+    nome: string | null;
+    telefone: string | null;
+    email: string | null;
+    etiquetas: string[];
+    campos: Record<string, unknown>;
+  }>;
+  /** O estado da conversa que a Condicional lê. */
+  carregarConversa(
+    org: string,
+    conversationId: string,
+  ): Promise<{ status: string | null; atendente: string | null; ultimaEntradaEm: string | null }>;
+  fusoDaOrganizacao(org: string): Promise<string>;
+  /** Quantas vezes o Distribuidor `noId` deste fluxo já distribuiu, e a última saída deste contato. */
+  distribuicoes(
+    org: string,
+    pointerId: string,
+    noId: string,
+    contactId: string,
+  ): Promise<{ total: number; doContato: string | null }>;
+  fluxoPublicado(org: string, fluxoId: string): Promise<boolean>;
+  /** Inscreve o contato noutro fluxo, no Início, e enfileira o primeiro passo. */
+  iniciarFluxo(
+    org: string,
+    input: { fluxoId: string; contactId: string; conversationId: string; origem: OrigemDoFluxo },
+  ): Promise<{ ok: true; enrollmentId: string } | { ok: false; codigo: string }>;
+  /** O `payload` do evento `fluxo.iniciado` desta inscrição (de onde ela veio). */
+  origem(org: string, enrollmentId: string): Promise<OrigemDoFluxo | null>;
+  /** Acorda o fluxo que chamou (dormente → ativo) e enfileira o passo de retorno. */
+  retomar(org: string, enrollmentId: string, noId: string, contactId: string): Promise<boolean>;
+  /** Encerra o fluxo que chamou e esperava (o chamado terminou sem chegar ao Fim). */
+  cancelarChamador(org: string, enrollmentId: string, motivo: string): Promise<void>;
+  /** Bloco Kanban: põe, move ou tira o card do contato no funil. Nunca lança. */
+  kanban(org: string, enrollment: EnrollmentDoFluxo, config: ConfigDoKanban): Promise<{ ok: boolean; detalhe: string }>;
+  /** Bloco Notificação: mensagem para o número da EQUIPE, pelo canal da conversa. Nunca lança. */
+  notificarEquipe(org: string, conversationId: string, numeroE164: string, texto: string): Promise<{ ok: boolean; detalhe: string }>;
   /** Mensagens do lead (inbound) na conversa, depois de `desde`, em ordem. */
   respostasDesde(org: string, conversationId: string, desde: string): Promise<RespostaDoLead[]>;
   /**
@@ -113,6 +176,9 @@ export type ResultadoDoPasso =
   | { tipo: "continua_depois" }
   | { tipo: "ignorado"; motivo: string }
   | { tipo: "parado"; motivo: string };
+
+/** Teto de Conexões encadeadas: A → B → A… sem espera nenhuma pararia aqui. */
+export const MAX_SALTOS_DE_CONEXAO = 20;
 
 /** Teto de blocos por job: um laço sem espera não prende o worker. */
 export const PASSOS_POR_JOB = 60;
@@ -222,6 +288,23 @@ export async function executarPasso(
       return { tipo: "concluido" };
     }
     await deps.atualizar(org, enrollment.id, { status: "active", current_node_id: atual.id });
+  } else if (motivo.tipo === "intervalo" || motivo.tipo === "retorno") {
+    // Fase C: a espera do Intervalo acabou / o fluxo chamado voltou. Só vale
+    // para a inscrição PARADA naquele bloco — job de uma espera antiga é ignorado.
+    const tipoEsperado = motivo.tipo === "intervalo" ? "intervalo" : "conexao_fluxo";
+    if (atual.id !== motivo.noId || atual.type !== tipoEsperado)
+      return { tipo: "ignorado", motivo: `${motivo.tipo}_de_outro_bloco` };
+    if (motivo.tipo === "intervalo") {
+      const agendados = await deps.eventos(org, enrollment.id, atual.id, "intervalo_agendado");
+      if ((agendados.at(-1) as { visita?: number } | undefined)?.visita !== motivo.visita)
+        return { tipo: "ignorado", motivo: "intervalo_de_outra_espera" };
+    }
+    const aresta = proximaAresta(grafo.edges, atual.id, null);
+    atual = aresta ? nos.get(aresta.target) : undefined;
+    if (!atual) {
+      await encerrar(deps, enrollment, "completed", "sem_saida");
+      return { tipo: "concluido" };
+    }
   } else if (motivo.tipo !== "seguir") {
     // Fluxo andando (mandando mensagens): resposta no meio é ignorada pelo motor.
     // O agente de IA também não responde — quem decide isso é o drain.
@@ -229,6 +312,7 @@ export async function executarPasso(
   }
 
   const contato = await deps.carregarContato(org, enrollment.contact_id);
+  let etiquetasAtuais = contato.etiquetas;
   const contexto = (): ContextoDeVariaveis => ({
     nome: contato.nome,
     telefone: contato.telefone,
@@ -246,7 +330,7 @@ export async function executarPasso(
     passos++;
     await deps.evento(org, enrollment.id, atual.id, "no_entrou", { tipo: atual.type });
     const no: FlowNode = atual;
-    const ramo: string | null = null;
+    let ramo: string | null = null;
 
     switch (no.type) {
       case "trigger":
@@ -288,7 +372,15 @@ export async function executarPasso(
 
       case "etiquetas": {
         const etiquetas = no.config.etiquetas.map((e) => interpolar(e, contexto()).trim()).filter(Boolean);
-        if (etiquetas.length > 0) await deps.mudarEtiquetas(org, enrollment.contact_id, no.config.operacao, etiquetas);
+        if (etiquetas.length > 0) {
+          await deps.mudarEtiquetas(org, enrollment.contact_id, no.config.operacao, etiquetas);
+          // A Condicional seguinte lê as etiquetas DEPOIS desta mudança.
+          const pedidas = etiquetas.map((e) => e.toLowerCase());
+          etiquetasAtuais =
+            no.config.operacao === "adicionar"
+              ? [...new Set([...etiquetasAtuais, ...pedidas])]
+              : etiquetasAtuais.filter((t) => !pedidas.includes(t.toLowerCase()));
+        }
         break;
       }
 
@@ -315,6 +407,69 @@ export async function executarPasso(
           await deps.agendar(org, enrollment, { tipo: "tempo_esgotado", noId: no.id, visita }, quando);
         }
         return { tipo: "aguardando", noId: no.id };
+      }
+
+      // ── Fase C ──────────────────────────────────────────────────────────
+      case "intervalo": {
+        const fuso = await deps.fusoDaOrganizacao(org);
+        const fim = fimDoIntervalo(no.config, deps.agora(), fuso, contexto());
+        if (fim.tipo === "agora") {
+          await deps.evento(org, enrollment.id, no.id, "intervalo_pulado", { motivo: fim.motivo ?? null });
+          break;
+        }
+        const visita = (await deps.eventos(org, enrollment.id, no.id, "intervalo_agendado")).length + 1;
+        await deps.evento(org, enrollment.id, no.id, "intervalo_agendado", { visita, ate: fim.ate.toISOString() });
+        await deps.atualizar(org, enrollment.id, { current_node_id: no.id, steps_taken: enrollment.steps_taken + passos });
+        await deps.agendar(org, enrollment, { tipo: "intervalo", noId: no.id, visita }, fim.ate);
+        return { tipo: "aguardando", noId: no.id };
+      }
+
+      case "condicional": {
+        const [conversaAtual, fuso] = await Promise.all([deps.carregarConversa(org, conversa), deps.fusoDaOrganizacao(org)]);
+        const resultado = avaliarCondicional(no.config, {
+          nome: contato.nome,
+          telefone: contato.telefone,
+          email: contato.email,
+          etiquetas: etiquetasAtuais,
+          campos: contato.campos,
+          statusDaConversa: conversaAtual.status,
+          atendente: conversaAtual.atendente,
+          ultimaEntradaEm: conversaAtual.ultimaEntradaEm,
+          fuso,
+          agora: deps.agora(),
+          variaveis: contexto(),
+        });
+        await deps.evento(org, enrollment.id, no.id, "condicao", { resultado });
+        ramo = resultado ? CONDICIONAL_SIM_BRANCH_ID : CONDICIONAL_NAO_BRANCH_ID;
+        break;
+      }
+
+      case "distribuidor": {
+        const saidas = no.config.saidas;
+        const { total, doContato } = await deps.distribuicoes(org, enrollment.pointer_id, no.id, enrollment.contact_id);
+        const fixa = no.config.modo === "fixo_por_contato" && doContato && saidas.some((s) => s.id === doContato);
+        const saida = fixa ? doContato! : saidas[total % saidas.length]!.id;
+        await deps.evento(org, enrollment.id, no.id, "distribuido", { saida, contato: enrollment.contact_id });
+        ramo = saida;
+        break;
+      }
+
+      case "conexao_fluxo":
+        return conectar(deps, enrollment, no, passos, grafo, nos);
+
+      case "kanban": {
+        const r = await deps.kanban(org, enrollment, no.config);
+        await deps.evento(org, enrollment.id, no.id, r.ok ? "kanban" : "kanban_falhou", { detalhe: r.detalhe });
+        break;
+      }
+
+      case "notificacao": {
+        const texto = interpolar(no.config.mensagem, contexto()).trim();
+        const r = texto
+          ? await deps.notificarEquipe(org, conversa, `+${no.config.ddi}${no.config.numero}`, texto)
+          : { ok: false, detalhe: "texto_vazio" };
+        await deps.evento(org, enrollment.id, no.id, r.ok ? "notificacao" : "notificacao_falhou", { detalhe: r.detalhe });
+        break;
       }
 
       case "end":
@@ -389,12 +544,102 @@ async function encerrar(
   status: "completed" | "cancelled" | "dead",
   motivo: string,
   passos = 0,
+  opcoes: { semRetorno?: boolean } = {},
 ): Promise<void> {
-  await deps.atualizar(enrollment.organization_id, enrollment.id, {
+  const org = enrollment.organization_id;
+  await deps.atualizar(org, enrollment.id, {
     status,
     completed_at: deps.agora().toISOString(),
     steps_taken: enrollment.steps_taken + passos,
     ...(status === "completed" ? {} : { cancel_reason: motivo }),
   });
-  await deps.evento(enrollment.organization_id, enrollment.id, null, status === "completed" ? "concluido" : "encerrado", { motivo });
+  await deps.evento(org, enrollment.id, null, status === "completed" ? "concluido" : "encerrado", { motivo });
+  if (opcoes.semRetorno) return;
+  // Fase C: este fluxo foi chamado por uma Conexão com "voltar"? Ao chegar ao
+  // fim, quem chamou continua; se terminou de outro jeito, quem chamou também
+  // termina — ele não pode ficar dormente para sempre.
+  const retorno = (await deps.origem(org, enrollment.id))?.retorno;
+  if (!retorno) return;
+  if (status === "completed") await deps.retomar(org, retorno.enrollment_id, retorno.no_id, enrollment.contact_id);
+  else await deps.cancelarChamador(org, retorno.enrollment_id, "fluxo_chamado_encerrado");
+}
+
+/**
+ * Conexão de fluxo (Fase C). Sem "voltar": este fluxo termina e o contato
+ * começa o outro — que HERDA o retorno pendente deste, se houver (senão quem
+ * esperava lá atrás nunca acordaria). Com "voltar": este fluxo dorme no bloco e
+ * o outro, ao chegar ao Fim, o acorda (`encerrar` → `retomar`).
+ *
+ * A vaga é liberada ANTES de inscrever no outro: o índice `one_live` deixa uma
+ * inscrição viva por contato, e `dormente` fica fora dele.
+ */
+async function conectar(
+  deps: DepsDoMotor,
+  enrollment: EnrollmentDoFluxo,
+  no: Extract<FlowNode, { type: "conexao_fluxo" }>,
+  passos: number,
+  grafo: FlowGraph,
+  nos: Map<string, FlowNode>,
+): Promise<ResultadoDoPasso> {
+  const org = enrollment.organization_id;
+  const conversa = enrollment.conversation_id!;
+  const origemAtual = await deps.origem(org, enrollment.id);
+  const saltos = (origemAtual?.saltos ?? 0) + 1;
+  if (saltos > MAX_SALTOS_DE_CONEXAO) {
+    await encerrar(deps, enrollment, "dead", "conexoes_demais", passos);
+    return { tipo: "parado", motivo: "conexoes_demais" };
+  }
+  const { fluxo_id: fluxoId, retornar } = no.config;
+  if (!(await deps.fluxoPublicado(org, fluxoId))) {
+    await deps.evento(org, enrollment.id, no.id, "conexao_falhou", { fluxo_id: fluxoId, motivo: "fluxo_nao_publicado" });
+    if (retornar) {
+      // Segue pela saída como se o outro fluxo tivesse terminado — o contato não fica preso.
+      const aresta = proximaAresta(grafo.edges, no.id, null);
+      const proximo = aresta ? nos.get(aresta.target) : undefined;
+      await deps.atualizar(org, enrollment.id, { current_node_id: proximo?.id ?? no.id, steps_taken: enrollment.steps_taken + passos });
+      if (proximo) {
+        await deps.agendar(org, enrollment, { tipo: "seguir" }, deps.agora());
+        return { tipo: "continua_depois" };
+      }
+    }
+    await encerrar(deps, enrollment, "completed", "conexao_fluxo_indisponivel", passos);
+    return { tipo: "concluido" };
+  }
+
+  if (retornar) {
+    await deps.atualizar(org, enrollment.id, {
+      status: "dormente",
+      current_node_id: no.id,
+      steps_taken: enrollment.steps_taken + passos,
+    });
+  } else {
+    await encerrar(deps, enrollment, "completed", "conexao", passos, { semRetorno: true });
+  }
+  const r = await deps.iniciarFluxo(org, {
+    fluxoId,
+    contactId: enrollment.contact_id,
+    conversationId: conversa,
+    origem: {
+      origem: "conexao",
+      de: enrollment.id,
+      saltos,
+      retorno: retornar ? { enrollment_id: enrollment.id, no_id: no.id } : (origemAtual?.retorno ?? null),
+    },
+  });
+  await deps.evento(org, enrollment.id, no.id, r.ok ? "conectado" : "conexao_falhou", {
+    fluxo_id: fluxoId,
+    ...(r.ok ? { enrollment_id: r.enrollmentId } : { motivo: r.codigo }),
+  });
+  if (!r.ok) {
+    if (retornar) {
+      // Não deu para entrar no outro: volta a andar daqui, pela saída.
+      await deps.atualizar(org, enrollment.id, { status: "active" });
+      await deps.agendar(org, enrollment, { tipo: "retorno", noId: no.id }, deps.agora());
+      return { tipo: "continua_depois" };
+    }
+    const retorno = origemAtual?.retorno;
+    if (retorno) await deps.retomar(org, retorno.enrollment_id, retorno.no_id, enrollment.contact_id);
+    return { tipo: "parado", motivo: `conexao_falhou:${r.codigo}` };
+  }
+  return retornar ? { tipo: "aguardando", noId: no.id } : { tipo: "concluido" };
 }

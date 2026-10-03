@@ -14,6 +14,8 @@ export const payloadDoPassoSchema = z.strictObject({
     z.strictObject({ tipo: z.literal("resposta"), mensagemId: z.string().nullable() }),
     z.strictObject({ tipo: z.literal("tempo_esgotado"), noId: z.string(), visita: z.number().int() }),
     z.strictObject({ tipo: z.literal("buffer"), noId: z.string(), visita: z.number().int() }),
+    z.strictObject({ tipo: z.literal("intervalo"), noId: z.string(), visita: z.number().int() }),
+    z.strictObject({ tipo: z.literal("retorno"), noId: z.string() }),
   ]),
 });
 export type PayloadDoPasso = z.infer<typeof payloadDoPassoSchema>;

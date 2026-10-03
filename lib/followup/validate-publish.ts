@@ -154,7 +154,20 @@ export const NOS_DA_SUPERFICIE: Record<FollowupFlowSurface, readonly NodeType[]>
   atendimento: ['trigger', 'collect', 'skill', 'end'],
   // Fork jhoow — FLUXOS. Cada fase acrescenta aqui os blocos cujo executor ela
   // entrega (`lib/fluxos/motor.ts`). Fase B: Mensagem, Etiquetas, Aguardar.
-  fluxo: ['trigger', 'mensagem', 'etiquetas', 'aguardar_resposta', 'end'],
+  // Fase C: Intervalo, Condicional, Distribuidor, Conexão, Kanban, Notificação.
+  fluxo: [
+    'trigger',
+    'mensagem',
+    'etiquetas',
+    'aguardar_resposta',
+    'intervalo',
+    'condicional',
+    'distribuidor',
+    'conexao_fluxo',
+    'kanban',
+    'notificacao',
+    'end',
+  ],
 };
 
 /**
@@ -629,7 +642,11 @@ export function validateFlowForPublish(
       }
     }
 
-    const endNodes = nodes.filter((n) => n.type === 'end');
+    // Conexão de fluxo SEM volta também é fim (fork jhoow): o contato segue no
+    // outro fluxo e este termina ali.
+    const endNodes = nodes.filter(
+      (n) => n.type === 'end' || (n.type === 'conexao_fluxo' && !n.config.retornar),
+    );
     const canReachEnd = bfsReachable(endNodes.map((n) => n.id), inEdges);
     for (const node of [...nodes].sort(byId)) {
       if (reachable.has(node.id) && !canReachEnd.has(node.id)) {
@@ -694,6 +711,19 @@ export function validateFlowForPublish(
 
   for (const node of [...nodes].sort(byId)) {
     if (node.type === 'condition') conferirRegras(node, contexto, errors);
+  }
+
+  // Blocos de FLUXO com saídas nomeadas (fork jhoow): toda saída leva a algum
+  // lugar — um lead que caísse numa saída solta ficaria preso no bloco.
+  for (const node of [...nodes].sort(byId)) {
+    if (
+      node.type !== 'aguardar_resposta' &&
+      node.type !== 'condicional' &&
+      node.type !== 'distribuidor' &&
+      node.type !== 'conexao_fluxo'
+    )
+      continue;
+    cobrirRamos(node, outEdges.get(node.id) ?? [], errors, nomes);
   }
 
   for (const node of [...nodes].sort(byId)) {

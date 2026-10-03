@@ -25,6 +25,12 @@ import { WaitForm } from "./forms/WaitForm";
 import { MensagemForm } from "@/app/app/fluxos/_blocos/MensagemForm";
 import { EtiquetasForm } from "@/app/app/fluxos/_blocos/EtiquetasForm";
 import { AguardarRespostaForm } from "@/app/app/fluxos/_blocos/AguardarRespostaForm";
+import { IntervaloForm } from "@/app/app/fluxos/_blocos/IntervaloForm";
+import { CondicionalForm } from "@/app/app/fluxos/_blocos/CondicionalForm";
+import { DistribuidorForm } from "@/app/app/fluxos/_blocos/DistribuidorForm";
+import { ConexaoFluxoForm } from "@/app/app/fluxos/_blocos/ConexaoFluxoForm";
+import { KanbanForm } from "@/app/app/fluxos/_blocos/KanbanForm";
+import { NotificacaoForm } from "@/app/app/fluxos/_blocos/NotificacaoForm";
 import type { ConfigOf } from "./forms/shared";
 import { NODE_VISUALS } from "./nodes/nodeVisuals";
 
@@ -184,6 +190,28 @@ export function NodeConfigPanel({
             config={node.data.config as ConfigOf<"aguardar_resposta">}
             onChange={(config) => onChange({ config })}
           />
+        )}
+        {type === "intervalo" && (
+          <IntervaloForm config={node.data.config as ConfigOf<"intervalo">} onChange={(config) => onChange({ config })} />
+        )}
+        {type === "condicional" && (
+          <CondicionalForm config={node.data.config as ConfigOf<"condicional">} onChange={(config) => onChange({ config })} />
+        )}
+        {type === "distribuidor" && (
+          <DistribuidorForm config={node.data.config as ConfigOf<"distribuidor">} onChange={(config) => onChange({ config })} />
+        )}
+        {type === "conexao_fluxo" && (
+          <ConexaoFluxoForm
+            config={node.data.config as ConfigOf<"conexao_fluxo">}
+            onChange={(config) => onChange({ config })}
+            {...(flowId !== undefined ? { flowId } : {})}
+          />
+        )}
+        {type === "kanban" && (
+          <KanbanForm config={node.data.config as ConfigOf<"kanban">} onChange={(config) => onChange({ config })} />
+        )}
+        {type === "notificacao" && (
+          <NotificacaoForm config={node.data.config as ConfigOf<"notificacao">} onChange={(config) => onChange({ config })} />
         )}
         {type === "end" && (
           <EndForm

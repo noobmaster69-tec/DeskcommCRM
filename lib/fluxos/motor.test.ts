@@ -8,6 +8,7 @@ import {
   type EnrollmentDoFluxo,
   type MensagemDeSaida,
   type MotivoDoPasso,
+  type OrigemDoFluxo,
   type RespostaDoLead,
 } from "./motor";
 
@@ -43,6 +44,7 @@ function mundo(g: FlowGraph, inicio = "t") {
     id: "e1",
     organization_id: ORG,
     version_id: "v1",
+    pointer_id: "p1",
     contact_id: "c1",
     conversation_id: "conv1",
     current_node_id: inicio,
@@ -59,11 +61,45 @@ function mundo(g: FlowGraph, inicio = "t") {
   const reacoes: string[] = [];
   let bloquear = false;
   let recusar: string | null = null;
+  const conversaAtual = { status: "open", atendente: null as string | null, ultimaEntradaEm: null as string | null };
+  let totalDistribuido = 0;
+  let distribuidoAoContato: string | null = null;
+  const publicados = new Set<string>();
+  const iniciados: Array<{ fluxoId: string; origem: OrigemDoFluxo }> = [];
+  let origemDesta: OrigemDoFluxo | null = null;
+  const retomados: string[] = [];
+  const chamadoresCancelados: string[] = [];
+  const kanbans: unknown[] = [];
+  const notificacoes: Array<{ numero: string; texto: string }> = [];
 
   const deps: DepsDoMotor = {
     carregarEnrollment: async () => ({ ...enrollment }),
     carregarGrafo: async () => g,
-    carregarContato: async () => ({ nome: "Maria Silva", telefone: "5511999999999", campos }),
+    carregarContato: async () => ({ nome: "Maria Silva", telefone: "5511999999999", email: "maria@ex.com", etiquetas: [...tags], campos }),
+    carregarConversa: async () => ({ ...conversaAtual }),
+    fusoDaOrganizacao: async () => "America/Sao_Paulo",
+    distribuicoes: async () => ({ total: totalDistribuido, doContato: distribuidoAoContato }),
+    fluxoPublicado: async (_o, id) => publicados.has(id),
+    iniciarFluxo: async (_o, input) => {
+      iniciados.push({ fluxoId: input.fluxoId, origem: input.origem });
+      return { ok: true, enrollmentId: `novo-${iniciados.length}` };
+    },
+    origem: async () => origemDesta,
+    retomar: async (_o, id, noId) => {
+      retomados.push(`${id}@${noId}`);
+      return true;
+    },
+    cancelarChamador: async (_o, id) => {
+      chamadoresCancelados.push(id);
+    },
+    kanban: async (_o, _e, config) => {
+      kanbans.push(config);
+      return { ok: true, detalhe: "ok" };
+    },
+    notificarEquipe: async (_o, _c, numero, texto) => {
+      notificacoes.push({ numero, texto });
+      return { ok: true, detalhe: numero };
+    },
     respostasDesde: async (_o, _c, desde) => respostas.filter((r) => r.criadaEm > desde),
     enviar: async (_o, _c, msg, seq) => {
       if (bloquear) return "bloqueada";
@@ -126,6 +162,22 @@ function mundo(g: FlowGraph, inicio = "t") {
       recusar = codigo;
     },
     passo: (motivo: MotivoDoPasso = { tipo: "seguir" }) => executarPasso(deps, ORG, "e1", motivo),
+    conversaAtual,
+    distribuir(total: number, doContato: string | null = null) {
+      totalDistribuido = total;
+      distribuidoAoContato = doContato;
+    },
+    publicar(id: string) {
+      publicados.add(id);
+    },
+    iniciados,
+    chamadaPor(origem: OrigemDoFluxo) {
+      origemDesta = origem;
+    },
+    retomados,
+    chamadoresCancelados,
+    kanbans,
+    notificacoes,
   };
 }
 
@@ -345,5 +397,171 @@ describe("motor dos fluxos — guardas", () => {
     expect(atrasoDoIntervalo(item, () => 0)).toBe(2000);
     expect(atrasoDoIntervalo(item, () => 1)).toBe(6000);
     expect(MAX_ESPERA_POR_JOB_MS).toBeLessThan(600_000);
+  });
+});
+
+describe("motor dos fluxos — Fase C", () => {
+  const fim = () => no("f", "end", {});
+
+  it("Intervalo por duração estaciona, agenda e só segue com o job da MESMA espera", async () => {
+    const m = mundo(
+      grafo(
+        [
+          no("t", "trigger"),
+          no("i", "intervalo", { modo: "duracao", valor: 2, unidade: "horas" }),
+          no("m", "mensagem", { itens: [{ id: "a", tipo: "texto", texto: "voltei" }] }),
+          fim(),
+        ],
+        [sempre("t", "i"), sempre("i", "m"), sempre("m", "f")],
+      ),
+    );
+    expect(await m.passo()).toEqual({ tipo: "aguardando", noId: "i" });
+    const job = m.agendados.at(-1)!;
+    expect(job.motivo).toEqual({ tipo: "intervalo", noId: "i", visita: 1 });
+    expect(job.quando.toISOString()).toBe("2026-10-03T14:00:00.000Z");
+    expect(m.enviadas).toHaveLength(0);
+    expect(await m.passo({ tipo: "intervalo", noId: "i", visita: 7 })).toMatchObject({ tipo: "ignorado" });
+    expect(await m.passo(job.motivo)).toEqual({ tipo: "concluido" });
+    expect(m.enviadas.map((e) => e.body)).toEqual(["voltei"]);
+  });
+
+  it("Intervalo por horários: dentro da janela segue na hora", async () => {
+    // 12:00Z = 09:00 em São Paulo, sábado (dia 6).
+    const m = mundo(
+      grafo(
+        [no("t", "trigger"), no("i", "intervalo", { modo: "horarios", janelas: [{ dia: 6, inicio: "08:00", fim: "18:00" }] }), fim()],
+        [sempre("t", "i"), sempre("i", "f")],
+      ),
+    );
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+  });
+
+  it("Condicional segue por Sim ou Não conforme etiqueta e hora", async () => {
+    const g = grafo(
+      [
+        no("t", "trigger"),
+        no("c", "condicional", {
+          regra: "todas",
+          condicoes: [
+            { id: "c1", campo: { tipo: "etiqueta" }, operador: "contem", valor: "antiga" },
+            { id: "c2", campo: { tipo: "hora" }, operador: "entre", valor: "08:00", valor_ate: "18:00" },
+          ],
+        }),
+        no("sim", "etiquetas", { operacao: "adicionar", etiquetas: ["passou"] }),
+        no("nao", "etiquetas", { operacao: "adicionar", etiquetas: ["barrou"] }),
+        fim(),
+      ],
+      [sempre("t", "c"), ramo("c", "sim", "sim"), ramo("c", "nao", "nao"), sempre("sim", "f"), sempre("nao", "f")],
+    );
+    const m = mundo(g);
+    await m.passo();
+    expect(m.tags).toContain("passou");
+    const m2 = mundo(g);
+    m2.passar(12 * 3_600_000); // 21:00 em São Paulo
+    await m2.passo();
+    expect(m2.tags).toContain("barrou");
+  });
+
+  it("Distribuidor: rodízio pelo total; fixo por contato devolve a mesma saída", async () => {
+    const g = (modo: string) =>
+      grafo(
+        [
+          no("t", "trigger"),
+          no("d", "distribuidor", { modo, saidas: [{ id: "a", nome: "Ana" }, { id: "b", nome: "Bruno" }] }),
+          no("ea", "etiquetas", { operacao: "adicionar", etiquetas: ["ana"] }),
+          no("eb", "etiquetas", { operacao: "adicionar", etiquetas: ["bruno"] }),
+          fim(),
+        ],
+        [sempre("t", "d"), ramo("d", "ea", "a"), ramo("d", "eb", "b"), sempre("ea", "f"), sempre("eb", "f")],
+      );
+    const r = mundo(g("proximo"));
+    r.distribuir(3);
+    await r.passo();
+    expect(r.tags).toContain("bruno");
+    const f = mundo(g("fixo_por_contato"));
+    f.distribuir(3, "a");
+    await f.passo();
+    expect(f.tags).toContain("ana");
+    expect(f.eventos.find((e) => e.tipo === "distribuido")?.payload).toEqual({ saida: "a", contato: "c1" });
+  });
+
+  it("Conexão sem voltar: este fluxo termina e o outro começa herdando o retorno pendente", async () => {
+    const m = mundo(
+      grafo([no("t", "trigger"), no("x", "conexao_fluxo", { fluxo_id: "outro", retornar: false })], [sempre("t", "x")]),
+    );
+    m.publicar("outro");
+    m.chamadaPor({ origem: "conexao", saltos: 1, retorno: { enrollment_id: "avo", no_id: "n9" } });
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    expect(m.enrollment.status).toBe("completed");
+    expect(m.iniciados[0]).toMatchObject({ fluxoId: "outro", origem: { saltos: 2, retorno: { enrollment_id: "avo", no_id: "n9" } } });
+    // Terminou passando a vez: quem esperava lá atrás NÃO é acordado agora.
+    expect(m.retomados).toEqual([]);
+  });
+
+  it("Conexão com voltar: dorme no bloco; o retorno segue pela saída", async () => {
+    const m = mundo(
+      grafo(
+        [
+          no("t", "trigger"),
+          no("x", "conexao_fluxo", { fluxo_id: "outro", retornar: true }),
+          no("m", "mensagem", { itens: [{ id: "a", tipo: "texto", texto: "de volta" }] }),
+          fim(),
+        ],
+        [sempre("t", "x"), sempre("x", "m"), sempre("m", "f")],
+      ),
+    );
+    m.publicar("outro");
+    expect(await m.passo()).toEqual({ tipo: "aguardando", noId: "x" });
+    expect(m.enrollment.status).toBe("dormente");
+    expect(m.iniciados[0]?.origem.retorno).toEqual({ enrollment_id: "e1", no_id: "x" });
+    m.enrollment.status = "active"; // o `retomar` do chamado faz isto
+    expect(await m.passo({ tipo: "retorno", noId: "x" })).toEqual({ tipo: "concluido" });
+    expect(m.enviadas.map((e) => e.body)).toEqual(["de volta"]);
+  });
+
+  it("fluxo chamado com voltar: ao chegar ao Fim acorda quem chamou; ao ser cancelado, cancela quem chamou", async () => {
+    const g = grafo([no("t", "trigger"), fim()], [sempre("t", "f")]);
+    const m = mundo(g);
+    m.chamadaPor({ origem: "conexao", saltos: 1, retorno: { enrollment_id: "pai", no_id: "x" } });
+    await m.passo();
+    expect(m.retomados).toEqual(["pai@x"]);
+
+    const c = mundo(grafo([no("t", "trigger"), no("m", "mensagem", { itens: [{ id: "a", tipo: "texto", texto: "oi" }] }), fim()], [sempre("t", "m"), sempre("m", "f")]));
+    c.chamadaPor({ origem: "conexao", saltos: 1, retorno: { enrollment_id: "pai", no_id: "x" } });
+    c.bloquear();
+    await c.passo();
+    expect(c.chamadoresCancelados).toEqual(["pai"]);
+  });
+
+  it("Conexão para fluxo não publicado sem voltar termina o fluxo sem prender o contato", async () => {
+    const m = mundo(grafo([no("t", "trigger"), no("x", "conexao_fluxo", { fluxo_id: "rascunho", retornar: false })], [sempre("t", "x")]));
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    expect(m.iniciados).toHaveLength(0);
+    expect(m.eventos.some((e) => e.tipo === "conexao_falhou")).toBe(true);
+  });
+
+  it("laço de Conexões para no teto de saltos", async () => {
+    const m = mundo(grafo([no("t", "trigger"), no("x", "conexao_fluxo", { fluxo_id: "outro", retornar: false })], [sempre("t", "x")]));
+    m.publicar("outro");
+    m.chamadaPor({ origem: "conexao", saltos: 20 });
+    expect(await m.passo()).toEqual({ tipo: "parado", motivo: "conexoes_demais" });
+    expect(m.enrollment.status).toBe("dead");
+  });
+
+  it("Kanban e Notificação seguem o fluxo, com o texto interpolado", async () => {
+    const m = mundo(
+      grafo(
+        [
+          no("t", "trigger"),
+          no("k", "kanban", { acao: "adicionar", pipeline_id: "00000000-0000-4000-8000-0000000000aa" }),
+          no("n", "notificacao", { nome: "Ana", ddi: "55", numero: "11988887777", mensagem: "Lead {nome} chegou" }),
+          fim(),
+        ],
+        [sempre("t", "k"), sempre("k", "n"), sempre("n", "f")],
+      ),
+    );
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    expect(m.kanbans).toHaveLength(1);
+    expect(m.notificacoes).toEqual([{ numero: "+5511988887777", texto: "Lead Maria Silva chegou" }]);
   });
 });
