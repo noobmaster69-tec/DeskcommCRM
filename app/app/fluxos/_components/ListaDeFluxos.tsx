@@ -18,6 +18,7 @@ import { FolderPlus, FolderSimple, Lightning, MagnifyingGlass, Plus, UploadSimpl
 import { cn } from "@/lib/utils";
 import { arvoreDePastas, idsDaPastaEDescendentes, type NoDaArvore, type PastaDoFluxo } from "@/lib/fluxos/pastas";
 import { passaNoFiltro, proximoNomeDeFluxo, type FiltroDeStatus, type StatusDoFluxo } from "@/lib/fluxos/lista";
+import { ImportarDoLeona } from "./ImportarDoLeona";
 
 export interface FluxoDaLista {
   id: string;
@@ -47,6 +48,7 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
   const [pastaAtual, setPastaAtual] = useState<string | null>(null);
   const [criandoPasta, setCriandoPasta] = useState(false);
   const [nomeDaPasta, setNomeDaPasta] = useState("");
+  const [importando, setImportando] = useState(false);
   const [ocupado, startTransition] = useTransition();
 
   const arvore = useMemo(() => {
@@ -149,7 +151,7 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
             <FolderPlus size={16} aria-hidden className="mr-1.5" />
             {t("Pasta")}
           </Button>
-          <Button type="button" variant="secondary" disabled title={t("Importar chega numa próxima fase.")}>
+          <Button type="button" variant="secondary" onClick={() => setImportando(true)} disabled={ocupado}>
             <UploadSimple size={16} aria-hidden className="mr-1.5" />
             {t("Importar")}
           </Button>
@@ -221,6 +223,8 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
           </table>
         </div>
       </div>
+
+      <ImportarDoLeona aberto={importando} onAbertoChange={setImportando} pastaId={pastaAtual} />
 
       <Dialog open={criandoPasta} onOpenChange={setCriandoPasta}>
         <DialogContent>
