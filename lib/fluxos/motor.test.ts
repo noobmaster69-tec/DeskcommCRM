@@ -58,6 +58,7 @@ function mundo(g: FlowGraph, inicio = "t") {
   const presencas: string[] = [];
   const reacoes: string[] = [];
   let bloquear = false;
+  let recusar: string | null = null;
 
   const deps: DepsDoMotor = {
     carregarEnrollment: async () => ({ ...enrollment }),
@@ -66,6 +67,7 @@ function mundo(g: FlowGraph, inicio = "t") {
     respostasDesde: async (_o, _c, desde) => respostas.filter((r) => r.criadaEm > desde),
     enviar: async (_o, _c, msg, seq) => {
       if (bloquear) return "bloqueada";
+      if (recusar) return { recusada: recusar };
       enviadas.push({ ...msg, seq });
       return "enviada";
     },
@@ -119,6 +121,9 @@ function mundo(g: FlowGraph, inicio = "t") {
     },
     bloquear() {
       bloquear = true;
+    },
+    recusar(codigo: string) {
+      recusar = codigo;
     },
     passo: (motivo: MotivoDoPasso = { tipo: "seguir" }) => executarPasso(deps, ORG, "e1", motivo),
   };
@@ -208,6 +213,18 @@ describe("motor dos fluxos — Mensagem", () => {
     m.bloquear();
     expect(await m.passo()).toEqual({ tipo: "parado", motivo: "contato_bloqueado" });
     expect(m.enrollment.status).toBe("cancelled");
+  });
+  it("canal em modo de teste: o envio recusado encerra o fluxo com o motivo, sem a fila refazer", async () => {
+    const m = mundo(
+      grafo(
+        [no("t", "trigger"), no("m", "mensagem", { itens: [{ id: "a", tipo: "texto", texto: "oi" }] }), no("f", "end", {})],
+        [sempre("t", "m"), sempre("m", "f")],
+      ),
+    );
+    m.recusar("pre_go_live");
+    expect(await m.passo()).toEqual({ tipo: "parado", motivo: "pre_go_live" });
+    expect(m.enrollment.status).toBe("cancelled");
+    expect(m.eventos.at(-1)).toMatchObject({ tipo: "encerrado", payload: { motivo: "pre_go_live" } });
   });
 });
 

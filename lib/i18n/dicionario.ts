@@ -140,6 +140,10 @@ export const DICIONARIO: Traducoes = {
   "Disparar fluxo": { es: "Disparar flujo" },
   "Nenhum fluxo publicado.": { es: "Ningún flujo publicado." },
   "Intervalo": { es: "Intervalo" },
+  "Não foi possível parar o fluxo.": { es: "No se pudo detener el flujo." },
+  "Fluxo parado. O agente de IA volta a responder.": { es: "Flujo detenido. El agente de IA vuelve a responder." },
+  "Em fluxo:": { es: "En flujo:" },
+  "Parar fluxo": { es: "Detener flujo" },
   // ─── APARÊNCIA › MENU LATERAL (fork jhoow, P6) ───
   "Aparência": { es: "Apariencia" },
   "Escolha quais telas e grupos aparecem no seu menu lateral.": { es: "Elige qué pantallas y grupos aparecen en tu menú lateral." },

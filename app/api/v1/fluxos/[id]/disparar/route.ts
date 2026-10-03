@@ -24,6 +24,8 @@ const MENSAGEM: Record<string, string> = {
   fluxo_inexistente: "Fluxo não encontrado.",
   fluxo_nao_publicado: "Publique o fluxo antes de disparar.",
   conversa_inexistente: "Conversa não encontrada.",
+  canal_em_modo_de_teste:
+    "O canal está em modo de teste e este número não está autorizado. Autorize-o como número de teste em Conexões ou abra o canal ao público.",
 };
 
 export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
@@ -61,9 +63,8 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
         409,
         { requestId },
       );
-    return fail(r.codigo === "fluxo_nao_publicado" ? "conflict" : "not_found", MENSAGEM[r.codigo]!, r.codigo === "fluxo_nao_publicado" ? 409 : 404, {
-      requestId,
-    });
+    const conflito = r.codigo === "fluxo_nao_publicado" || r.codigo === "canal_em_modo_de_teste";
+    return fail(conflito ? "conflict" : "not_found", MENSAGEM[r.codigo]!, conflito ? 409 : 404, { requestId });
   }
   void audit({
     action: "fluxo.disparado_manualmente",

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { flowGraphSchema } from "@/lib/followup/graph-schema";
+import { decidirPreGoLiveDoCanalViaSupabase } from "@/lib/ai/elegibilidade/consulta-pre-go-live";
 import { enfileirarPassoDoFluxo } from "./fila";
 
 /**
@@ -14,7 +15,16 @@ import { enfileirarPassoDoFluxo } from "./fila";
  */
 export type ResultadoDoDisparo =
   | { ok: true; enrollmentId: string }
-  | { ok: false; codigo: "fluxo_inexistente" | "fluxo_nao_publicado" | "conversa_inexistente" | "ja_em_outro_fluxo"; detalhe?: string };
+  | {
+      ok: false;
+      codigo:
+        | "fluxo_inexistente"
+        | "fluxo_nao_publicado"
+        | "conversa_inexistente"
+        | "ja_em_outro_fluxo"
+        | "canal_em_modo_de_teste";
+      detalhe?: string;
+    };
 
 export async function dispararFluxo(
   admin: SupabaseClient,
@@ -31,7 +41,7 @@ export async function dispararFluxo(
       .maybeSingle(),
     admin
       .from("conversations")
-      .select("id, contact_id, is_group")
+      .select("id, contact_id, is_group, channel_session_id, contacts:contact_id(phone_number)")
       .eq("organization_id", org)
       .eq("id", input.conversationId)
       .maybeSingle(),
@@ -39,6 +49,17 @@ export async function dispararFluxo(
   if (!fluxo) return { ok: false, codigo: "fluxo_inexistente" };
   if (fluxo.status !== "active" || !fluxo.active_version_id) return { ok: false, codigo: "fluxo_nao_publicado" };
   if (!conversa || conversa.is_group || !conversa.contact_id) return { ok: false, codigo: "conversa_inexistente" };
+
+  // O envio do fluxo é AUTOMÁTICO: o modo de teste do canal o segura (só sai
+  // para os números de teste). Recusar aqui, com o motivo, em vez de deixar o
+  // primeiro envio falhar dentro do worker.
+  const telefone = (conversa as unknown as { contacts?: { phone_number?: string | null } | null }).contacts?.phone_number ?? "";
+  const acesso = await decidirPreGoLiveDoCanalViaSupabase(admin, {
+    organizationId: org,
+    channelSessionId: conversa.channel_session_id as string,
+    contactPhoneNumber: telefone,
+  });
+  if (!acesso.permite) return { ok: false, codigo: "canal_em_modo_de_teste" };
 
   const { data: versao, error: vErr } = await admin
     .from("followup_flow_versions")

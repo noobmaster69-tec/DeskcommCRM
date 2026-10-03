@@ -20,6 +20,14 @@ import { enfileirarPassoDoFluxo } from "./fila";
 
 const BUCKET = "whatsapp-media";
 
+/**
+ * `messages.error_code` que repetir o envio não resolve (`messages/_handler.ts`):
+ * canal em modo de teste com o número fora da lista, canal excluído, contato sem
+ * telefone. `pre_go_live_indisponivel` (não deu para LER o modo de teste) fica
+ * de fora: é passageira.
+ */
+export const RECUSAS_PERMANENTES = new Set(["pre_go_live", "channel_archived", "missing_phone_number"]);
+
 const MIME_POR_EXTENSAO: Record<string, string> = {
   ogg: "audio/ogg",
   opus: "audio/ogg",
@@ -134,7 +142,20 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
           ),
       );
       if (r.kind === "blocked") return "bloqueada";
-      if (r.kind === "failed") throw new Error("fluxo_envio_falhou");
+      if (r.kind === "failed") {
+        // Falha com código PERMANENTE encerra o fluxo; o resto a fila refaz.
+        const { data: falha } = r.crmMessageId
+          ? await admin
+              .from("messages")
+              .select("error_code")
+              .eq("organization_id", org)
+              .eq("id", r.crmMessageId)
+              .maybeSingle()
+          : { data: null };
+        const codigo = (falha?.error_code as string | null) ?? null;
+        if (codigo && RECUSAS_PERMANENTES.has(codigo)) return { recusada: codigo };
+        throw new Error(`fluxo_envio_falhou${codigo ? `: ${codigo}` : ""}`);
+      }
       return "enviada";
     },
 

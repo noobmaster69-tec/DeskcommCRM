@@ -65,6 +65,8 @@ export interface MensagemDeSaida {
   reply_to_message_id?: string;
 }
 
+export type ResultadoDoEnvio = "enviada" | "bloqueada" | { recusada: string };
+
 export interface DepsDoMotor {
   carregarEnrollment(org: string, id: string): Promise<EnrollmentDoFluxo | null>;
   carregarGrafo(org: string, versionId: string): Promise<FlowGraph | null>;
@@ -74,8 +76,13 @@ export interface DepsDoMotor {
   ): Promise<{ nome: string | null; telefone: string | null; campos: Record<string, unknown> }>;
   /** Mensagens do lead (inbound) na conversa, depois de `desde`, em ordem. */
   respostasDesde(org: string, conversationId: string, desde: string): Promise<RespostaDoLead[]>;
-  /** Envia pela cadeia do Inbox. `bloqueada` = contato bloqueou/pediu para parar (veto permanente). */
-  enviar(org: string, conversationId: string, msg: MensagemDeSaida, seq: number): Promise<"enviada" | "bloqueada">;
+  /**
+   * Envia pela cadeia do Inbox. `bloqueada` = contato bloqueou/pediu para parar;
+   * `recusada` = o envio falhou por um motivo que repetir não resolve (canal em
+   * modo de teste, canal excluído, contato sem telefone). Os dois encerram o
+   * fluxo; falha passageira LANÇA e a fila refaz o job.
+   */
+  enviar(org: string, conversationId: string, msg: MensagemDeSaida, seq: number): Promise<ResultadoDoEnvio>;
   /** Copia a mídia do fluxo para a pasta da conversa (a cadeia de envio só aceita mídia da conversa). */
   copiarMidia(org: string, conversationId: string, storagePath: string): Promise<{ storage_path: string; mime: string | null }>;
   presenca(org: string, conversationId: string, tipo: "typing" | "recording" | "paused"): Promise<void>;
@@ -273,10 +280,8 @@ export async function executarPasso(
           }
           await deps.presenca(org, conversa, "paused");
           const r = await deps.enviar(org, conversa, saida, ++seq);
-          if (r === "bloqueada") {
-            await encerrar(deps, enrollment, "cancelled", "contato_bloqueado");
-            return { tipo: "parado", motivo: "contato_bloqueado" };
-          }
+          const parada = await pararSeNaoSaiu(deps, enrollment, r);
+          if (parada) return parada;
         }
         break;
       }
@@ -293,10 +298,8 @@ export async function executarPasso(
           const body = interpolar(no.config.mensagem_antes, contexto()).trim();
           if (body) {
             const r = await deps.enviar(org, conversa, { type: "text", body }, ++seq);
-            if (r === "bloqueada") {
-              await encerrar(deps, enrollment, "cancelled", "contato_bloqueado");
-              return { tipo: "parado", motivo: "contato_bloqueado" };
-            }
+            const parada = await pararSeNaoSaiu(deps, enrollment, r);
+            if (parada) return parada;
           }
         }
         // `desde` é DEPOIS do envio da pergunta: resposta que chegou antes dela não conta.
@@ -366,6 +369,18 @@ async function montarSaida(
       return { type: tipo, media_url: item.midia.url, ...(legenda ? { body: legenda } : {}) };
     }
   }
+}
+
+/** Envio que não saiu e não vai sair: encerra o fluxo com o motivo (sem a fila refazer). */
+async function pararSeNaoSaiu(
+  deps: DepsDoMotor,
+  enrollment: EnrollmentDoFluxo,
+  r: ResultadoDoEnvio,
+): Promise<ResultadoDoPasso | null> {
+  if (r === "enviada") return null;
+  const motivo = r === "bloqueada" ? "contato_bloqueado" : r.recusada;
+  await encerrar(deps, enrollment, "cancelled", motivo);
+  return { tipo: "parado", motivo };
 }
 
 async function encerrar(
