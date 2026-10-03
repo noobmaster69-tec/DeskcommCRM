@@ -1010,6 +1010,18 @@ export const AUDIT_ACTIONS = [
   "company_people.updated",
   "contacts.person_linked",
   "imports.companies_people",
+
+  // CRMs — o nível acima dos funis (migration 9004, fork jhoow). Eleger padrão
+  // tem código próprio: "quem trocou o CRM para onde vai todo funil novo" é a
+  // pergunta que o painel só responde filtrando por `action`.
+  "crm.created",
+  "crm.updated",
+  "crm.default_changed",
+  "crm.archived",
+  "crm.duplicated",
+  // O funil que mudou de CRM. Separado de `pipeline.updated` pelo mesmo motivo
+  // de `pipeline.unarchived`: some no meio dos renames.
+  "pipeline.moved_crm",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

@@ -14,11 +14,14 @@ type SB = SupabaseClient;
 
 export interface ListPipelinesQuery {
   include_archived?: boolean;
+  /** Só os funis deste CRM (migration 9004). Ausente = todos da organização. */
+  crm_id?: string;
 }
 
 export interface PipelineRow {
   id: string;
   organization_id: string;
+  crm_id: string;
   name: string;
   slug: string;
   description: string | null;
@@ -51,13 +54,16 @@ export async function listPipelinesHandler(
   let query = supabase
     .from("crm_pipelines")
     .select(
-      "id, organization_id, name, slug, description, is_default, is_archived, position, vocabulary, settings, created_at, updated_at",
+      "id, organization_id, crm_id, name, slug, description, is_default, is_archived, position, vocabulary, settings, created_at, updated_at",
     )
     .eq("organization_id", ctx.organization_id)
     .order("position", { ascending: true });
 
   if (!q.include_archived) {
     query = query.eq("is_archived", false);
+  }
+  if (q.crm_id) {
+    query = query.eq("crm_id", q.crm_id);
   }
 
   const { data, error } = await query;

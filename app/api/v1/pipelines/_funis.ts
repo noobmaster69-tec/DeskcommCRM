@@ -30,7 +30,7 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 /** `position` entra: a reordenação calcula em cima dela. */
 const COLUNAS =
-  "id, name, slug, description, position, is_default, is_client_pipeline, is_archived";
+  "id, crm_id, name, slug, description, position, is_default, is_client_pipeline, is_archived";
 
 /**
  * Os funis da organização, na ordem da lista, arquivados inclusive.
@@ -98,6 +98,8 @@ export async function lerDependencias(
 /** Um funil como a tela o desenha — a MESMA forma para o vivo e para o arquivado. */
 export interface FunilDoCorpo {
   id: string;
+  /** O CRM do funil (migration 9004). `null` só num banco sem a 9004. */
+  crm_id: string | null;
   name: string;
   slug: string;
   description: string | null;
@@ -109,6 +111,7 @@ export interface FunilDoCorpo {
 function paraATela(f: FunilEditavel): FunilDoCorpo {
   return {
     id: f.id,
+    crm_id: f.crm_id ?? null,
     name: f.name,
     slug: f.slug,
     description: f.description ?? null,
@@ -143,6 +146,27 @@ export function corpo(funis: FunilEditavel[]): {
     pipelines: funis.filter((f) => !f.is_archived).map(paraATela),
     arquivados: funis.filter((f) => f.is_archived).map(paraATela),
   };
+}
+
+/**
+ * O CRM pedido existe, é DESTA organização e não está arquivado?
+ *
+ * A chave estrangeira composta `(organization_id, crm_id)` já recusa CRM de
+ * outra organização, mas com um 23503 cru; e CRM arquivado ela aceita. Conferir
+ * antes é o que permite responder 422 com frase — e o filtro de
+ * `organization_id` é a convenção, não redundância: a policy de leitura libera
+ * todas as organizações do usuário.
+ */
+export async function crmVivoDaOrg(supabase: Supabase, orgId: string, crmId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("crm_crms")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("id", crmId)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data !== null;
 }
 
 /**

@@ -25,6 +25,8 @@ import { chaveDeNome, slugDeNome } from "@/lib/leads/stage-editing";
 /** O que as regras precisam saber de cada funil. Inclui os arquivados — quem filtra é este módulo. */
 export interface FunilEditavel {
   id: string;
+  /** O CRM do funil (migration 9004). Opcional: quem só ordena ou renomeia não carrega. */
+  crm_id?: string;
   name: string;
   slug: string;
   position: number;

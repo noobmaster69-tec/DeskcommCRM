@@ -80,6 +80,8 @@ export interface PipelineRow {
   is_default: boolean;
   is_archived: boolean;
   organization_id: string;
+  /** O CRM do funil (migration 9004). */
+  crm_id?: string;
 }
 
 export function funilRow(over: Partial<PipelineRow> & { id: string; name: string }): PipelineRow {
@@ -121,6 +123,13 @@ export interface DbOpts {
   contacts?: Array<Record<string, unknown>>;
   /** Erro do banco na n-ésima escrita (1-based), como o PostgREST devolveria. */
   writeError?: (n: number, table: string) => { code: string; message: string } | null;
+  /** Os CRMs (migration 9004) — `crm_crms`, o nível acima dos funis. */
+  crms?: Array<Record<string, unknown>>;
+  /**
+   * Resposta de `rpc(nome, args)`. Sem isto, toda rpc devolve `{ data: null,
+   * error: null }` — que é o que o aviso de atividade perdida precisa.
+   */
+  rpc?: (nome: string, args: unknown) => { data: unknown; error: unknown };
 }
 
 type Linha = Record<string, unknown>;
@@ -148,6 +157,7 @@ export interface Registro {
     webhook_sources: Linha[];
     automation_rules: Linha[];
     contacts: Linha[];
+    crm_crms: Linha[];
   };
 }
 
@@ -209,6 +219,7 @@ export function makeDb(opts: DbOpts = {}): Registro {
       webhook_sources: (opts.webhookSources ?? []) as Linha[],
       automation_rules: (opts.automationRules ?? []) as Linha[],
       contacts: (opts.contacts ?? []) as Linha[],
+      crm_crms: (opts.crms ?? []) as Linha[],
     },
   };
   const tables = registro.tabelas as unknown as Record<string, Linha[] | undefined>;
@@ -411,7 +422,7 @@ export function makeDb(opts: DbOpts = {}): Registro {
   // comportamento ("o arquivamento não é desfeito por causa do rastro").
   const rpc = async (nome: string, args: unknown) => {
     registro.rpcs.push({ nome, args });
-    return { data: null, error: null };
+    return opts.rpc?.(nome, args) ?? { data: null, error: null };
   };
 
   registro.client = { from: builder, rpc } as unknown as Registro["client"];

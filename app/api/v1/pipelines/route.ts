@@ -2,9 +2,13 @@ import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * GET /api/v1/pipelines — lista os funis da org ativa (nome + slug), RLS-scoped.
  * Existia só o handler interno (usado pelo MCP); expõe REST pro Select de
- * pipeline do CreateSourceDialog (feature Webhooks).
+ * pipeline do CreateSourceDialog (feature Webhooks). `?crm_id=<uuid>` recorta
+ * para os funis de um CRM (migration 9004).
  *
  * POST /api/v1/pipelines — cria um funil COM as etapas com que ele nasce.
+ * `crm_id` é OPCIONAL: sem ele, o funil entra no CRM padrão da organização (o
+ * gatilho `trg_crm_pipelines_preencher_crm` decide). Obrigatório quebraria todo
+ * integrador que já cria funil por aqui.
  */
 import { randomUUID } from "node:crypto";
 import { type NextRequest } from "next/server";
@@ -21,25 +25,34 @@ import {
   type FunilEditavel,
 } from "@/lib/pipelines/pipeline-editing";
 import { createClient } from "@/lib/supabase/server";
-import { conflitoDoBanco, corpo, lerFunis } from "./_funis";
+import { conflitoDoBanco, corpo, crmVivoDaOrg, lerFunis } from "./_funis";
 import { listPipelinesHandler } from "./_handler";
 import { traduzir } from "@/lib/i18n/dicionario";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(): Promise<Response> {
+export async function GET(req: NextRequest): Promise<Response> {
   const requestId = randomUUID();
   const authz = await requireRole("manager", { requestId, resource: "pipelines" });
   if (!authz.ok) return authz.response;
   const t = (texto: string) => traduzir(texto, authz.user.idioma);
 
+  const crmId = req.nextUrl.searchParams.get("crm_id");
+  if (crmId !== null && !z.string().uuid().safeParse(crmId).success) {
+    return fail("validation_failed", t("O filtro crm_id precisa ser um uuid."), 400, { requestId });
+  }
+
   const supabase = await createClient();
   try {
-    const { pipelines } = await listPipelinesHandler(supabase, {
-      organization_id: authz.org.orgId,
-      actor: { type: "user", id: authz.user.id },
-      requestId,
-    });
+    const { pipelines } = await listPipelinesHandler(
+      supabase,
+      {
+        organization_id: authz.org.orgId,
+        actor: { type: "user", id: authz.user.id },
+        requestId,
+      },
+      crmId ? { crm_id: crmId } : {},
+    );
     return ok(pipelines, { requestId });
   } catch {
     return fail("internal_error", t("Falha ao listar funis."), 500, { requestId });
@@ -52,6 +65,7 @@ const bodySchema = z
   .object({
     name: z.string().min(1).max(80),
     description: z.string().max(280).nullable().optional(),
+    crm_id: z.string().uuid().optional(),
   })
   .strict();
 
@@ -109,8 +123,23 @@ export async function POST(req: NextRequest): Promise<Response> {
   const veredito = validarNomeDeFunil(name, funis, null);
   if (!veredito.ok) return fail("unprocessable_entity", veredito.erro, 422, { requestId });
 
+  const crmId = parsed.data.crm_id;
+  if (crmId !== undefined) {
+    try {
+      if (!(await crmVivoDaOrg(supabase, orgId, crmId))) {
+        return fail("unprocessable_entity", t("CRM não encontrado. Escolha um CRM ativo da organização."), 422, {
+          requestId,
+        });
+      }
+    } catch (err) {
+      return fail("internal_error", (err as Error).message, 500, { requestId });
+    }
+  }
+
   const row = {
     organization_id: orgId,
+    // Ausente = o gatilho põe no CRM padrão. `undefined` não vai no JSON.
+    crm_id: crmId,
     name,
     description,
     // Arquivados entram na conta do slug: `uniq_crm_pipelines_org_slug` não é parcial.
@@ -170,7 +199,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     resourceType: "crm_pipeline",
     resourceId: pipelineId,
     requestId,
-    metadata: { name, slug: row.slug, is_default: row.is_default },
+    metadata: { name, slug: row.slug, is_default: row.is_default, crm_id: crmId ?? null },
   });
 
   // Relê em vez de espelhar o que foi pedido: a tela mostra o que o banco tem.

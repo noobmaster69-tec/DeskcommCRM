@@ -4835,6 +4835,53 @@ export type Database = {
           },
         ]
       }
+      crm_crms: {
+        Row: {
+          archived_at: string | null
+          avatar_bg_color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean
+          name: string
+          organization_id: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          avatar_bg_color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          organization_id: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          avatar_bg_color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          organization_id?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_crms_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_lead_activities: {
         Row: {
           actor_agent_id: string | null
@@ -5270,6 +5317,7 @@ export type Database = {
       crm_pipelines: {
         Row: {
           created_at: string
+          crm_id: string
           description: string | null
           id: string
           is_archived: boolean
@@ -5285,6 +5333,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          crm_id?: string
           description?: string | null
           id?: string
           is_archived?: boolean
@@ -5300,6 +5349,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          crm_id?: string
           description?: string | null
           id?: string
           is_archived?: boolean
@@ -5314,6 +5364,13 @@ export type Database = {
           vocabulary?: Json
         }
         Relationships: [
+          {
+            foreignKeyName: "crm_pipelines_crm_fkey"
+            columns: ["organization_id", "crm_id"]
+            isOneToOne: false
+            referencedRelation: "crm_crms"
+            referencedColumns: ["organization_id", "id"]
+          },
           {
             foreignKeyName: "crm_pipelines_organization_id_fkey"
             columns: ["organization_id"]
@@ -10680,6 +10737,26 @@ export type Database = {
       fn_upsert_wa_conversation: {
         Args: { p_contact: string; p_org: string; p_session: string }
         Returns: string
+      }
+      fn_crm_duplicar: {
+        Args: { p_crm: string; p_name: string; p_slug: string }
+        Returns: string
+      }
+      fn_crms_com_metricas: {
+        Args: { p_org: string }
+        Returns: {
+          avatar_bg_color: string | null
+          created_at: string
+          description: string | null
+          funis_count: number
+          id: string
+          is_default: boolean
+          last_updated_at: string | null
+          leads_count: number
+          name: string
+          slug: string
+          updated_at: string
+        }[]
       }
       fn_user_org_ids: { Args: never; Returns: string[] }
       fn_user_role_in: { Args: { p_org: string }; Returns: number }

@@ -1,7 +1,7 @@
 import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * PATCH/DELETE /api/v1/pipelines/[id] — renomear, descrever, reordenar, eleger
- * padrão, arquivar e (só no caso limpo) excluir um funil.
+ * padrão, mover para outro CRM, arquivar e (só no caso limpo) excluir um funil.
  *
  * ⚠️ DELETE ARQUIVA POR PADRÃO. Três dependências cobram isso, e só uma delas o
  * banco defende sozinho: `crm_leads_pipeline_id_fkey` é `ON DELETE RESTRICT` (o
@@ -34,7 +34,7 @@ import {
 } from "@/lib/pipelines/pipeline-editing";
 import { createClient } from "@/lib/supabase/server";
 
-import { conflitoDoBanco, corpo, lerDependencias, lerFunis } from "../_funis";
+import { conflitoDoBanco, corpo, crmVivoDaOrg, lerDependencias, lerFunis } from "../_funis";
 import { traduzir } from "@/lib/i18n/dicionario";
 
 export const dynamic = "force-dynamic";
@@ -74,11 +74,19 @@ const bodySchema = z
      */
     is_archived: z.boolean().optional(),
     depois_de: z.string().min(1).nullable().optional(),
+    /**
+     * MOVER PARA OUTRO CRM (migration 9004). Só CRM vivo da mesma
+     * organização — a chave estrangeira composta recusa o de outra org, e a
+     * rota recusa o arquivado com frase. Nada mais muda no funil: etapas,
+     * negócios e o lugar de padrão vão junto.
+     */
+    crm_id: z.string().uuid().optional(),
   })
   .strict()
   .refine((b) => Object.keys(b).length > 0, { message: "Nada para alterar." });
 
 type PatchDoFunil = {
+  crm_id?: string;
   name?: string;
   description?: string | null;
   position?: number;
@@ -189,6 +197,18 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx): Promise<Response> 
   }
 
   const patchDoAlvo: PatchDoFunil = {};
+  if (pedido.crm_id !== undefined && pedido.crm_id !== alvo.crm_id) {
+    try {
+      if (!(await crmVivoDaOrg(supabase, orgId, pedido.crm_id))) {
+        return fail("unprocessable_entity", t("CRM não encontrado. Escolha um CRM ativo da organização."), 422, {
+          requestId,
+        });
+      }
+    } catch (err) {
+      return fail("internal_error", (err as Error).message, 500, { requestId });
+    }
+    patchDoAlvo.crm_id = pedido.crm_id;
+  }
   if (pedido.name !== undefined) patchDoAlvo.name = pedido.name.trim();
   if (pedido.description !== undefined) {
     patchDoAlvo.description = pedido.description?.trim() || null;
@@ -274,7 +294,11 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx): Promise<Response> 
       // Tirar do arquivo tem código PRÓPRIO, espelhando o `pipeline.archived`
       // que o DELETE emite: quem audita quer saber quem trouxe o funil de volta,
       // e `pipeline.updated` esconderia isso entre os renames.
-      action: tiraDoArquivo ? "pipeline.unarchived" : "pipeline.updated",
+      action: tiraDoArquivo
+        ? "pipeline.unarchived"
+        : patchDoAlvo.crm_id !== undefined
+          ? "pipeline.moved_crm"
+          : "pipeline.updated",
       actorUserId: authz.user.id,
       organizationId: orgId,
       resourceType: "crm_pipeline",
