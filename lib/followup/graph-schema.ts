@@ -664,6 +664,17 @@ export const flowSettingsSchema = z.strictObject({
    * alguém esquece de conferir antes de publicar.
    */
   somente_interno: z.boolean().optional(),
+  /**
+   * FLUXOS (fork jhoow): com `gatilhos`, a palavra precisa ser a mensagem
+   * INTEIRA (sem diferença de maiúscula, acento e pontuação nas pontas), e não
+   * só aparecer dentro dela. Ausente = "contém".
+   */
+  gatilho_exato: z.boolean().optional(),
+  /**
+   * FLUXOS (fork jhoow): o fluxo começa sozinho na PRIMEIRA mensagem que um
+   * contato manda para a empresa. Palavra-gatilho ganha deste quando as duas casam.
+   */
+  entrada_primeiro_contato: z.boolean().optional(),
 });
 export type FlowSettings = z.infer<typeof flowSettingsSchema>;
 

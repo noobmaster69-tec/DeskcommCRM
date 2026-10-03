@@ -31,6 +31,7 @@ import { DistribuidorForm } from "@/app/app/fluxos/_blocos/DistribuidorForm";
 import { ConexaoFluxoForm } from "@/app/app/fluxos/_blocos/ConexaoFluxoForm";
 import { KanbanForm } from "@/app/app/fluxos/_blocos/KanbanForm";
 import { NotificacaoForm } from "@/app/app/fluxos/_blocos/NotificacaoForm";
+import { EntradaDoFluxo } from "@/app/app/fluxos/_blocos/EntradaDoFluxo";
 import type { ConfigOf } from "./forms/shared";
 import { NODE_VISUALS } from "./nodes/nodeVisuals";
 
@@ -112,11 +113,7 @@ export function NodeConfigPanel({
 
       <div className="space-y-4 border-t border-border pt-4">
         {type === "trigger" && surface === "fluxo" && (
-          <p className="text-sm text-text-muted">
-            {t(
-              "Início do fluxo. Por enquanto o fluxo é disparado pelo Inbox: abra a conversa e use \"Disparar fluxo\". Enquanto o contato estiver no fluxo, o agente de IA não responde.",
-            )}
-          </p>
+          <EntradaDoFluxo settings={settings} onSettingsChange={onSettingsChange} />
         )}
         {type === "trigger" && surface !== "atendimento" && surface !== "fluxo" && (
           <div className="space-y-4">

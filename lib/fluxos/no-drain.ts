@@ -24,3 +24,22 @@ export async function fluxoAtivoDoContato(
   );
   return rows[0] ?? null;
 }
+
+/**
+ * A organização tem algum fluxo PUBLICADO? Pré-filtro barato (pg puro) da
+ * entrada automática: sem fluxo nenhum, o drain nem abre o client do Supabase
+ * — que é o caso de quase toda mensagem de quase toda instalação.
+ */
+export async function organizacaoTemFluxoAtivo(db: Queryable, organizationId: string): Promise<boolean> {
+  const { rows } = await db.query<{ ok: number }>(
+    `select 1 as ok
+       from followup_flow_pointers
+      where organization_id = $1
+        and surface = 'fluxo'
+        and status = 'active'
+        and active_version_id is not null
+      limit 1`,
+    [organizationId],
+  );
+  return rows.length > 0;
+}

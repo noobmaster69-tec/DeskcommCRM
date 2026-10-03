@@ -23,7 +23,9 @@ import { decidirRajada, debounceEfetivo } from './debounce';
 import { avisoDeEventoMorto, IA_QUE_NAO_RESPONDEU } from '@/lib/event-log/aviso-de-evento-morto';
 import { TIPOS_DERIVAVEIS, DERIVACAO_TERMINADA } from '@/lib/messaging/media/derivable';
 import { haQuemAtendaASessao } from '@/lib/ai/agents/quem-atende-a-sessao';
-import { fluxoAtivoDoContato } from '@/lib/fluxos/no-drain';
+import { fluxoAtivoDoContato, organizacaoTemFluxoAtivo } from '@/lib/fluxos/no-drain';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { dispararFluxoPorEntrada } from '@/lib/fluxos/entrada';
 import { decidirElegibilidadeDaConversa } from '@/lib/ai/elegibilidade/consulta-pg';
 import { deveCederTurnoAoRetorno } from '@/lib/followup/ceder-turno-ao-retorno';
 
@@ -301,6 +303,36 @@ async function processEvent(
       status: fluxo.status,
     });
     return 'processado';
+  }
+
+  // ENTRADA AUTOMÁTICA (fork jhoow, Fase C): palavra-gatilho ou primeiro
+  // contato começam um fluxo publicado; com fluxo iniciado, o agente não
+  // recebe o turno desta mensagem. Falha aqui não pode custar o atendimento:
+  // loga e segue para o agente, como se não houvesse fluxo.
+  try {
+    const entrada = !(await organizacaoTemFluxoAtivo(pool, event.organization_id))
+      ? { iniciado: false as const, motivo: 'sem_fluxo' }
+      : await dispararFluxoPorEntrada(createAdminClient(), {
+          organizationId: event.organization_id,
+          contactId: p.contact_id,
+          conversationId: p.conversation_id,
+          channelSessionId: p.channel_session_id,
+          inboundMessageId: p.inbound_message_id,
+        });
+    if (entrada.iniciado) {
+      log.info('drain: mensagem começou um fluxo — turno do agente não aberto', {
+        event_id: event.id,
+        fluxo_id: entrada.fluxoId,
+        enrollment_id: entrada.enrollmentId,
+        porque: entrada.porque,
+      });
+      return 'processado';
+    }
+  } catch (err) {
+    log.warn('drain: entrada automática de fluxo falhou — segue para o agente', {
+      event_id: event.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Ninguém para atender: NÃO gastar. Sem agente publicado para esta sessão e

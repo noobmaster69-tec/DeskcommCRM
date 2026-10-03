@@ -88,7 +88,6 @@ export const DICIONARIO: Traducoes = {
   "Operações": { es: "Operaciones" },
   "Conversas automatizadas que você monta arrastando blocos: mensagens, esperas, decisões, pixel e funil.": { es: "Conversaciones automatizadas que armas arrastrando bloques: mensajes, esperas, decisiones, píxel y embudo." },
   // ─── FLUXOS › BLOCOS DA FASE B (fork jhoow) ───
-  "Início do fluxo. Por enquanto o fluxo é disparado pelo Inbox: abra a conversa e use \"Disparar fluxo\". Enquanto o contato estiver no fluxo, o agente de IA não responde.": { es: "Inicio del flujo. Por ahora el flujo se dispara desde el Inbox: abre la conversación y usa \"Disparar flujo\". Mientras el contacto esté en el flujo, el agente de IA no responde." },
   "Pergunta antes de esperar (opcional)": { es: "Pregunta antes de esperar (opcional)" },
   "Qual é o seu nome?": { es: "¿Cuál es tu nombre?" },
   "Aguardar indefinidamente": { es: "Esperar indefinidamente" },
@@ -203,6 +202,11 @@ export const DICIONARIO: Traducoes = {
   "AAAA-MM-DD": { es: "AAAA-MM-DD" },
   "aberta ou fechada": { es: "abierta o cerrada" },
   "open, pending, closed": { es: "open, pending, closed" },
+  "O fluxo pode começar sozinho pela mensagem do cliente, ou por \"Disparar fluxo\" no Inbox. Enquanto o contato está no fluxo, o agente de IA não responde a ele.": { es: "El flujo puede empezar solo con el mensaje del cliente, o con \"Disparar flujo\" en el Inbox. Mientras el contacto está en el flujo, el agente de IA no le responde." },
+  "preço, catálogo, quero comprar": { es: "precio, catálogo, quiero comprar" },
+  "Só quando a mensagem for exatamente a palavra": { es: "Solo cuando el mensaje sea exactamente la palabra" },
+  "Começar na primeira mensagem de um contato novo": { es: "Empezar con el primer mensaje de un contacto nuevo" },
+  "Vale depois de publicar. Não começa em conversa que está com um atendente, nem com o automático pausado. Se duas palavras de fluxos diferentes casarem, ganha o fluxo com mais palavras na mensagem.": { es: "Vale después de publicar. No empieza en una conversación que está con un agente humano, ni con lo automático en pausa. Si coinciden palabras de flujos diferentes, gana el flujo con más palabras en el mensaje." },
   // ─── APARÊNCIA › MENU LATERAL (fork jhoow, P6) ───
   "Aparência": { es: "Apariencia" },
   "Escolha quais telas e grupos aparecem no seu menu lateral.": { es: "Elige qué pantallas y grupos aparecen en tu menú lateral." },
