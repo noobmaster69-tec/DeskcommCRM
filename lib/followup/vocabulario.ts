@@ -63,6 +63,7 @@ import {
   BLOCO_IA_FALHA_BRANCH_ID,
 } from "./graph-schema";
 import type { EnrollmentOutcome, EnrollmentStatus } from "./node-handlers";
+import { PROVEDORES_COM_CHAVE } from "@/lib/ai/pontos/provedores";
 import type {
   EVENTOS_DO_PIXEL,
   MODOS_DO_DISTRIBUIDOR,
@@ -676,11 +677,7 @@ export const EVENTOS_DO_PIXEL_NA_TELA: Record<(typeof EVENTOS_DO_PIXEL)[number],
   CompleteRegistration: "Cadastro concluído",
 };
 
-export const PROVEDORES_DO_BLOCO_DE_IA_NA_TELA: Record<(typeof PROVEDORES_DO_BLOCO_DE_IA)[number], string> = {
-  openai: "GPT (OpenAI)",
-  google: "Gemini (Google)",
-  anthropic: "Claude (Anthropic)",
-  openrouter: "OpenRouter",
-  deepseek: "DeepSeek",
-};
+export const PROVEDORES_DO_BLOCO_DE_IA_NA_TELA = Object.fromEntries(
+  PROVEDORES_COM_CHAVE.map((p) => [p.id, p.rotulo]),
+) as Record<(typeof PROVEDORES_DO_BLOCO_DE_IA)[number], string>;
 

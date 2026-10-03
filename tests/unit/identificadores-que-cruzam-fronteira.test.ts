@@ -174,6 +174,8 @@ const SITES: { arquivo: string; fronteira: string; papel?: "gerador" | "validado
   { arquivo: "app/api/v1/conversations/[id]/notes/media/route.ts", fronteira: "storage.chave-de-objeto" },
   // Mídia dos blocos de Fluxo (fork jhoow): `{org}/fluxos/{fluxo}/{uuid}.{ext}`.
   { arquivo: "app/api/v1/fluxos/[id]/midia/route.ts", fronteira: "storage.chave-de-objeto" },
+  // A mídia de um fluxo importado do Leona, no mesmo lugar: `{org}/fluxos/{fluxo}/{uuid}.{ext}`.
+  { arquivo: "lib/fluxos/copiar-midia-importada.ts", fronteira: "storage.chave-de-objeto" },
   { arquivo: "app/api/v1/ai/knowledge/sources/upload/route.ts", fronteira: "storage.chave-de-objeto" },
   { arquivo: "app/api/v1/ai/knowledge/sources/route.ts", fronteira: "storage.chave-de-objeto" },
   // O PDF da proposta comercial (#1832): `<org>/<proposta>.pdf`, dois uuids.
