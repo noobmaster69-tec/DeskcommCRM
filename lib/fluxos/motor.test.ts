@@ -71,6 +71,8 @@ function mundo(g: FlowGraph, inicio = "t") {
   const chamadoresCancelados: string[] = [];
   const kanbans: unknown[] = [];
   const notificacoes: Array<{ numero: string; texto: string }> = [];
+  const pixels: Array<{ evento: string; eventoId: string; valor: string | null; pageId: string | null }> = [];
+  let pixelFalha: string | null = null;
 
   const deps: DepsDoMotor = {
     carregarEnrollment: async () => ({ ...enrollment }),
@@ -99,6 +101,11 @@ function mundo(g: FlowGraph, inicio = "t") {
     notificarEquipe: async (_o, _c, numero, texto) => {
       notificacoes.push({ numero, texto });
       return { ok: true, detalhe: numero };
+    },
+    enviarPixel: async (_o, _c, pedido) => {
+      if (pixelFalha) return { ok: false, detalhe: pixelFalha };
+      pixels.push({ evento: pedido.evento, eventoId: pedido.eventoId, valor: pedido.valor, pageId: pedido.pageId });
+      return { ok: true, detalhe: "enviado:telefone" };
     },
     respostasDesde: async (_o, _c, desde) => respostas.filter((r) => r.criadaEm > desde),
     enviar: async (_o, _c, msg, seq) => {
@@ -178,6 +185,10 @@ function mundo(g: FlowGraph, inicio = "t") {
     chamadoresCancelados,
     kanbans,
     notificacoes,
+    pixels,
+    falharPixel(detalhe: string) {
+      pixelFalha = detalhe;
+    },
   };
 }
 
@@ -395,8 +406,8 @@ describe("motor dos fluxos — Aguardar resposta", () => {
 
 describe("motor dos fluxos — guardas", () => {
   it("bloco sem executor nesta fase para alto (dead), sem enviar", async () => {
-    const m = mundo(grafo([no("t", "trigger"), no("p", "pixel", {})], [sempre("t", "p")]));
-    expect(await m.passo()).toEqual({ tipo: "parado", motivo: "bloco_sem_executor:pixel" });
+    const m = mundo(grafo([no("t", "trigger"), no("p", "wait", {})], [sempre("t", "p")]));
+    expect(await m.passo()).toEqual({ tipo: "parado", motivo: "bloco_sem_executor:wait" });
     expect(m.enrollment.status).toBe("dead");
   });
 
@@ -582,5 +593,31 @@ describe("motor dos fluxos — Fase C", () => {
     expect(await m.passo()).toEqual({ tipo: "concluido" });
     expect(m.kanbans).toHaveLength(1);
     expect(m.notificacoes).toEqual([{ numero: "+5511988887777", texto: "Lead Maria Silva chegou" }]);
+  });
+});
+
+describe("motor dos fluxos — Fase D: Pixel", () => {
+  const fim = () => no("f", "end", { outcome: "exhausted" });
+
+  it("manda o evento com valor e page_id interpolados e segue", async () => {
+    const m = mundo(
+      grafo(
+        [no("t", "trigger"), no("p", "pixel", { evento: "Purchase", valor: "{valor_pacote}", moeda: "BRL", page_id: "123" }), fim()],
+        [sempre("t", "p"), sempre("p", "f")],
+      ),
+    );
+    m.campos.valor_pacote = "R$ 29,90";
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    expect(m.pixels).toEqual([{ evento: "Purchase", eventoId: "fluxo:e1:p:1", valor: "R$ 29,90", pageId: "123" }]);
+    expect(m.eventos.some((e) => e.tipo === "pixel")).toBe(true);
+  });
+
+  it("pixel que falha NÃO prende o contato: registra e segue", async () => {
+    const m = mundo(
+      grafo([no("t", "trigger"), no("p", "pixel", { evento: "Lead", moeda: "BRL" }), fim()], [sempre("t", "p"), sempre("p", "f")]),
+    );
+    m.falharPixel("sem_conexao_meta:sem_conexao");
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    expect(m.eventos.find((e) => e.tipo === "pixel_falhou")?.payload).toMatchObject({ detalhe: "sem_conexao_meta:sem_conexao" });
   });
 });

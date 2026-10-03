@@ -143,6 +143,20 @@ export const DICIONARIO: Traducoes = {
   "Fluxo parado. O agente de IA volta a responder.": { es: "Flujo detenido. El agente de IA vuelve a responder." },
   "Em fluxo:": { es: "En flujo:" },
   "Parar fluxo": { es: "Detener flujo" },
+  // ─── FLUXOS › BLOCOS DA FASE D (fork jhoow) ───
+  "Envia o evento para a Meta pela conexão de": { es: "Envía el evento a Meta por la conexión de" },
+  "Configurações › Conversões": { es: "Configuración › Conversiones" },
+  "Se o contato veio de um anúncio, o evento é atribuído ao clique; se não, sai identificado pelo telefone.": {
+    es: "Si el contacto vino de un anuncio, el evento se atribuye al clic; si no, sale identificado por el teléfono.",
+  },
+  "Iniciou o pagamento": { es: "Inició el pago" },
+  "Viu o conteúdo": { es: "Vio el contenido" },
+  "Cadastro concluído": { es: "Registro completado" },
+  "Valor (obrigatório na compra)": { es: "Valor (obligatorio en la compra)" },
+  "Valor (opcional)": { es: "Valor (opcional)" },
+  "29,90 ou {valor_pacote}": { es: "29,90 o {valor_pacote}" },
+  "ID da página do Facebook (opcional)": { es: "ID de la página de Facebook (opcional)" },
+  segundo: { es: "segundo" },
   // ─── FLUXOS › BLOCOS DA FASE C (fork jhoow) ───
   "Adicionar ao funil": { es: "Agregar al embudo" },
   "Até um horário": { es: "Hasta un horario" },

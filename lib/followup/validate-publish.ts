@@ -155,6 +155,7 @@ export const NOS_DA_SUPERFICIE: Record<FollowupFlowSurface, readonly NodeType[]>
   // Fork jhoow — FLUXOS. Cada fase acrescenta aqui os blocos cujo executor ela
   // entrega (`lib/fluxos/motor.ts`). Fase B: Mensagem, Etiquetas, Aguardar.
   // Fase C: Intervalo, Condicional, Distribuidor, Conexão, Kanban, Notificação.
+  // Fase D: Pixel.
   fluxo: [
     'trigger',
     'mensagem',
@@ -166,6 +167,7 @@ export const NOS_DA_SUPERFICIE: Record<FollowupFlowSurface, readonly NodeType[]>
     'conexao_fluxo',
     'kanban',
     'notificacao',
+    'pixel',
     'end',
   ],
 };

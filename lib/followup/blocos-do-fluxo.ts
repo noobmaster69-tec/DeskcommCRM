@@ -182,14 +182,28 @@ export const EVENTOS_DO_PIXEL = [
   "CompleteRegistration",
 ] as const;
 
+/** Como cada evento aparece na tela (chave do dicionário de tradução). */
+export const ROTULO_DO_EVENTO: Record<(typeof EVENTOS_DO_PIXEL)[number], string> = {
+  Purchase: "Compra",
+  Lead: "Lead",
+  InitiateCheckout: "Iniciou o pagamento",
+  AddToCart: "Adicionou ao carrinho",
+  ViewContent: "Viu o conteúdo",
+  CompleteRegistration: "Cadastro concluído",
+};
+
+/**
+ * Fase D: o evento sai pela conexão da Meta da organização (Configurações ›
+ * Conversões) — uma por organização, então o bloco não escolhe "qual pixel".
+ * `page_id` é opcional e aceita variável, como no Leona.
+ */
 export const pixelConfigSchema = z
   .strictObject({
-    /** Id da configuração de conversão da organização (Configurações › Conversões). */
-    pixel_id: z.string().min(1).max(80),
     evento: z.enum(EVENTOS_DO_PIXEL),
-    page_id: z.string().min(1).max(200),
-    valor: z.string().min(1).max(200).optional(),
+    /** Valor do item; aceita variável (`{valor_pacote}`) e "R$ 29,90". */
+    valor: z.string().trim().min(1).max(200).optional(),
     moeda: z.string().regex(/^[A-Z]{3}$/).default("BRL"),
+    page_id: z.string().trim().min(1).max(200).optional(),
   })
   .refine((c) => c.evento !== "Purchase" || Boolean(c.valor), {
     message: "evento Compra exige o valor do item",

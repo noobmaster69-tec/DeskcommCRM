@@ -84,7 +84,7 @@ describe("os 11 blocos — formato", () => {
   });
 
   it("pixel: Compra exige valor; os outros eventos não", () => {
-    const base = { pixel_id: "p1", page_id: "{page_id}" };
+    const base = { page_id: "{page_id}" };
     expect(CONFIG_DO_BLOCO.pixel.safeParse({ ...base, evento: "Purchase" }).success).toBe(false);
     expect(CONFIG_DO_BLOCO.pixel.safeParse({ ...base, evento: "Purchase", valor: "{valor_pacote}" }).success).toBe(true);
     expect(CONFIG_DO_BLOCO.pixel.safeParse({ ...base, evento: "Lead" }).success).toBe(true);

@@ -29,6 +29,7 @@ import type { ItemDaMensagem } from "@/lib/followup/blocos-do-fluxo";
 import { interpolar, type ContextoDeVariaveis } from "./variaveis";
 import { avaliarCondicional } from "./condicao";
 import { fimDoIntervalo } from "./intervalo";
+import type { PedidoDePixel } from "./pixel";
 
 export type StatusDoEnrollment =
   | "active"
@@ -137,6 +138,8 @@ export interface DepsDoMotor {
   kanban(org: string, enrollment: EnrollmentDoFluxo, config: ConfigDoKanban): Promise<{ ok: boolean; detalhe: string }>;
   /** Bloco Notificação: mensagem para o número da EQUIPE, pelo canal da conversa. Nunca lança. */
   notificarEquipe(org: string, conversationId: string, numeroE164: string, texto: string): Promise<{ ok: boolean; detalhe: string }>;
+  /** Bloco Pixel (Fase D): evento para a Meta pela conexão da organização. Nunca lança. */
+  enviarPixel(org: string, contactId: string, pedido: PedidoDePixel): Promise<{ ok: boolean; detalhe: string }>;
   /** Mensagens do lead (inbound) na conversa, depois de `desde`, em ordem. */
   respostasDesde(org: string, conversationId: string, desde: string): Promise<RespostaDoLead[]>;
   /**
@@ -471,6 +474,27 @@ export async function executarPasso(
           ? await deps.notificarEquipe(org, conversa, `+${no.config.ddi}${no.config.numero}`, texto)
           : { ok: false, detalhe: "texto_vazio" };
         await deps.evento(org, enrollment.id, no.id, r.ok ? "notificacao" : "notificacao_falhou", { detalhe: r.detalhe });
+        break;
+      }
+
+      // ── Fase D ──────────────────────────────────────────────────────────
+      case "pixel": {
+        // A visita entra no id do evento: o job refeito manda o MESMO id (a Meta
+        // descarta a cópia); passar de novo pelo bloco num laço é outro evento.
+        const anteriores =
+          (await deps.eventos(org, enrollment.id, no.id, "pixel")).length +
+          (await deps.eventos(org, enrollment.id, no.id, "pixel_falhou")).length;
+        const valor = no.config.valor ? interpolar(no.config.valor, contexto()).trim() || null : null;
+        const pageId = no.config.page_id ? interpolar(no.config.page_id, contexto()).trim() || null : null;
+        const r = await deps.enviarPixel(org, enrollment.contact_id, {
+          evento: no.config.evento,
+          eventoId: `fluxo:${enrollment.id}:${no.id}:${anteriores + 1}`,
+          valor,
+          moeda: no.config.moeda,
+          pageId,
+          agora: deps.agora(),
+        });
+        await deps.evento(org, enrollment.id, no.id, r.ok ? "pixel" : "pixel_falhou", { evento: no.config.evento, detalhe: r.detalhe });
         break;
       }
 

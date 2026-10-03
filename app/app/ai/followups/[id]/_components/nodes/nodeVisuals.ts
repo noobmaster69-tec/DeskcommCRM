@@ -4,6 +4,7 @@ import { Bell, Play, Clock, GitBranch, Brain, ChatCircle, ArrowsClockwise, Paper
 import type { FlowNode, NodeType } from "@/lib/followup/graph-schema";
 import { RESULTADOS_DO_FIM } from "@/lib/followup/vocabulario";
 import { NOS_DA_SUPERFICIE } from "@/lib/followup/validate-publish";
+import { ROTULO_DO_EVENTO } from "@/lib/followup/blocos-do-fluxo";
 
 /**
  * Visual identity per node type — shared by the palette (Task 6.2 increment 2)
@@ -240,7 +241,7 @@ export const NODE_VISUALS: Record<NodeType, NodeVisual> = {
     fluxo_id: "00000000-0000-4000-8000-000000000000",
     retornar: false,
   })),
-  pixel: bloco("pixel", "Pixel", Target, "yellow", () => ({ pixel_id: "configurar", evento: "Lead", page_id: "{page_id}", moeda: "BRL" })),
+  pixel: bloco("pixel", "Pixel", Target, "yellow", () => ({ evento: "Lead", moeda: "BRL" })),
   intervalo: bloco("intervalo", "Intervalo inteligente", Timer, "emerald", () => ({ modo: "duracao", valor: 30, unidade: "minutos" })),
   bloco_ia: bloco("bloco_ia", "Bloco de IA", Robot, "green", () => ({
     provedor: "anthropic",
@@ -279,6 +280,13 @@ function minutos(ms: number): string {
  * RF node's own `type`/`data.config` pair (not a reconstructed `FlowNode`)
  * because the node components only ever see React Flow's generic shape.
  */
+const UNIDADE_NO_SINGULAR: Record<string, string> = { segundos: "segundo", minutos: "minuto", horas: "hora", dias: "dia" };
+
+/** "1 minuto", "2 minutos" — a unidade concorda com o número. */
+function unidadeNoNumero(valor: number, unidade: string): string {
+  return valor === 1 ? (UNIDADE_NO_SINGULAR[unidade] ?? unidade) : unidade;
+}
+
 export function describeNodeConfig(
   type: NodeType,
   config: FlowNode["config"],
@@ -359,7 +367,7 @@ export function describeNodeConfig(
     }
     case "aguardar_resposta": {
       const c = config as ConfigOf<"aguardar_resposta">;
-      return c.sem_limite || !c.tempo ? t("sem limite de tempo") : `${t("até")} ${c.tempo.valor} ${t(c.tempo.unidade)}`;
+      return c.sem_limite || !c.tempo ? t("sem limite de tempo") : `${t("até")} ${c.tempo.valor} ${t(unidadeNoNumero(c.tempo.valor, c.tempo.unidade))}`;
     }
     case "notificacao": {
       const c = config as ConfigOf<"notificacao">;
@@ -379,11 +387,11 @@ export function describeNodeConfig(
     }
     case "pixel": {
       const c = config as ConfigOf<"pixel">;
-      return c.evento;
+      return c.valor ? `${t(ROTULO_DO_EVENTO[c.evento])} · ${c.valor}` : t(ROTULO_DO_EVENTO[c.evento]);
     }
     case "intervalo": {
       const c = config as ConfigOf<"intervalo">;
-      if (c.modo === "duracao") return `${c.valor} ${t(c.unidade)}`;
+      if (c.modo === "duracao") return `${c.valor} ${t(unidadeNoNumero(c.valor, c.unidade))}`;
       if (c.modo === "data") return c.quando;
       return `${c.janelas.length} ${t("janelas de horário")}`;
     }

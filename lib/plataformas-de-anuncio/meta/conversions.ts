@@ -101,24 +101,36 @@ async function enviar(
   // string crua onde ele espera lista é aceito com aviso e ignorado no match.
   if (conversao.telefone) userData.ph = [hash(conversao.telefone)];
 
-  const corpo: Record<string, unknown> = {
-    data: [
-      {
-        event_name: conversao.evento,
-        // Segundos, não milissegundos. Em ms o evento cai a ~55 mil anos no
-        // futuro, e a resposta é 200 — some sem erro.
-        event_time: Math.floor(conversao.ocorridoEm.getTime() / 1000),
-        event_id: conversao.eventoId,
-        action_source: "business_messaging",
-        messaging_channel: "whatsapp",
-        user_data: userData,
-        custom_data: {
-          value: conversao.valorCentavos / 100,
-          currency: conversao.moeda.toUpperCase(),
-        },
+  return postarEvento(
+    credencial,
+    {
+      event_name: conversao.evento,
+      // Segundos, não milissegundos. Em ms o evento cai a ~55 mil anos no
+      // futuro, e a resposta é 200 — some sem erro.
+      event_time: Math.floor(conversao.ocorridoEm.getTime() / 1000),
+      event_id: conversao.eventoId,
+      action_source: "business_messaging",
+      messaging_channel: "whatsapp",
+      user_data: userData,
+      custom_data: {
+        value: conversao.valorCentavos / 100,
+        currency: conversao.moeda.toUpperCase(),
       },
-    ],
-  };
+    },
+    { leadId: conversao.leadId },
+  );
+}
+
+/**
+ * O POST de UM evento e a leitura da resposta — comum à venda do funil e ao
+ * bloco Pixel dos Fluxos. Quem chama já montou o evento no formato do fio.
+ */
+async function postarEvento(
+  credencial: CredencialDeConversao,
+  evento: Record<string, unknown>,
+  paraLog: Record<string, unknown>,
+): Promise<ResultadoDeEnvio> {
+  const corpo: Record<string, unknown> = { data: [evento] };
   if (credencial.testEventCode) corpo.test_event_code = credencial.testEventCode;
 
   const url =
@@ -171,7 +183,7 @@ async function enviar(
   logger.warn("[conversoes.meta] envio recusado", {
     status: resposta.status,
     codigo,
-    leadId: conversao.leadId,
+    ...paraLog,
   });
 
   if (resposta.status === 429 || resposta.status >= 500) {
@@ -184,6 +196,58 @@ export const transporteMeta: TransporteDeConversao = {
   plataforma: "meta_ads",
   enviar,
 };
+
+/** Um evento do bloco Pixel dos Fluxos (fork jhoow, Fase D), no formato da casa. */
+export interface EventoDoFluxo {
+  /** O nome que a pessoa escolheu no bloco (`EVENTOS_DO_PIXEL`). */
+  evento: "Purchase" | "Lead" | "InitiateCheckout" | "AddToCart" | "ViewContent" | "CompleteRegistration";
+  /** Determinístico por inscrição + bloco + visita: o job refeito não conta duas vezes. */
+  eventoId: string;
+  ocorridoEm: Date;
+  /** `ctwa_clid` do contato; `null` = a conversa não veio de anúncio. */
+  cliqueDeOrigem: string | null;
+  /** E.164 só dígitos, em claro — o hash é daqui. */
+  telefone: string | null;
+  valor: number | null;
+  moeda: string;
+  pageId: string | null;
+}
+
+/**
+ * Envia o evento do bloco Pixel.
+ *
+ * Com o clique do anúncio, é conversão de MENSAGEM (`business_messaging` +
+ * `ctwa_clid`), e o "Lead" vira `LeadSubmitted` — o nome que a plataforma usa
+ * para lead de conversa (o mesmo mapeamento do Leona). Sem o clique não há
+ * anúncio a atribuir: o evento sai como conversa (`chat`) identificada só pelo
+ * telefone, que ainda alimenta o público e a otimização.
+ */
+export async function enviarEventoDoFluxo(
+  credencial: CredencialDeConversao,
+  e: EventoDoFluxo,
+): Promise<ResultadoDeEnvio> {
+  if (e.evento === "Purchase" && (e.valor === null || !(e.valor > 0)))
+    return { tipo: "permanente", detalhe: "Compra sem valor: a plataforma recusa, e 0 ensinaria que a venda não vale nada." };
+  if (!e.cliqueDeOrigem && !e.telefone)
+    return { tipo: "permanente", detalhe: "Contato sem clique de anúncio e sem telefone: nada identifica a pessoa." };
+
+  const userData: Record<string, unknown> = {};
+  if (e.cliqueDeOrigem) userData.ctwa_clid = e.cliqueDeOrigem;
+  if (e.telefone) userData.ph = [hash(e.telefone)];
+  if (e.pageId) userData.page_id = e.pageId;
+
+  const evento: Record<string, unknown> = {
+    event_name: e.cliqueDeOrigem && e.evento === "Lead" ? "LeadSubmitted" : e.evento,
+    event_time: Math.floor(e.ocorridoEm.getTime() / 1000),
+    event_id: e.eventoId,
+    action_source: e.cliqueDeOrigem ? "business_messaging" : "chat",
+    user_data: userData,
+  };
+  if (e.cliqueDeOrigem) evento.messaging_channel = "whatsapp";
+  if (e.valor !== null && e.valor > 0) evento.custom_data = { value: e.valor, currency: e.moeda.toUpperCase() };
+
+  return postarEvento(credencial, evento, { eventoId: e.eventoId });
+}
 
 /** Exportados para o teste poder vigiar as regras sem falar com a rede. */
 export const INTERNOS = { hash, classifica4xx, IDADE_MAXIMA_MS, VERSAO_DA_API } as const;
