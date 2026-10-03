@@ -132,7 +132,7 @@ export function MensagemForm({
                 </span>
                 <button
                   type="button"
-                  className="rounded p-1 hover:bg-surface-elevated disabled:opacity-30"
+                  className="rounded-sm p-1 hover:bg-surface-elevated disabled:opacity-30"
                   disabled={idx === 0}
                   onClick={() => mover(idx, -1)}
                   aria-label={t("Subir item")}
@@ -141,7 +141,7 @@ export function MensagemForm({
                 </button>
                 <button
                   type="button"
-                  className="rounded p-1 hover:bg-surface-elevated disabled:opacity-30"
+                  className="rounded-sm p-1 hover:bg-surface-elevated disabled:opacity-30"
                   disabled={idx === itens.length - 1}
                   onClick={() => mover(idx, 1)}
                   aria-label={t("Descer item")}
@@ -150,7 +150,7 @@ export function MensagemForm({
                 </button>
                 <button
                   type="button"
-                  className="rounded p-1 text-error-fg hover:bg-surface-elevated"
+                  className="rounded-sm p-1 text-error-fg hover:bg-surface-elevated"
                   onClick={() => gravar(itens.filter((_, i) => i !== idx))}
                   aria-label={t("Remover item")}
                 >

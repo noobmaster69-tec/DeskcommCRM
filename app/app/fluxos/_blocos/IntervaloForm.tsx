@@ -172,7 +172,7 @@ export function IntervaloForm({ config, onChange }: { config: Config; onChange: 
                 />
                 <button
                   type="button"
-                  className="rounded p-1 text-error-fg hover:bg-surface-elevated disabled:opacity-30"
+                  className="rounded-sm p-1 text-error-fg hover:bg-surface-elevated disabled:opacity-30"
                   disabled={janelas.length === 1}
                   aria-label={t("Remover horário")}
                   onClick={() => gravar({ ...atual, janelas: janelas.filter((_, k) => k !== i) })}

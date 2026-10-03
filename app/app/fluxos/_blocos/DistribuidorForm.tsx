@@ -65,7 +65,7 @@ export function DistribuidorForm({ config, onChange }: { config: Config; onChang
               />
               <button
                 type="button"
-                className="rounded p-1 text-error-fg hover:bg-surface-elevated disabled:opacity-30"
+                className="rounded-sm p-1 text-error-fg hover:bg-surface-elevated disabled:opacity-30"
                 disabled={c.saidas.length <= 2}
                 aria-label={t("Remover saída")}
                 onClick={() => gravar({ ...c, saidas: c.saidas.filter((_, k) => k !== i) })}

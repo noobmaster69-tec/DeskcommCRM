@@ -132,7 +132,7 @@ export function CondicionalForm({ config, onChange }: { config: Config; onChange
               </Select>
               <button
                 type="button"
-                className="rounded p-1 text-error-fg hover:bg-surface-elevated disabled:opacity-30"
+                className="rounded-sm p-1 text-error-fg hover:bg-surface-elevated disabled:opacity-30"
                 disabled={condicoes.length === 1}
                 aria-label={t("Remover regra")}
                 onClick={() => gravar({ regra, condicoes: condicoes.filter((_, k) => k !== i) })}

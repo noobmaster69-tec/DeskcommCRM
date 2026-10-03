@@ -304,6 +304,17 @@ function waitMs(config: Extract<FlowNode, { type: 'wait' }>['config']): number {
 /** A wait node whose duration meets the 5min floor required to break a cycle. */
 function isSufficientWaitNode(node: FlowNode): boolean {
   if (node.type === 'match_reply') return node.config.grace_timeout_ms >= MIN_CYCLE_WAIT_MS;
+  // Fluxos (fork jhoow): o menu que volta ("responda 1, 2 ou 3") passa pelo
+  // Aguardar resposta, que só anda quando o LEAD fala — o ciclo não gira sozinho.
+  // O Intervalo quebra o ciclo quando espera ao menos o piso, ou espera um
+  // horário/data (não giram em sequência no mesmo instante).
+  if (node.type === 'aguardar_resposta') return true;
+  if (node.type === 'intervalo') {
+    const c = node.config;
+    if (c.modo !== 'duracao') return true;
+    const ms = c.valor * { segundos: 1_000, minutos: 60_000, horas: 3_600_000, dias: 86_400_000 }[c.unidade];
+    return ms >= MIN_CYCLE_WAIT_MS;
+  }
   if (node.type !== 'wait') return false;
   return node.config.mode === 'fixed'
     ? node.config.duration_ms >= MIN_CYCLE_WAIT_MS
@@ -672,7 +683,10 @@ export function validateFlowForPublish(
         message: `Nó "${id}" acumula ≥24h de espera e precisa de fallback_template_id.`,
       });
     }
-    if (maxStepsExceeded) {
+    // O teto de passos é do RELÓGIO do follow-up (cada passo é um tique de
+    // minuto). O fluxo anda pelo worker, com o próprio teto por job e
+    // continuação (`lib/fluxos/motor.ts`): um fluxo de venda tem 100+ blocos.
+    if (maxStepsExceeded && surface !== 'fluxo') {
       errors.push({
         node_id: null,
         code: 'max_steps_exceeded',

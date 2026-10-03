@@ -938,19 +938,10 @@ export function nodeBranches(node: BranchableNode): FlowBranch[] {
 
     // Fluxos (fork jhoow): as duas saídas cobrem tudo — respondeu ou o tempo
     // acabou —, então não há saída de escape. O publish exige as duas ligadas;
-    // sem tempo máximo ("aguardar indefinidamente") só existe "Respondeu".
+    // sem tempo máximo ("aguardar indefinidamente") a única saída é a de quem
+    // respondeu, e ela é a saída comum do bloco (uma bolinha só no canvas).
     case 'aguardar_resposta':
-      if (node.config.sem_limite) {
-        return [
-          {
-            id: AGUARDAR_RESPONDEU_BRANCH_ID,
-            label: 'Respondeu',
-            check: null,
-            kind: 'match',
-            condition: { type: 'branch', branch_id: AGUARDAR_RESPONDEU_BRANCH_ID },
-          },
-        ];
-      }
+      if (node.config.sem_limite) return [fallbackBranch(FALLBACK_ALWAYS_LABEL)];
       return [
         {
           id: AGUARDAR_RESPONDEU_BRANCH_ID,

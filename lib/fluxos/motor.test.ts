@@ -368,6 +368,25 @@ describe("motor dos fluxos — Aguardar resposta", () => {
     expect(m.enviadas.at(-1)?.reply_to_message_id).toBe("m1");
   });
 
+  it("aguardar sem limite: uma saída só (a comum) leva quem respondeu", async () => {
+    const m = mundo(
+      grafo(
+        [
+          no("t", "trigger"),
+          no("q", "aguardar_resposta", { sem_limite: true, responder_citando: false }),
+          no("e", "etiquetas", { operacao: "adicionar", etiquetas: ["respondeu"] }),
+          no("f", "end", {}),
+        ],
+        [sempre("t", "q"), sempre("q", "e"), sempre("e", "f")],
+      ),
+    );
+    await m.passo();
+    expect(m.agendados).toHaveLength(0);
+    m.leadDiz("oi");
+    expect(await m.passo({ tipo: "resposta", mensagemId: "m1" })).toEqual({ tipo: "concluido" });
+    expect(m.tags).toContain("respondeu");
+  });
+
   it("mensagem no meio de um envio (fluxo andando) é ignorada pelo motor", async () => {
     const m = mundo(fluxoDePergunta({}));
     expect(await m.passo({ tipo: "resposta", mensagemId: "m1" })).toEqual({ tipo: "ignorado", motivo: "fluxo_em_andamento" });

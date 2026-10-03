@@ -278,7 +278,9 @@ export async function executarPasso(
       if (config.reagir?.ativo && config.reagir.emoji) await deps.reagir(org, conversa, ultimaDoLead, config.reagir.emoji);
       if (config.responder_citando) citar = ultimaDoLead;
       await deps.evento(org, enrollment.id, atual.id, "respondeu", { visita, mensagens: respostas.length });
-      const aresta = proximaAresta(grafo.edges, atual.id, AGUARDAR_RESPONDEU_BRANCH_ID);
+      // Sem tempo máximo o bloco tem uma saída só (a comum, `always`).
+      const aresta =
+        proximaAresta(grafo.edges, atual.id, AGUARDAR_RESPONDEU_BRANCH_ID) ?? proximaAresta(grafo.edges, atual.id, null);
       atual = aresta ? nos.get(aresta.target) : undefined;
     } else {
       return { tipo: "ignorado", motivo: "esperando_resposta" };

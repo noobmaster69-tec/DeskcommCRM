@@ -36,7 +36,7 @@ export function CampoDeTexto(props: {
     });
   }
 
-  const botao = "h-7 min-w-7 rounded px-1.5 text-xs text-text-muted hover:bg-surface-elevated hover:text-text";
+  const botao = "h-7 min-w-7 rounded-sm px-1.5 text-xs text-text-muted hover:bg-surface-elevated hover:text-text";
   return (
     <div className="rounded-md border border-border bg-bg focus-within:border-accent">
       <div className="flex flex-wrap items-center gap-0.5 border-b border-border px-1.5 py-1">
@@ -78,7 +78,7 @@ export function CampoDeTexto(props: {
                     type="button"
                     role="option"
                     aria-selected={false}
-                    className="w-full rounded px-2 py-1 text-left font-mono text-xs hover:bg-surface-elevated"
+                    className="w-full rounded-sm px-2 py-1 text-left font-mono text-xs hover:bg-surface-elevated"
                     onClick={() => {
                       inserir(`{${v}}`);
                       setAbrirVariaveis(false);
@@ -99,7 +99,7 @@ export function CampoDeTexto(props: {
         onChange={(e) => props.onChange(e.target.value)}
         rows={props.linhas ?? 3}
         placeholder={props.placeholder}
-        className="w-full resize-y bg-transparent px-3 py-2 text-sm text-text outline-none placeholder:text-text-subtle"
+        className="w-full resize-y bg-transparent px-3 py-2 text-sm text-text outline-hidden placeholder:text-text-subtle"
       />
     </div>
   );
