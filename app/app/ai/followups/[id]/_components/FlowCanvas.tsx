@@ -63,6 +63,7 @@ import { EndNode } from "./nodes/EndNode";
 import { CollectNode } from "./nodes/CollectNode";
 import { InternalTaskNode } from "./nodes/InternalTaskNode";
 import { SkillNode } from "./nodes/SkillNode";
+import { BlocoDoFluxoNode } from "@/app/app/fluxos/_blocos/BlocoDoFluxoNode";
 
 const EMPTY_GRAPH: FlowGraph = { nodes: [], edges: [] };
 const DND_MIME = "application/x-followup-node-type";
@@ -85,6 +86,21 @@ const nodeTypes: NodeTypes = {
   end: EndNode,
   collect: CollectNode,
   skill: SkillNode,
+  // Fork jhoow — os blocos de FLUXOS usam um cartão só (ícone, cor e saídas
+  // vêm de NODE_VISUALS e de nodeBranches). Todos os 11 entram aqui, mesmo os
+  // que ainda não têm executor: um rascunho que os contenha não cai na caixa
+  // desconhecida do React Flow.
+  mensagem: BlocoDoFluxoNode,
+  etiquetas: BlocoDoFluxoNode,
+  aguardar_resposta: BlocoDoFluxoNode,
+  notificacao: BlocoDoFluxoNode,
+  condicional: BlocoDoFluxoNode,
+  distribuidor: BlocoDoFluxoNode,
+  conexao_fluxo: BlocoDoFluxoNode,
+  pixel: BlocoDoFluxoNode,
+  intervalo: BlocoDoFluxoNode,
+  bloco_ia: BlocoDoFluxoNode,
+  kanban: BlocoDoFluxoNode,
 };
 
 interface Props {

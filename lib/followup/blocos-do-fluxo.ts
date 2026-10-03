@@ -72,7 +72,9 @@ export const mensagemConfigSchema = z.strictObject({
 export const OPERACOES_DE_ETIQUETA = ["adicionar", "remover"] as const;
 export const etiquetasConfigSchema = z.strictObject({
   operacao: z.enum(OPERACOES_DE_ETIQUETA).default("adicionar"),
-  etiquetas: z.array(z.string().trim().min(1).max(60)).min(1).max(20),
+  // 40 = TAMANHO_MAXIMO_DA_TAG (`lib/contacts/tag-normalizada.ts`), o mesmo das
+  // outras portas de escrita de etiqueta do contato.
+  etiquetas: z.array(z.string().trim().min(1).max(40)).min(1).max(20),
 });
 
 // ── #3 Aguardar resposta ────────────────────────────────────────────────────

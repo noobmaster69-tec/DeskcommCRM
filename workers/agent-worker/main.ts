@@ -126,6 +126,7 @@ import {
   type JobKind,
   type JobRow,
 } from "@/lib/agent-engine/queue/queue";
+import { createFluxoStepHandler } from "@/lib/fluxos/passo.handler";
 
 export interface JobHandlerContext {
   workerId: string;
@@ -730,6 +731,9 @@ export async function main(): Promise<void> {
   // worker que não conhecesse o kind faria os jobs morrerem em 'dead' sem que
   // ninguém entendesse por quê.
   handlers.set("operator_turn", createOperatorTurnHandler(turnDeps));
+  // Fork jhoow (Etapa 2, migration 9003): o passo do construtor de Fluxos. Roda
+  // aqui, na hora, e não no relógio de minuto do follow-up.
+  handlers.set("fluxo_step", createFluxoStepHandler(log));
   await startWorker(env, handlers, log);
 }
 

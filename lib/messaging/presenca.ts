@@ -105,3 +105,62 @@ export async function sinalizarDigitando(
     recipient,
   });
 }
+
+// ── Fluxos (fork jhoow): presença com tipo e reação ─────────────────────────
+
+/** O endereço da conversa no canal — `null` quando a sessão não está no ar. */
+async function enderecoDaConversa(supabase: SupabaseClient, organizationId: string, conversationId: string) {
+  const { data } = await supabase
+    .from("conversations")
+    .select(
+      `is_group, group_chat_id, contacts:contact_id(phone_number, wa_identity, wa_lid), ` +
+        `channel_sessions:channel_session_id(${CHANNEL_SESSION_REF_COLUMNS}, status)`,
+    )
+    .eq("id", conversationId)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+  const conversa = data as unknown as ConversaParaPresenca | null;
+  const sessao = conversa?.channel_sessions;
+  if (!conversa || !sessao || sessao.status !== SESSAO_SAUDAVEL) return null;
+  const adapter = getAdapter(sessao.provider ?? DEFAULT_CHANNEL_PROVIDER);
+  const recipient = adapter.resolveRecipient({
+    isGroup: conversa.is_group,
+    groupChatId: conversa.group_chat_id,
+    phoneNumber: conversa.contacts?.phone_number,
+    waIdentity: conversa.contacts?.wa_identity,
+    waLid: conversa.contacts?.wa_lid,
+  });
+  return { adapter, sessionRef: resolveSessionRef(sessao), recipient };
+}
+
+/** "digitando…", "gravando…" ou apagar o indicador. Decorativo: o canal sem suporte não faz nada. */
+export async function sinalizarPresenca(
+  supabase: SupabaseClient,
+  input: SinalizarDigitandoInput & { presenca: "typing" | "recording" | "paused" },
+): Promise<void> {
+  const end = await enderecoDaConversa(supabase, input.organizationId, input.conversationId);
+  if (!end?.recipient || !end.adapter.signalPresence) return;
+  await end.adapter.signalPresence({
+    organizationId: input.organizationId,
+    sessionRef: end.sessionRef,
+    recipient: end.recipient,
+    presence: input.presenca,
+  });
+}
+
+/** Reage com `emoji` à mensagem do lead (`externalId` = `messages.external_id`). */
+export async function reagirAMensagem(
+  supabase: SupabaseClient,
+  input: SinalizarDigitandoInput & { externalId: string; emoji: string },
+): Promise<void> {
+  const end = await enderecoDaConversa(supabase, input.organizationId, input.conversationId);
+  if (!end || !end.adapter.reactToMessage) return;
+  await end.adapter.reactToMessage({
+    organizationId: input.organizationId,
+    sessionRef: end.sessionRef,
+    recipient: end.recipient,
+    externalId: input.externalId,
+    emoji: input.emoji,
+  });
+}
+

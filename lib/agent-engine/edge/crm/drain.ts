@@ -23,6 +23,7 @@ import { decidirRajada, debounceEfetivo } from './debounce';
 import { avisoDeEventoMorto, IA_QUE_NAO_RESPONDEU } from '@/lib/event-log/aviso-de-evento-morto';
 import { TIPOS_DERIVAVEIS, DERIVACAO_TERMINADA } from '@/lib/messaging/media/derivable';
 import { haQuemAtendaASessao } from '@/lib/ai/agents/quem-atende-a-sessao';
+import { fluxoAtivoDoContato } from '@/lib/fluxos/no-drain';
 import { decidirElegibilidadeDaConversa } from '@/lib/ai/elegibilidade/consulta-pg';
 import { deveCederTurnoAoRetorno } from '@/lib/followup/ceder-turno-ao-retorno';
 
@@ -273,6 +274,32 @@ async function processEvent(
   );
   if (convRows[0]?.is_group !== false) {
     log.info('drain: conversa de grupo ou inexistente — evento pulado', { event_id: event.id });
+    return 'processado';
+  }
+
+  // FLUXO ATIVO (fork jhoow, Etapa 2): o fluxo conduz a conversa e o agente de
+  // IA não recebe o turno. Fica ANTES de "há quem atenda a sessão" de propósito:
+  // fluxo roda sem agente publicado nenhum. Se o fluxo está esperando resposta,
+  // a mensagem vira um passo dele; se está no meio de um envio, ela só espera.
+  const fluxo = await fluxoAtivoDoContato(pool, event.organization_id, p.contact_id);
+  if (fluxo) {
+    if (fluxo.status === 'waiting_reply') {
+      await enqueueJob(pool, event.organization_id, {
+        kind: 'fluxo_step',
+        leadId: p.contact_id,
+        sourceEventId: event.id,
+        maxAttempts: 3,
+        payload: {
+          enrollment_id: fluxo.id,
+          motivo: { tipo: 'resposta', mensagemId: p.inbound_message_id },
+        },
+      });
+    }
+    log.info('drain: contato em fluxo — turno do agente não aberto', {
+      event_id: event.id,
+      enrollment_id: fluxo.id,
+      status: fluxo.status,
+    });
     return 'processado';
   }
 

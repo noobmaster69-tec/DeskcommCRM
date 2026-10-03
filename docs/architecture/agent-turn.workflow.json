@@ -327,6 +327,15 @@
       "type": "frontend",
       "label": "Cartão do Jev (/app/ai/providers)",
       "sublabel": "'Escolher qual agente atende': concordou em X de Y (30 dias); 'Não roda' sem roteador ativo; 'Deixar o Jev decidir' por tarefa"
+    },
+    {
+      "id": "fluxo_step",
+      "lane": "worker",
+      "col": 7,
+      "type": "service",
+      "label": "Passo do Fluxo (fork)",
+      "sublabel": "Construtor de Fluxos sem IA: contato em fluxo não abre turno do agente · kind: fluxo_step",
+      "tag": "fluxo_step"
     }
   ],
   "edges": [
@@ -767,6 +776,20 @@
       "to": "jevRoteador",
       "label": "Deixar o Jev decidir / Pausar esta tarefa (settings.jev.tarefas.roteador)",
       "variant": "emphasis"
+    },
+    {
+      "id": "eventlog-fluxo-step",
+      "from": "eventlog",
+      "to": "fluxo_step",
+      "label": "drain: contato em fluxo → resposta vira passo",
+      "route": "drop"
+    },
+    {
+      "id": "fluxo-step-send",
+      "from": "fluxo_step",
+      "to": "send",
+      "label": "cadeia de envio do Inbox + send_ledger (job, seq)",
+      "route": "drop"
     }
   ],
   "cards": [

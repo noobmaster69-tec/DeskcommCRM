@@ -73,6 +73,9 @@ export const CONDITION_FALSE_BRANCH_ID = 'false';
 export const REPEAT_BODY_BRANCH_ID = 'body';
 /** Saída do `repeat` quando o contador chegou a zero. */
 export const REPEAT_DONE_BRANCH_ID = 'done';
+/** As duas saídas do bloco `aguardar_resposta` (Fluxos, fork jhoow). */
+export const AGUARDAR_RESPONDEU_BRANCH_ID = 'respondeu';
+export const AGUARDAR_SEM_RESPOSTA_BRANCH_ID = 'sem_resposta';
 
 /** Branch ids the contract owns — a user-declared branch may not claim one. */
 export const RESERVED_BRANCH_IDS = [
@@ -82,6 +85,8 @@ export const RESERVED_BRANCH_IDS = [
   CONDITION_FALSE_BRANCH_ID,
   REPEAT_BODY_BRANCH_ID,
   REPEAT_DONE_BRANCH_ID,
+  AGUARDAR_RESPONDEU_BRANCH_ID,
+  AGUARDAR_SEM_RESPOSTA_BRANCH_ID,
 ] as const;
 
 /** Id of a branch the user declared (a check, an AI class) — opaque, stable across renames. */
@@ -913,6 +918,26 @@ export function nodeBranches(node: BranchableNode): FlowBranch[] {
           condition: { type: 'branch', branch_id: REPEAT_DONE_BRANCH_ID },
         },
         fallbackBranch(FALLBACK_OTHERS_LABEL),
+      ];
+
+    // Fluxos (fork jhoow): as duas saídas cobrem tudo — respondeu ou o tempo
+    // acabou —, então não há saída de escape. O publish exige as duas ligadas.
+    case 'aguardar_resposta':
+      return [
+        {
+          id: AGUARDAR_RESPONDEU_BRANCH_ID,
+          label: 'Respondeu',
+          check: null,
+          kind: 'match',
+          condition: { type: 'branch', branch_id: AGUARDAR_RESPONDEU_BRANCH_ID },
+        },
+        {
+          id: AGUARDAR_SEM_RESPOSTA_BRANCH_ID,
+          label: 'Não respondeu',
+          check: null,
+          kind: 'match',
+          condition: { type: 'branch', branch_id: AGUARDAR_SEM_RESPOSTA_BRANCH_ID },
+        },
       ];
 
     default:

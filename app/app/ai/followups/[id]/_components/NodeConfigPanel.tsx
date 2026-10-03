@@ -22,6 +22,9 @@ import { MatchReplyForm } from "./forms/MatchReplyForm";
 import { RepeatForm } from "./forms/RepeatForm";
 import { SkillForm } from "./forms/SkillForm";
 import { WaitForm } from "./forms/WaitForm";
+import { MensagemForm } from "@/app/app/fluxos/_blocos/MensagemForm";
+import { EtiquetasForm } from "@/app/app/fluxos/_blocos/EtiquetasForm";
+import { AguardarRespostaForm } from "@/app/app/fluxos/_blocos/AguardarRespostaForm";
 import type { ConfigOf } from "./forms/shared";
 import { NODE_VISUALS } from "./nodes/nodeVisuals";
 
@@ -102,7 +105,14 @@ export function NodeConfigPanel({
       </div>
 
       <div className="space-y-4 border-t border-border pt-4">
-        {type === "trigger" && surface !== "atendimento" && (
+        {type === "trigger" && surface === "fluxo" && (
+          <p className="text-sm text-text-muted">
+            {t(
+              "Início do fluxo. Por enquanto o fluxo é disparado pelo Inbox: abra a conversa e use \"Disparar fluxo\". Enquanto o contato estiver no fluxo, o agente de IA não responde.",
+            )}
+          </p>
+        )}
+        {type === "trigger" && surface !== "atendimento" && surface !== "fluxo" && (
           <div className="space-y-4">
             <p className="text-sm text-text-muted">
               {t(
@@ -155,6 +165,23 @@ export function NodeConfigPanel({
         {type === "internal_task" && (
           <InternalTaskForm
             config={node.data.config as ConfigOf<"internal_task">}
+            onChange={(config) => onChange({ config })}
+          />
+        )}
+        {/* Fork jhoow — blocos de FLUXOS (os formulários moram em app/app/fluxos/_blocos). */}
+        {type === "mensagem" && (
+          <MensagemForm
+            config={node.data.config as ConfigOf<"mensagem">}
+            onChange={(config) => onChange({ config })}
+            {...(flowId !== undefined ? { flowId } : {})}
+          />
+        )}
+        {type === "etiquetas" && (
+          <EtiquetasForm config={node.data.config as ConfigOf<"etiquetas">} onChange={(config) => onChange({ config })} />
+        )}
+        {type === "aguardar_resposta" && (
+          <AguardarRespostaForm
+            config={node.data.config as ConfigOf<"aguardar_resposta">}
             onChange={(config) => onChange({ config })}
           />
         )}

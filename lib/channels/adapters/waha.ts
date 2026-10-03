@@ -150,6 +150,26 @@ export const wahaAdapter: ChannelAdapter = {
     await client.setPresence(input.sessionRef, input.recipient, "typing");
   },
 
+  async signalPresence(input: {
+    sessionRef: string;
+    recipient: string;
+    presence: "typing" | "recording" | "paused";
+  }): Promise<void> {
+    const client = getWahaClient();
+    if (!client) return;
+    await client.setPresence(input.sessionRef, input.recipient, input.presence);
+  },
+
+  async reactToMessage(input: {
+    sessionRef: string;
+    recipient: string | null;
+    externalId: string;
+    emoji: string;
+  }): Promise<void> {
+    const { client, messageId } = enderecoDaMensagem(input);
+    await client.setReaction(input.sessionRef, messageId, input.emoji);
+  },
+
   async editMessage(input: {
     sessionRef: string;
     recipient: string | null;

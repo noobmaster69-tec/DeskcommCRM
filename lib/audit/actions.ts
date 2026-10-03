@@ -92,6 +92,9 @@ export const AUDIT_ACTIONS = [
   "fluxo_pasta.created",
   "fluxo_pasta.updated",
   "fluxo_pasta.deleted",
+  // Fork jhoow (Fase B): alguém pôs um contato num fluxo pelo Inbox.
+  "fluxo.disparado_manualmente",
+  "fluxo.midia_enviada",
   "member.accepted",
   "member.role_changed",
   "member.revoked",

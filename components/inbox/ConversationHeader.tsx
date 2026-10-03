@@ -32,6 +32,7 @@ import { OwnerBadge } from "@/components/kanban/OwnerBadge";
 import { comandoDaConversa, ROTULO_DO_MOTIVO } from "@/lib/inbox/comando-da-conversa";
 import { ReassignDialog } from "@/components/inbox/ReassignDialog";
 import { SnoozeButton } from "@/components/inbox/SnoozeButton";
+import { DispararFluxoButton } from "@/components/inbox/DispararFluxoButton";
 import { DialButton } from "@/components/voice/DialButton";
 import type { ConversationWithContact } from "@/hooks/inbox/useConversationsRealtime";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
@@ -329,6 +330,8 @@ export function ConversationHeader({
             {pausar.isPending ? t("Pausando...") : t("Pausar o automático")}
           </Button>
         )}
+        {/* Fork jhoow (Fluxos, Fase B): grupo não entra em fluxo (nem em IA). */}
+        {!encerrada && !conversation.is_group && <DispararFluxoButton conversationId={conversation.id} />}
         {!encerrada && (
           <Button size="sm" variant="outline" onClick={() => setReassignOpen(true)}>
             {t("Transferir")}

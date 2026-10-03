@@ -96,7 +96,13 @@ export interface LiveEnrollmentRef {
   /** Instante em que o nó estacionou. Sem isto o inbound de uma pergunta
    *  anterior acorda a espera seguinte (ALWAYS → menu de novo). */
   updated_at?: string;
+  /** Superfície do pointer. Fluxo do construtor (fork jhoow) anda pelo worker
+   *  (`lib/fluxos/motor.ts`), não pelo relógio: só o opt-out o alcança aqui. */
+  surface?: string;
 }
+
+/** Fork jhoow: inscrição de FLUXO não reage a resposta nem a handoff por aqui. */
+const ehDoRelogio = (e: LiveEnrollmentRef) => e.surface !== "fluxo";
 
 /** Interface estreita de DB (mesma doutrina de `AdminClient`/`TurnBridgeAdminClient`
  *  — reactivity não usa claim/loadFlowGraph/loadLeadFacts/insertDeadInboxItem, então
@@ -246,8 +252,10 @@ async function reactToInbound(
   // `waiting_reply` e `active`, e ele não é nenhum dos dois. É assim que a
   // espera imune sobrevive — não por um `if` de imunidade, mas por não estar
   // no conjunto que reage.
-  const waitingReply = live.filter((e) => e.status === "waiting_reply");
-  const esperaAtiva = live.filter((e) => e.status === "active");
+  // Fluxo (fork jhoow) sai também: acordá-lo (`next_eval_at = now`) entregaria
+  // o grafo do fluxo ao relógio do follow-up. Quem o move é o drain → `fluxo_step`.
+  const waitingReply = live.filter((e) => e.status === "waiting_reply" && ehDoRelogio(e));
+  const esperaAtiva = live.filter((e) => e.status === "active" && ehDoRelogio(e));
   let reacted = 0;
   for (const e of waitingReply) {
     if (parseCancelOnReply(e.trigger_config)) {
@@ -342,7 +350,7 @@ async function reactToHandoffOpen(
     strOrNull(row.payload.contact_id) ?? (await db.loadConversationContactId(row.organization_id, conversationId));
   if (!contactId) return { matched: true, reacted: 0 };
 
-  const live = await db.loadLiveEnrollmentsForContact(row.organization_id, contactId);
+  const live = (await db.loadLiveEnrollmentsForContact(row.organization_id, contactId)).filter(ehDoRelogio);
   let reacted = 0;
   for (const e of live) {
     if (e.handoff_policy === "allow") continue;
@@ -395,7 +403,7 @@ async function reactToHandoffClose(
   if (!contactId) return { matched: false, reacted: 0 };
 
   const live = await db.loadLiveEnrollmentsForContact(row.organization_id, contactId);
-  const paused = live.filter((e) => e.status === "paused_handoff");
+  const paused = live.filter((e) => e.status === "paused_handoff" && ehDoRelogio(e));
   let reacted = 0;
   for (const e of paused) {
     const key = `reactivity:${row.id}:${e.id}:handoff_resumed`;
@@ -479,7 +487,7 @@ export function createSupabaseReactivityClient(admin: SupabaseClient): Reactivit
       const pointerIds = [...new Set(enrollments.map((e) => e.pointer_id))];
       const { data: pointers, error: pErr } = await admin
         .from("followup_flow_pointers")
-        .select("id, handoff_policy, trigger_config")
+        .select("id, handoff_policy, trigger_config, surface")
         .eq("organization_id", orgId)
         .in("id", pointerIds);
       if (pErr) throw new Error(pErr.message);
@@ -496,6 +504,7 @@ export function createSupabaseReactivityClient(admin: SupabaseClient): Reactivit
           handoff_policy: (p?.handoff_policy as LiveEnrollmentRef["handoff_policy"]) ?? "pause",
           trigger_config: p?.trigger_config ?? null,
           updated_at: typeof e.updated_at === "string" ? e.updated_at : undefined,
+          ...(typeof p?.surface === "string" ? { surface: p.surface } : {}),
         };
       });
     },

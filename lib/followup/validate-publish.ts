@@ -152,9 +152,9 @@ export const NOS_DA_SUPERFICIE: Record<FollowupFlowSurface, readonly NodeType[]>
   followup: ['trigger', 'wait', 'condition', 'ai_classify', 'match_reply', 'repeat', 'action', 'internal_task', 'end'],
   crm_automation: ['trigger', 'wait', 'condition', 'ai_classify', 'match_reply', 'repeat', 'action', 'internal_task', 'end'],
   atendimento: ['trigger', 'collect', 'skill', 'end'],
-  // Fork jhoow — FLUXOS. Fase A: só Início e Fim (o encanamento de salvar e
-  // publicar); cada fase acrescenta aqui os blocos cujo executor ela entrega.
-  fluxo: ['trigger', 'end'],
+  // Fork jhoow — FLUXOS. Cada fase acrescenta aqui os blocos cujo executor ela
+  // entrega (`lib/fluxos/motor.ts`). Fase B: Mensagem, Etiquetas, Aguardar.
+  fluxo: ['trigger', 'mensagem', 'etiquetas', 'aguardar_resposta', 'end'],
 };
 
 /**

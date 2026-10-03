@@ -336,6 +336,29 @@ export interface ChannelAdapter {
   }): Promise<void>;
 
   /**
+   * Presença com o TIPO escolhido (Fluxos, fork jhoow): "digitando…" antes de
+   * texto, "gravando…" antes de áudio, "pausado" para apagar o indicador.
+   * Opcional e decorativo como `signalTyping`; LANÇA quando o transporte recusa.
+   */
+  signalPresence?(input: ChannelTenantScope & {
+    sessionRef: string;
+    recipient: string;
+    presence: "typing" | "recording" | "paused";
+  }): Promise<void>;
+
+  /**
+   * Reage com um emoji à mensagem `externalId` (Fluxos — "Reagir na mensagem do
+   * lead"). Opcional: canal sem reação não implementa, e quem chama testa a
+   * presença do método.
+   */
+  reactToMessage?(input: ChannelTenantScope & {
+    sessionRef: string;
+    recipient: string | null;
+    externalId: string;
+    emoji: string;
+  }): Promise<void>;
+
+  /**
    * Troca o texto de uma mensagem que o próprio atendente já enviou.
    *
    * `externalId` é o que o CRM gravou (`messages.external_id`); `recipient` é o

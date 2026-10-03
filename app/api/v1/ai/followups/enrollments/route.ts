@@ -44,8 +44,10 @@ export async function GET(req: NextRequest): Promise<Response> {
   const supabase = await createClient();
   let query = supabase
     .from("followup_enrollments")
-    .select(ENROLLMENT_LIST_COLUMNS)
+    .select(`${ENROLLMENT_LIST_COLUMNS}, followup_flow_pointers!inner(surface)`)
     .eq("organization_id", activeOrg.orgId)
+    // Fluxo do construtor (fork jhoow) tem tela própria — não é inscrição de follow-up.
+    .neq("followup_flow_pointers.surface", "fluxo")
     .order("updated_at", { ascending: false });
   if (status !== null) query = query.eq("status", status);
 

@@ -89,14 +89,18 @@ async function aplicarTextoAosEnrollmentsEmEspera(
 ): Promise<number> {
   const { data, error } = await admin
     .from("followup_enrollments")
-    .select("*")
+    .select("*, followup_flow_pointers!inner(surface)")
     .eq("organization_id", orgId)
     .in("contact_id", contactIds)
-    .eq("status", "waiting_reply");
+    .eq("status", "waiting_reply")
+    // Fork jhoow: o FLUXO espera resposta no próprio motor (drain → `fluxo_step`);
+    // o motor de follow-up não sabe ler o grafo dele.
+    .neq("followup_flow_pointers.surface", "fluxo");
   if (error) throw new Error(error.message);
   let aplicados = 0;
-  for (const row of data ?? []) {
-    const enrollment = row as EnrollmentRow;
+  for (const linha of data ?? []) {
+    const { followup_flow_pointers: _surface, ...row } = linha as Record<string, unknown>;
+    const enrollment = row as unknown as EnrollmentRow;
     // Sem sent_at não dá pra saber se a mensagem é desta pergunta — fail-closed
     // (igual ao relógio): não avança com texto velho.
     if (!enviadaEm || !inboundEhDestaPergunta(enviadaEm, enrollment.updated_at)) continue;

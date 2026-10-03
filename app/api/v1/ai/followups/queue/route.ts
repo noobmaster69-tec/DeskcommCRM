@@ -191,10 +191,13 @@ export async function GET(req: NextRequest): Promise<Response> {
     .select(
       `id, pointer_id, contact_id, status, current_node_id, next_eval_at, outcome, updated_at, agent_id,
        contacts:contact_id(id, name, display_name, phone_number),
-       followup_flow_pointers:pointer_id(name),
+       followup_flow_pointers:pointer_id!inner(name, surface),
        ai_agents:agent_id(name)`,
     )
     .eq("organization_id", activeOrg.orgId)
+    // Fluxo do construtor (fork jhoow) não é follow-up: ele roda pelo worker e
+    // tem `next_eval_at = 'infinity'`, que aqui viraria "próxima ação: nunca".
+    .neq("followup_flow_pointers.surface", "fluxo")
     .order("next_eval_at", { ascending: true, nullsFirst: false })
     .order("id", { ascending: true })
     .limit(limit + 1);

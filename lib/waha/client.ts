@@ -651,6 +651,20 @@ export class WahaClient {
     if (!res.ok) throw new Error(`waha_${res.status}`);
   }
 
+  /**
+   * Reage a uma mensagem com um emoji (Fluxos, fork jhoow — "Reagir na mensagem
+   * do lead"). `messageId` é o id COMPLETO do WAHA (`false_<chat>_<id>`), o mesmo
+   * que editar e apagar pedem. Emoji vazio remove a reação.
+   */
+  async setReaction(session: string, messageId: string, reaction: string): Promise<void> {
+    const res = await this.fetchComTeto(`${this.baseUrl}/api/reaction`, {
+      method: "PUT",
+      headers: { "X-Api-Key": this.apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ session, messageId, reaction }),
+    });
+    if (!res.ok) throw new Error(`waha_${res.status}`);
+  }
+
   /** Sem `forMe`: para mensagem enviada, WAHA revoga para todos. */
   async deleteMessage(session: string, chatId: string, messageId: string): Promise<void> {
     const path = `/api/${encodeURIComponent(session)}/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`;
