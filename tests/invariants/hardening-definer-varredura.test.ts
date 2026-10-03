@@ -270,6 +270,18 @@ const AUTHENTICATED_PERMITIDO: readonly Excecao[] = [
       "regra do agente; tests/invariants/tags-cor-de-etiqueta.test.ts prova a " +
       "cor.",
   },
+  {
+    fn: "fn_definir_menu_oculto(uuid,jsonb)",
+    razao:
+      "PATCH app/api/v1/me/menu/route.ts usa createClient da sessão (migration 9001, " +
+      "fork jhoow — Configurações › Aparência › Menu lateral). Definer porque a " +
+      "policy de escrita de user_organizations é de admin, e esconder item do PRÓPRIO " +
+      "menu é de qualquer papel. Não tem seletor de usuário: atualiza só a linha " +
+      "`user_id = auth.uid()` da organização pedida, só a coluna menu_oculto, com " +
+      "vínculo ativo; anon sem EXECUTE e auth.uid() nulo recusado. " +
+      "tests/invariants/menu-oculto-so-o-proprio.test.ts prova que a chamada não " +
+      "toca a linha de outra pessoa nem a de outra organização.",
+  },
 ];
 
 interface Definer {

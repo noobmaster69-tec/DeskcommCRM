@@ -322,6 +322,8 @@ const PROVA_PROPRIA: readonly Excecao[] = [
       "UPDATE, DELETE nem TRUNCATE para anon, authenticated ou PUBLIC. O " +
       "isolamento é medido num sentido só (org de teste → outra). Migration 0482.",
   },
+  { tabela: "crm_crms", razao: "tests/invariants/crms-acima-dos-funis.test.ts (migration 9004, fork jhoow) — dois tenants reais por JWT: agent lê os CRMs da própria org e ZERO do vizinho nos dois sentidos; agent não escreve (42501); manager escreve na própria e recebe 42501 na do vizinho; a métrica fn_crms_com_metricas pedida com a org do vizinho devolve zero linhas; FK composta (organization_id, crm_id) recusa funil apontando para CRM de outra org." },
+  { tabela: "fluxo_pastas", razao: "tests/invariants/fluxo-pastas-rls.test.ts (migration 9002, fork jhoow) — dois tenants reais por JWT: agent lê as pastas da própria org e ZERO do vizinho nos dois sentidos; agent não cria; manager cria na própria e recebe 42501 na do vizinho; update e delete cruzados não tocam linha nenhuma; anon sem acesso." },
 ];
 
 /**
