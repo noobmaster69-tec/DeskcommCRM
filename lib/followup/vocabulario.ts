@@ -60,6 +60,7 @@ import {
   AGUARDAR_SEM_RESPOSTA_BRANCH_ID,
   CONDICIONAL_SIM_BRANCH_ID,
   CONDICIONAL_NAO_BRANCH_ID,
+  BLOCO_IA_FALHA_BRANCH_ID,
 } from "./graph-schema";
 import type { EnrollmentOutcome, EnrollmentStatus } from "./node-handlers";
 import type {
@@ -407,6 +408,7 @@ export const RAMOS_RESERVADOS_EM_FRASE: Record<RamoReservado, string> = {
   [AGUARDAR_SEM_RESPOSTA_BRANCH_ID]: "quando o tempo acabou sem resposta",
   [CONDICIONAL_SIM_BRANCH_ID]: "quando a condição é atendida",
   [CONDICIONAL_NAO_BRANCH_ID]: "quando a condição não é atendida",
+  [BLOCO_IA_FALHA_BRANCH_ID]: "quando a IA não conseguiu responder",
 };
 
 /**
@@ -469,6 +471,7 @@ export const RAMOS_RESERVADOS: Record<RamoReservado, string> = {
   [AGUARDAR_SEM_RESPOSTA_BRANCH_ID]: "Não respondeu",
   [CONDICIONAL_SIM_BRANCH_ID]: "Sim",
   [CONDICIONAL_NAO_BRANCH_ID]: "Não",
+  [BLOCO_IA_FALHA_BRANCH_ID]: "Falhou",
 };
 
 // ─── classificação pela IA ───────────────────────────────────────────────
@@ -676,7 +679,8 @@ export const EVENTOS_DO_PIXEL_NA_TELA: Record<(typeof EVENTOS_DO_PIXEL)[number],
 export const PROVEDORES_DO_BLOCO_DE_IA_NA_TELA: Record<(typeof PROVEDORES_DO_BLOCO_DE_IA)[number], string> = {
   openai: "GPT (OpenAI)",
   google: "Gemini (Google)",
-  anthropic: "Anthropic",
-  groq: "Groq",
+  anthropic: "Claude (Anthropic)",
+  openrouter: "OpenRouter",
+  deepseek: "DeepSeek",
 };
 

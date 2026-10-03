@@ -2,9 +2,8 @@ import type { ComponentType } from "react";
 
 import { Bell, Play, Clock, GitBranch, Brain, ChatCircle, ArrowsClockwise, PaperPlaneTilt, Flag, Question, PuzzlePiece, ChatText, Tag, Hourglass, ArrowsSplit, LinkSimple, Target, Timer, Robot, Kanban } from "@/lib/ui/icons";
 import type { FlowNode, NodeType } from "@/lib/followup/graph-schema";
-import { RESULTADOS_DO_FIM } from "@/lib/followup/vocabulario";
+import { EVENTOS_DO_PIXEL_NA_TELA, RESULTADOS_DO_FIM } from "@/lib/followup/vocabulario";
 import { NOS_DA_SUPERFICIE } from "@/lib/followup/validate-publish";
-import { ROTULO_DO_EVENTO } from "@/lib/followup/blocos-do-fluxo";
 
 /**
  * Visual identity per node type — shared by the palette (Task 6.2 increment 2)
@@ -387,7 +386,7 @@ export function describeNodeConfig(
     }
     case "pixel": {
       const c = config as ConfigOf<"pixel">;
-      return c.valor ? `${t(ROTULO_DO_EVENTO[c.evento])} · ${c.valor}` : t(ROTULO_DO_EVENTO[c.evento]);
+      return c.valor ? `${t(EVENTOS_DO_PIXEL_NA_TELA[c.evento])} · ${c.valor}` : t(EVENTOS_DO_PIXEL_NA_TELA[c.evento]);
     }
     case "intervalo": {
       const c = config as ConfigOf<"intervalo">;
@@ -397,7 +396,7 @@ export function describeNodeConfig(
     }
     case "bloco_ia": {
       const c = config as ConfigOf<"bloco_ia">;
-      return c.modelo;
+      return c.enviar_resposta ? `${c.modelo} · ${t("responde o lead")}` : c.modelo;
     }
     case "kanban": {
       const c = config as ConfigOf<"kanban">;

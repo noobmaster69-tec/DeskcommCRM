@@ -79,6 +79,8 @@ export const AGUARDAR_SEM_RESPOSTA_BRANCH_ID = 'sem_resposta';
 /** As duas saídas do bloco `condicional` (Fluxos, fork jhoow). */
 export const CONDICIONAL_SIM_BRANCH_ID = 'sim';
 export const CONDICIONAL_NAO_BRANCH_ID = 'nao';
+/** A saída do Bloco de IA quando a chamada falha (sem chave, erro do provedor). */
+export const BLOCO_IA_FALHA_BRANCH_ID = 'falha';
 
 /** Branch ids the contract owns — a user-declared branch may not claim one. */
 export const RESERVED_BRANCH_IDS = [
@@ -92,6 +94,7 @@ export const RESERVED_BRANCH_IDS = [
   AGUARDAR_SEM_RESPOSTA_BRANCH_ID,
   CONDICIONAL_SIM_BRANCH_ID,
   CONDICIONAL_NAO_BRANCH_ID,
+  BLOCO_IA_FALHA_BRANCH_ID,
 ] as const;
 
 /** Id of a branch the user declared (a check, an AI class) — opaque, stable across renames. */
@@ -994,6 +997,28 @@ export function nodeBranches(node: BranchableNode): FlowBranch[] {
     // ele continua quando o outro fluxo chega ao Fim.
     case 'conexao_fluxo':
       return node.config.retornar ? [fallbackBranch(FALLBACK_ALWAYS_LABEL)] : [];
+
+    // Bloco de IA (fork jhoow, Fase D): uma saída por condicional que a IA
+    // escolhe, a de escape quando nenhuma serve (ou a única, sem condicionais),
+    // e "Falhou" — que o publish exige ligada, como no Leona.
+    case 'bloco_ia':
+      return [
+        ...node.config.condicionais.map((c) => ({
+          id: c.id,
+          label: c.nome,
+          check: null,
+          kind: 'match' as const,
+          condition: { type: 'branch' as const, branch_id: c.id },
+        })),
+        fallbackBranch(node.config.condicionais.length > 0 ? FALLBACK_NONE_LABEL : 'Respondeu'),
+        {
+          id: BLOCO_IA_FALHA_BRANCH_ID,
+          label: 'Falhou',
+          check: null,
+          kind: 'match',
+          condition: { type: 'branch', branch_id: BLOCO_IA_FALHA_BRANCH_ID },
+        },
+      ];
 
     default:
       return [fallbackBranch(FALLBACK_ALWAYS_LABEL)];

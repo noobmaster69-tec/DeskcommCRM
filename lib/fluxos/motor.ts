@@ -18,6 +18,7 @@
  */
 import {
   AGUARDAR_RESPONDEU_BRANCH_ID,
+  BLOCO_IA_FALHA_BRANCH_ID,
   AGUARDAR_SEM_RESPOSTA_BRANCH_ID,
   CONDICIONAL_NAO_BRANCH_ID,
   CONDICIONAL_SIM_BRANCH_ID,
@@ -30,6 +31,7 @@ import { interpolar, type ContextoDeVariaveis } from "./variaveis";
 import { avaliarCondicional } from "./condicao";
 import { fimDoIntervalo } from "./intervalo";
 import type { PedidoDePixel } from "./pixel";
+import type { PedidoDeIa, RespostaDaIa } from "./bloco-ia";
 
 export type StatusDoEnrollment =
   | "active"
@@ -140,6 +142,8 @@ export interface DepsDoMotor {
   notificarEquipe(org: string, conversationId: string, numeroE164: string, texto: string): Promise<{ ok: boolean; detalhe: string }>;
   /** Bloco Pixel (Fase D): evento para a Meta pela conexão da organização. Nunca lança. */
   enviarPixel(org: string, contactId: string, pedido: PedidoDePixel): Promise<{ ok: boolean; detalhe: string }>;
+  /** Bloco de IA (Fase D): uma chamada de modelo com a credencial da empresa. Nunca lança. */
+  chamarIa(org: string, conversationId: string, pedido: PedidoDeIa): Promise<RespostaDaIa>;
   /** Mensagens do lead (inbound) na conversa, depois de `desde`, em ordem. */
   respostasDesde(org: string, conversationId: string, desde: string): Promise<RespostaDoLead[]>;
   /**
@@ -495,6 +499,39 @@ export async function executarPasso(
           agora: deps.agora(),
         });
         await deps.evento(org, enrollment.id, no.id, r.ok ? "pixel" : "pixel_falhou", { evento: no.config.evento, detalhe: r.detalhe });
+        break;
+      }
+
+      case "bloco_ia": {
+        const c = no.config;
+        const r = await deps.chamarIa(org, conversa, {
+          provedor: c.provedor,
+          credencialId: c.credencial_id ?? null,
+          modelo: c.modelo,
+          instrucoes: interpolar(c.prompt, contexto()).trim(),
+          mensagem: interpolar(c.mensagem, contexto()).trim(),
+          condicionais: c.condicionais,
+          entender: c.entender,
+          historico: c.contexto.ativo ? c.contexto.interacoes : 0,
+        });
+        if (!r.ok) {
+          await deps.evento(org, enrollment.id, no.id, "ia_falhou", { detalhe: r.detalhe });
+          ramo = BLOCO_IA_FALHA_BRANCH_ID;
+          break;
+        }
+        await deps.evento(org, enrollment.id, no.id, "ia", { modelo: r.modelo, origem: r.origem, rota: r.rota });
+        if (c.salvar_em && r.resposta) {
+          await deps.salvarCampo(org, enrollment.contact_id, c.salvar_em, r.resposta);
+          // Os blocos seguintes leem `{ai.response}` já com a resposta.
+          contato.campos[c.salvar_em] = r.resposta;
+        }
+        if (c.enviar_resposta && r.resposta) {
+          const envio = await deps.enviar(org, conversa, { type: "text", body: r.resposta }, ++seq);
+          const parada = await pararSeNaoSaiu(deps, enrollment, envio);
+          if (parada) return parada;
+        }
+        // Sem rota (ou sem condicionais) segue pela saída de escape.
+        ramo = r.rota;
         break;
       }
 

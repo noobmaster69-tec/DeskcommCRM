@@ -5,7 +5,8 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EVENTOS_DO_PIXEL, ROTULO_DO_EVENTO, pixelConfigSchema } from "@/lib/followup/blocos-do-fluxo";
+import { EVENTOS_DO_PIXEL, pixelConfigSchema } from "@/lib/followup/blocos-do-fluxo";
+import { EVENTOS_DO_PIXEL_NA_TELA } from "@/lib/followup/vocabulario";
 import { useT } from "@/hooks/i18n/useT";
 import type { ConfigOf } from "@/app/app/ai/followups/[id]/_components/forms/shared";
 
@@ -54,7 +55,7 @@ export function PixelForm({ config, onChange }: { config: Config; onChange: (c: 
           <SelectContent>
             {EVENTOS_DO_PIXEL.map((e) => (
               <SelectItem key={e} value={e}>
-                {t(ROTULO_DO_EVENTO[e])}
+                {t(EVENTOS_DO_PIXEL_NA_TELA[e])}
               </SelectItem>
             ))}
           </SelectContent>

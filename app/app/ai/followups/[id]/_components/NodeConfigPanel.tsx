@@ -32,6 +32,7 @@ import { ConexaoFluxoForm } from "@/app/app/fluxos/_blocos/ConexaoFluxoForm";
 import { KanbanForm } from "@/app/app/fluxos/_blocos/KanbanForm";
 import { NotificacaoForm } from "@/app/app/fluxos/_blocos/NotificacaoForm";
 import { PixelForm } from "@/app/app/fluxos/_blocos/PixelForm";
+import { BlocoIaForm } from "@/app/app/fluxos/_blocos/BlocoIaForm";
 import { EntradaDoFluxo } from "@/app/app/fluxos/_blocos/EntradaDoFluxo";
 import type { ConfigOf } from "./forms/shared";
 import { NODE_VISUALS } from "./nodes/nodeVisuals";
@@ -213,6 +214,9 @@ export function NodeConfigPanel({
         )}
         {type === "pixel" && (
           <PixelForm config={node.data.config as ConfigOf<"pixel">} onChange={(config) => onChange({ config })} />
+        )}
+        {type === "bloco_ia" && (
+          <BlocoIaForm config={node.data.config as ConfigOf<"bloco_ia">} onChange={(config) => onChange({ config })} />
         )}
         {type === "end" && (
           <EndForm

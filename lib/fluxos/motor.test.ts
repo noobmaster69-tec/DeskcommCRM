@@ -11,6 +11,7 @@ import {
   type OrigemDoFluxo,
   type RespostaDoLead,
 } from "./motor";
+import type { RespostaDaIa } from "./bloco-ia";
 
 /**
  * O motor dos Fluxos (fork jhoow, Fase B) contra um mundo falso: grafo, inscrição,
@@ -73,6 +74,8 @@ function mundo(g: FlowGraph, inicio = "t") {
   const notificacoes: Array<{ numero: string; texto: string }> = [];
   const pixels: Array<{ evento: string; eventoId: string; valor: string | null; pageId: string | null }> = [];
   let pixelFalha: string | null = null;
+  const pedidosDeIa: unknown[] = [];
+  let respostaDaIa: RespostaDaIa = { ok: true, resposta: "Olá!", rota: null, modelo: "m", origem: "credencial" };
 
   const deps: DepsDoMotor = {
     carregarEnrollment: async () => ({ ...enrollment }),
@@ -106,6 +109,10 @@ function mundo(g: FlowGraph, inicio = "t") {
       if (pixelFalha) return { ok: false, detalhe: pixelFalha };
       pixels.push({ evento: pedido.evento, eventoId: pedido.eventoId, valor: pedido.valor, pageId: pedido.pageId });
       return { ok: true, detalhe: "enviado:telefone" };
+    },
+    chamarIa: async (_o, _c, pedido) => {
+      pedidosDeIa.push(pedido);
+      return respostaDaIa;
     },
     respostasDesde: async (_o, _c, desde) => respostas.filter((r) => r.criadaEm > desde),
     enviar: async (_o, _c, msg, seq) => {
@@ -188,6 +195,10 @@ function mundo(g: FlowGraph, inicio = "t") {
     pixels,
     falharPixel(detalhe: string) {
       pixelFalha = detalhe;
+    },
+    pedidosDeIa,
+    iaResponde(r: RespostaDaIa) {
+      respostaDaIa = r;
     },
   };
 }
@@ -619,5 +630,68 @@ describe("motor dos fluxos — Fase D: Pixel", () => {
     m.falharPixel("sem_conexao_meta:sem_conexao");
     expect(await m.passo()).toEqual({ tipo: "concluido" });
     expect(m.eventos.find((e) => e.tipo === "pixel_falhou")?.payload).toMatchObject({ detalhe: "sem_conexao_meta:sem_conexao" });
+  });
+});
+
+describe("motor dos fluxos — Fase D: Bloco de IA", () => {
+  const fim = (id = "f") => no(id, "end", { outcome: "exhausted" });
+  const ia = (extra: Record<string, unknown> = {}) =>
+    no("ia", "bloco_ia", {
+      provedor: "anthropic",
+      modelo: "claude-sonnet-5-5",
+      mensagem: "{ultima_mensagem}",
+      salvar_em: "ai.response",
+      enviar_resposta: true,
+      prompt: "Você atende {nome}.",
+      entender: { audio: false, imagem: false, pdf: false },
+      condicionais: [],
+      contexto: { ativo: true, interacoes: 4 },
+      ...extra,
+    });
+
+  it("responde o lead, salva no campo e segue pela saída comum; a variável já vale no bloco seguinte", async () => {
+    const m = mundo(
+      grafo(
+        [no("t", "trigger"), ia(), no("m", "mensagem", { itens: [{ id: "a", tipo: "texto", texto: "Você disse: {ai.response}" }] }), fim(), fim("x")],
+        [sempre("t", "ia"), sempre("ia", "m"), ramo("ia", "x", "falha"), sempre("m", "f")],
+      ),
+    );
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    expect(m.pedidosDeIa[0]).toMatchObject({ instrucoes: "Você atende Maria Silva.", historico: 4, credencialId: null });
+    expect(m.campos["ai.response"]).toBe("Olá!");
+    expect(m.enviadas.map((e) => e.body)).toEqual(["Olá!", "Você disse: Olá!"]);
+  });
+
+  it("a rota escolhida pela IA decide a saída; sem rota vai pela de escape", async () => {
+    const g = grafo(
+      [
+        no("t", "trigger"),
+        ia({ enviar_resposta: false, condicionais: [{ id: "compra", nome: "Quer comprar", descricao: "pede preço ou pagamento" }] }),
+        fim("fc"),
+        fim("fo"),
+        fim("fx"),
+      ],
+      [sempre("t", "ia"), ramo("ia", "fc", "compra"), sempre("ia", "fo"), ramo("ia", "fx", "falha")],
+    );
+    const a = mundo(g);
+    a.iaResponde({ ok: true, resposta: "ok", rota: "compra", modelo: "m", origem: "credencial" });
+    await a.passo();
+    expect(a.eventos.filter((e) => e.tipo === "no_entrou").map((e) => e.no)).toEqual(["t", "ia", "fc"]);
+    const b = mundo(g);
+    b.iaResponde({ ok: true, resposta: "ok", rota: null, modelo: "m", origem: "credencial" });
+    await b.passo();
+    expect(b.eventos.filter((e) => e.tipo === "no_entrou").map((e) => e.no)).toEqual(["t", "ia", "fo"]);
+    expect(b.enviadas).toHaveLength(0);
+  });
+
+  it("falha da IA segue por 'Falhou' sem mandar nada", async () => {
+    const m = mundo(
+      grafo([no("t", "trigger"), ia(), fim("fo"), fim("fx")], [sempre("t", "ia"), sempre("ia", "fo"), ramo("ia", "fx", "falha")]),
+    );
+    m.iaResponde({ ok: false, detalhe: "sem_credencial:anthropic" });
+    await m.passo();
+    expect(m.eventos.filter((e) => e.tipo === "no_entrou").map((e) => e.no)).toEqual(["t", "ia", "fx"]);
+    expect(m.enviadas).toHaveLength(0);
+    expect(m.eventos.find((e) => e.tipo === "ia_falhou")?.payload).toEqual({ detalhe: "sem_credencial:anthropic" });
   });
 });

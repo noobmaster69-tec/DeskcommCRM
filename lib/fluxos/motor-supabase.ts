@@ -22,6 +22,7 @@ import { inscreverNoFluxo } from "./disparar";
 import { executarKanban } from "./kanban";
 import { notificarEquipePeloCanal } from "./notificacao";
 import { enviarPixelDoFluxo } from "./pixel";
+import { chamarBlocoDeIa } from "./bloco-ia";
 
 const BUCKET = "whatsapp-media";
 
@@ -399,6 +400,10 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
 
     async enviarPixel(org, contactId, pedido) {
       return enviarPixelDoFluxo(admin, org, contactId, pedido);
+    },
+
+    async chamarIa(org, conversationId, pedido) {
+      return chamarBlocoDeIa(admin, org, conversationId, pedido);
     },
   };
 }

@@ -535,7 +535,12 @@ async function decifrarChave(
  * devolve `null` para o chamador cair no padrão com aviso, nunca um fallback
  * silencioso para outro provedor.
  */
-function instanciar(
+/**
+ * Exportado para o Bloco de IA dos Fluxos (fork jhoow): o bloco escolhe a
+ * credencial e o modelo no próprio grafo, e o switch de provedores é este —
+ * uma segunda cópia divergiria no primeiro provedor novo.
+ */
+export function instanciar(
   provider: string,
   apiKey: string,
   modelId: string,

@@ -155,7 +155,7 @@ export const NOS_DA_SUPERFICIE: Record<FollowupFlowSurface, readonly NodeType[]>
   // Fork jhoow — FLUXOS. Cada fase acrescenta aqui os blocos cujo executor ela
   // entrega (`lib/fluxos/motor.ts`). Fase B: Mensagem, Etiquetas, Aguardar.
   // Fase C: Intervalo, Condicional, Distribuidor, Conexão, Kanban, Notificação.
-  // Fase D: Pixel.
+  // Fase D: Pixel e Bloco de IA.
   fluxo: [
     'trigger',
     'mensagem',
@@ -168,6 +168,7 @@ export const NOS_DA_SUPERFICIE: Record<FollowupFlowSurface, readonly NodeType[]>
     'kanban',
     'notificacao',
     'pixel',
+    'bloco_ia',
     'end',
   ],
 };
@@ -736,7 +737,8 @@ export function validateFlowForPublish(
       node.type !== 'aguardar_resposta' &&
       node.type !== 'condicional' &&
       node.type !== 'distribuidor' &&
-      node.type !== 'conexao_fluxo'
+      node.type !== 'conexao_fluxo' &&
+      node.type !== 'bloco_ia'
     )
       continue;
     cobrirRamos(node, outEdges.get(node.id) ?? [], errors, nomes);

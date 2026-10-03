@@ -182,16 +182,6 @@ export const EVENTOS_DO_PIXEL = [
   "CompleteRegistration",
 ] as const;
 
-/** Como cada evento aparece na tela (chave do dicionário de tradução). */
-export const ROTULO_DO_EVENTO: Record<(typeof EVENTOS_DO_PIXEL)[number], string> = {
-  Purchase: "Compra",
-  Lead: "Lead",
-  InitiateCheckout: "Iniciou o pagamento",
-  AddToCart: "Adicionou ao carrinho",
-  ViewContent: "Viu o conteúdo",
-  CompleteRegistration: "Cadastro concluído",
-};
-
 /**
  * Fase D: o evento sai pela conexão da Meta da organização (Configurações ›
  * Conversões) — uma por organização, então o bloco não escolhe "qual pixel".
@@ -237,7 +227,10 @@ export const intervaloConfigSchema = z.discriminatedUnion("modo", [
 ]);
 
 // ── #10 Bloco de IA ─────────────────────────────────────────────────────────
-export const PROVEDORES_DO_BLOCO_DE_IA = ["openai", "google", "anthropic", "groq"] as const;
+/** Os provedores com chave em IA › Credenciais que o bloco sabe chamar (`instanciar`). */
+export const PROVEDORES_DO_BLOCO_DE_IA = ["anthropic", "openai", "google", "openrouter", "deepseek"] as const;
+/** Ids que as saídas da IA não podem usar: são as saídas fixas do bloco. */
+const IDS_RESERVADOS_DA_IA = ["falha", "else"];
 
 export const blocoIaConfigSchema = z.strictObject({
   provedor: z.enum(PROVEDORES_DO_BLOCO_DE_IA),
@@ -251,10 +244,13 @@ export const blocoIaConfigSchema = z.strictObject({
   entender: z
     .strictObject({ audio: z.boolean(), imagem: z.boolean(), pdf: z.boolean() })
     .default({ audio: false, imagem: false, pdf: false }),
+  /** Saídas que a IA escolhe ("quer comprar", "dúvida de prazo"…); vazio = uma saída só. */
   condicionais: z
     .array(z.strictObject({ id: idDeItem, nome: z.string().min(1).max(60), descricao: z.string().min(1).max(500) }))
     .max(10)
-    .default([]),
+    .default([])
+    .refine((l) => new Set(l.map((c) => c.id)).size === l.length, { message: "saídas da IA com id repetido" })
+    .refine((l) => l.every((c) => !IDS_RESERVADOS_DA_IA.includes(c.id)), { message: "id de saída reservado" }),
   contexto: z
     .strictObject({ ativo: z.boolean(), interacoes: z.number().int().min(1).max(20) })
     .default({ ativo: false, interacoes: 5 }),

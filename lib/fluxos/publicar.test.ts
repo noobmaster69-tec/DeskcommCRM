@@ -56,4 +56,26 @@ describe("publicar um fluxo", () => {
     const r = pub([no("t", "trigger"), msg("a"), msg("b"), no("f", "end", {})], [sempre("t", "a"), sempre("a", "b"), sempre("b", "a"), sempre("b", "f")]);
     expect(JSON.stringify(r)).toContain("cycle_without_wait");
   });
+
+  it("Bloco de IA publica com as saídas da IA, a de escape e 'Falhou' ligadas; sem 'Falhou', recusa", () => {
+    const ia = no("ia", "bloco_ia", {
+      provedor: "anthropic",
+      modelo: "claude-sonnet-5-5",
+      condicionais: [{ id: "r1", nome: "Quer comprar", descricao: "pede o preço" }],
+    });
+    const nos = [no("t", "trigger"), ia, no("f1", "end", {}), no("f2", "end", {}), no("f3", "end", {})];
+    const certo = pub(nos, [sempre("t", "ia"), ramo("ia", "f1", "r1"), sempre("ia", "f2"), ramo("ia", "f3", "falha")]);
+    expect(certo).toEqual({ ok: true });
+    const semFalha = pub(nos, [sempre("t", "ia"), ramo("ia", "f1", "r1"), sempre("ia", "f2")]);
+    expect(semFalha.ok).toBe(false);
+    expect(JSON.stringify(semFalha)).toContain("Falhou");
+  });
+
+  it("Pixel publica no fluxo", () => {
+    const r = pub(
+      [no("t", "trigger"), no("p", "pixel", { evento: "Lead", moeda: "BRL" }), no("f", "end", {})],
+      [sempre("t", "p"), sempre("p", "f")],
+    );
+    expect(r).toEqual({ ok: true });
+  });
 });
