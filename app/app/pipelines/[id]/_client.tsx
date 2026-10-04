@@ -28,7 +28,7 @@ import { FilterBar } from "@/components/kanban/FilterBar";
 import { BulkActionBar } from "@/components/kanban/BulkActionBar";
 import { NewLeadDialog } from "@/components/kanban/NewLeadDialog";
 import { Button } from "@/components/ui/button";
-import { Plus } from "@/lib/ui/icons";
+import { Plus, WhatsappLogo } from "@/lib/ui/icons";
 import type { LeadFilters } from "@/lib/kanban/filters";
 import { applyFilters, filtersFromParams, filtersToParams } from "@/lib/kanban/filters";
 import { categoriaDoMotivo } from "@/lib/leads/motivos-de-perda-do-funil";
@@ -157,9 +157,22 @@ export function PipelinePageClient({
             podeGerenciar={ROLE_RANK[role] >= ROLE_RANK.manager}
           />
         </div>
-        <Button onClick={() => setNewOpen(true)} disabled={!data} className="shrink-0">
-          <Plus size={16} className="mr-2" /> {t("Novo Lead")}
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {/* A porta para os números de WhatsApp do CRM (Fase D). Desde que "Abrir
+              CRM" passou a abrir o QUADRO (Fase C), a página do CRM — onde os
+              números se vinculam — só era alcançável pelo caminho no topo, e
+              ninguém a achava. Só manager+, o mesmo corte da rota de vínculo. */}
+          {crm && ROLE_RANK[role] >= ROLE_RANK.manager && (
+            <Button variant="outline" asChild>
+              <Link href={`/app/crms/${crm.slug}#numeros-do-crm`} data-testid="abrir-numeros-do-crm">
+                <WhatsappLogo size={16} className="mr-2" aria-hidden /> {t("Números de WhatsApp")}
+              </Link>
+            </Button>
+          )}
+          <Button onClick={() => setNewOpen(true)} disabled={!data}>
+            <Plus size={16} className="mr-2" /> {t("Novo Lead")}
+          </Button>
+        </div>
       </header>
       {data && (
         <NewLeadDialog

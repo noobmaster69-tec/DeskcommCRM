@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CaretRight } from "@/lib/ui/icons";
 import { NumerosDoCrm, type CrmDaEscolha, type NumeroDoCrm } from "@/components/crms/NumerosDoCrm";
 import { ARCHIVED_AT, queryTolerantToMissingArchived } from "@/lib/channels/archived";
+import { EditarCrm, type CrmEditavel } from "../_components/EditarCrm";
 import { FunisClient, type FunilDaLista } from "./_client";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export default async function CrmPage({ params }: { params: Promise<{ slug: stri
   const supabase = await createClient();
   const { data: crm } = await supabase
     .from("crm_crms")
-    .select("id, name, slug, description")
+    .select("id, name, slug, description, avatar_bg_color, is_default")
     .eq("organization_id", activeOrg.orgId)
     .eq("slug", slug)
     .is("archived_at", null)
@@ -127,7 +128,12 @@ export default async function CrmPage({ params }: { params: Promise<{ slug: stri
           </span>
         </nav>
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">{crm.name}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">{crm.name}</h1>
+            {/* A tela que faltava para renomear, descrever, recolorir, eleger
+                padrão e arquivar o CRM (a rota PATCH/DELETE já existia). */}
+            {podeGerenciar && <EditarCrm crm={crm as CrmEditavel} />}
+          </div>
           <p className="font-mono text-xs text-muted-foreground">/{crm.slug}</p>
           {crm.description ? <p className="text-sm text-muted-foreground">{crm.description}</p> : null}
         </div>

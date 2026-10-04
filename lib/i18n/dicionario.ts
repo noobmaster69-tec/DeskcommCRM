@@ -14012,6 +14012,12 @@ export const DICIONARIO: Traducoes = {
   "Número não encontrado.": { es: "Número no encontrado." },
   "Escolha um CRM, ou desvincule o número.": { es: "Elige un CRM o desvincula el número." },
   "Este número acabou de ser vinculado em outra aba. Recarregue a página.": { es: "Este número acaba de ser vinculado en otra pestaña. Recarga la página." },
+  "Funis e números": { es: "Embudos y números" },
+  "Editar CRM": { es: "Editar CRM" },
+  "CRM atualizado.": { es: "CRM actualizado." },
+  "Nome, endereço, descrição e cor deste CRM.": { es: "Nombre, dirección, descripción y color de este CRM." },
+  "Arquivar o CRM arquiva também os funis dele. Os negócios ficam no histórico, e os números de WhatsApp ligados a ele voltam para o CRM padrão.": { es: "Archivar el CRM archiva también sus embudos. Los negocios quedan en el historial y los números de WhatsApp vinculados vuelven al CRM predeterminado." },
+  "Arquivar CRM": { es: "Archivar CRM" },
 };
 
 /**

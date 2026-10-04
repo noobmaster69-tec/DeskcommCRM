@@ -70,7 +70,8 @@ export function NumerosDoCrm({
   const padrao = crms.find((c) => c.is_default) ?? null;
 
   return (
-    <section className="space-y-3" data-testid="numeros-do-crm">
+    // `id`: a âncora do botão "Números de WhatsApp" do quadro (`#numeros-do-crm`).
+    <section id="numeros-do-crm" className="scroll-mt-6 space-y-3" data-testid="numeros-do-crm">
       <div className="space-y-1">
         <h2 className="text-base font-semibold">{t("Números de WhatsApp")}</h2>
         <p className="max-w-3xl text-sm text-muted-foreground">

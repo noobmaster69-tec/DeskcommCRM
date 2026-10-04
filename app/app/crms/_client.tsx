@@ -90,13 +90,27 @@ function CardDoCrm({ crm }: { crm: CrmDoCard }) {
         <span className="text-xs text-muted-foreground" data-testid={`crm-atualizado-${crm.slug}`}>
           {rodape}
         </span>
-        <Link
-          href={crm.quadro_id ? `/app/pipelines/${crm.quadro_id}` : `/app/crms/${crm.slug}`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-accent-text hover:underline"
-          data-testid={`abrir-crm-${crm.slug}`}
-        >
-          {t("Abrir CRM")} <ArrowRight size={14} aria-hidden />
-        </Link>
+        <div className="flex items-center gap-4">
+          {/* A página do CRM (funis, arquivados e números de WhatsApp). "Abrir CRM"
+              leva ao quadro desde a Fase C, e sem este link a página ficava
+              escondida atrás do caminho no topo do quadro. */}
+          {crm.quadro_id && (
+            <Link
+              href={`/app/crms/${crm.slug}`}
+              className="text-sm text-muted-foreground hover:text-text hover:underline"
+              data-testid={`config-crm-${crm.slug}`}
+            >
+              {t("Funis e números")}
+            </Link>
+          )}
+          <Link
+            href={crm.quadro_id ? `/app/pipelines/${crm.quadro_id}` : `/app/crms/${crm.slug}`}
+            className="inline-flex items-center gap-1 text-sm font-medium text-accent-text hover:underline"
+            data-testid={`abrir-crm-${crm.slug}`}
+          >
+            {t("Abrir CRM")} <ArrowRight size={14} aria-hidden />
+          </Link>
+        </div>
       </footer>
     </article>
   );
