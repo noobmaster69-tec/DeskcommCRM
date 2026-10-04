@@ -7,6 +7,8 @@
  * que a rota espera — com o endereço acompanhando o nome até a pessoa mexer nele.
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CrmsClient, type CrmDoCard } from "./_client";
@@ -40,6 +42,9 @@ const PADRAO: CrmDoCard = {
   leads_count: 12480,
   funis_count: 3,
   last_updated_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+  quadro_id: "p-padrao",
+  description: null,
+  funis: [{ id: "p-padrao", name: "Funil de vendas", color: null, is_primary: true }],
 };
 const GIRLY: CrmDoCard = {
   id: "c-2",
@@ -51,10 +56,16 @@ const GIRLY: CrmDoCard = {
   leads_count: 0,
   funis_count: 1,
   last_updated_at: null,
+  quadro_id: null,
+  description: null,
+  funis: [],
 };
 
 function tela(over: Partial<Parameters<typeof CrmsClient>[0]> = {}) {
+  // O app dá o QueryClient no layout (`app/providers.tsx`); o "Gerenciar funis"
+  // do menu do card usa mutação do React Query.
   return render(
+    <QueryClientProvider client={new QueryClient()}>
     <CrmsClient
       crms={[PADRAO, GIRLY]}
       funisParaImportar={[
@@ -63,7 +74,8 @@ function tela(over: Partial<Parameters<typeof CrmsClient>[0]> = {}) {
       podeGerenciar
       podeImportar
       {...over}
-    />,
+    />
+    </QueryClientProvider>,
   );
 }
 
@@ -199,5 +211,31 @@ describe("modal '+ Novo CRM'", () => {
     expect(await screen.findByTestId("novo-crm-erro")).toHaveTextContent("já é do CRM «PADRÃO»");
     expect(screen.getByTestId("modal-novo-crm")).toBeInTheDocument();
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("menu ⋯ do card (editar, gerenciar funis, arquivar)", () => {
+  it("manager vê o menu; o CRM padrão não oferece arquivar", async () => {
+    tela();
+    await userEvent.click(screen.getByTestId("menu-crm-pedidos"));
+    expect(await screen.findByTestId("menu-crm-editar-pedidos")).toBeTruthy();
+    expect(screen.getByTestId("menu-crm-funis-pedidos")).toBeTruthy();
+    expect(screen.queryByTestId("menu-crm-arquivar-pedidos")).toBeNull();
+  });
+
+  it("'Gerenciar funis' abre o modal com os funis daquele CRM", async () => {
+    tela();
+    await userEvent.click(screen.getByTestId("menu-crm-pedidos"));
+    await userEvent.click(await screen.findByTestId("menu-crm-funis-pedidos"));
+    const modal = await screen.findByTestId("gerenciar-funis-dialog");
+    expect(modal.textContent).toContain("Principal");
+    expect((screen.getByTestId("nome-do-funil") as HTMLInputElement).value).toBe("Funil de vendas");
+  });
+
+  it("'Arquivar CRM' abre o modal já na confirmação", async () => {
+    tela();
+    await userEvent.click(screen.getByTestId("menu-crm-clientes-girly"));
+    await userEvent.click(await screen.findByTestId("menu-crm-arquivar-clientes-girly"));
+    expect(await screen.findByTestId("editar-crm-confirmar-arquivo")).toBeTruthy();
   });
 });

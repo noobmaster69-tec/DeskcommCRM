@@ -46,31 +46,55 @@ const COR_INICIAL = "#386bf8";
  * aparece no modal. O que a tela decide sozinha: só mandar o que mudou, não
  * oferecer "tornar padrão" ao CRM que já é, nem "arquivar" ao padrão.
  */
+/** O botão "Editar CRM" da página do CRM, com o modal. */
 export function EditarCrm({ crm }: { crm: CrmEditavel }) {
   const t = useT();
-  const router = useRouter();
   const [aberto, setAberto] = useState(false);
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setAberto(true)} data-testid="editar-crm">
+        <PencilSimple size={14} className="mr-1.5" aria-hidden /> {t("Editar CRM")}
+      </Button>
+      {aberto && <EditarCrmDialog crm={crm} onClose={() => setAberto(false)} />}
+    </>
+  );
+}
+
+/**
+ * O modal de edição, sem botão próprio: a página do CRM e o menu "⋯" do card na
+ * grade abrem o MESMO modal — duas cópias divergiriam na primeira mudança.
+ *
+ * `naGrade`: aberto pelo card, a tela continua na grade (troca de endereço e
+ * arquivamento só releem a lista); aberto pela página, ela segue o endereço novo
+ * e volta para a grade ao arquivar. `arquivando`: abre já na confirmação de
+ * arquivar (o item "Arquivar CRM" do menu).
+ */
+export function EditarCrmDialog({
+  crm,
+  onClose,
+  naGrade = false,
+  arquivando = false,
+}: {
+  crm: CrmEditavel;
+  onClose: () => void;
+  naGrade?: boolean;
+  arquivando?: boolean;
+}) {
+  const t = useT();
+  const router = useRouter();
+  const aberto = true;
+  const setAberto = (v: boolean) => {
+    if (!v) onClose();
+  };
   const [nome, setNome] = useState(crm.name);
   const [slug, setSlug] = useState(crm.slug);
   const [descricao, setDescricao] = useState(crm.description ?? "");
   const [corLigada, setCorLigada] = useState(crm.avatar_bg_color !== null);
   const [cor, setCor] = useState(crm.avatar_bg_color ?? COR_INICIAL);
   const [padrao, setPadrao] = useState(false);
-  const [confirmandoArquivo, setConfirmandoArquivo] = useState(false);
+  const [confirmandoArquivo, setConfirmandoArquivo] = useState(arquivando && !crm.is_default);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-
-  function abrir() {
-    setNome(crm.name);
-    setSlug(crm.slug);
-    setDescricao(crm.description ?? "");
-    setCorLigada(crm.avatar_bg_color !== null);
-    setCor(crm.avatar_bg_color ?? COR_INICIAL);
-    setPadrao(false);
-    setConfirmandoArquivo(false);
-    setErro(null);
-    setAberto(true);
-  }
 
   function recusa(e: unknown): string {
     return e instanceof ApiError && (e.status === 409 || e.status === 422)
@@ -98,8 +122,9 @@ export function EditarCrm({ crm }: { crm: CrmEditavel }) {
       const r = await apiClient.patch<{ data: { slug: string } }>(`/api/v1/crms/${crm.id}`, corpo);
       toast.success(t("CRM atualizado."));
       setAberto(false);
-      // O endereço é a URL desta página: mudou, a página muda junto.
-      if (r.data.slug !== crm.slug) router.push(`/app/crms/${r.data.slug}`);
+      // O endereço é a URL da página do CRM: mudou, a página muda junto. Na
+      // grade, só relê a lista.
+      if (!naGrade && r.data.slug !== crm.slug) router.push(`/app/crms/${r.data.slug}`);
       else router.refresh();
     } catch (e) {
       setErro(recusa(e));
@@ -115,7 +140,8 @@ export function EditarCrm({ crm }: { crm: CrmEditavel }) {
       await apiClient.delete(`/api/v1/crms/${crm.id}`);
       toast.success(`«${crm.name}» ${t("foi arquivado.")}`);
       setAberto(false);
-      router.push("/app/crms");
+      if (naGrade) router.refresh();
+      else router.push("/app/crms");
     } catch (e) {
       setErro(recusa(e));
       setConfirmandoArquivo(false);
@@ -126,9 +152,6 @@ export function EditarCrm({ crm }: { crm: CrmEditavel }) {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={abrir} data-testid="editar-crm">
-        <PencilSimple size={14} className="mr-1.5" aria-hidden /> {t("Editar CRM")}
-      </Button>
       <Dialog open={aberto} onOpenChange={(v) => (v ? undefined : setAberto(false))}>
         <DialogContent className="sm:max-w-lg" data-testid="modal-editar-crm">
           <DialogHeader>

@@ -9,9 +9,19 @@ import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import { useT } from "@/hooks/i18n/useT";
 import { melhorFrenteSobre } from "@/lib/branding/contraste";
 import { atualizacaoDoCrm } from "@/lib/crms/atualizado";
-import { ArrowRight, Kanban, Plus } from "@/lib/ui/icons";
+import { Archive, ArrowRight, DotsThree, Kanban, PencilSimple, Plus } from "@/lib/ui/icons";
 
 import type { FunilDaLista } from "./[slug]/_client";
+import { GerenciarFunisDialog } from "@/components/kanban/GerenciarFunisDialog";
+import type { FunilDoSeletor } from "@/components/kanban/CorDoFunil";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EditarCrmDialog } from "./_components/EditarCrm";
 import { ImportarLeads } from "./_components/ImportarLeads";
 import { NovoCrm } from "./_components/NovoCrm";
 
@@ -28,9 +38,77 @@ export interface CrmDoCard {
   last_updated_at: string | null;
   /** O funil principal do CRM — "Abrir CRM" leva ao quadro dele. `null` = sem funil vivo. */
   quadro_id: string | null;
+  /** Para o "Editar CRM" do menu do card. */
+  description: string | null;
+  /** Os funis vivos do CRM, na ordem — o "Gerenciar funis" do menu do card. */
+  funis: FunilDoSeletor[];
 }
 
-function CardDoCrm({ crm }: { crm: CrmDoCard }) {
+/**
+ * O menu "⋯" do card (manager+): editar o CRM, gerenciar os funis dele e
+ * arquivá-lo, sem precisar abrir a página do CRM nem o quadro. Os modais são os
+ * MESMOS da página do CRM (`EditarCrmDialog`) e do quadro (`GerenciarFunisDialog`)
+ * — as regras são da API, e duas telas com a mesma regra divergiriam.
+ */
+function MenuDoCrm({ crm }: { crm: CrmDoCard }) {
+  const t = useT();
+  const [aberto, setAberto] = useState<"editar" | "funis" | "arquivar" | null>(null);
+  const editavel = {
+    id: crm.id,
+    name: crm.name,
+    slug: crm.slug,
+    description: crm.description,
+    avatar_bg_color: crm.avatar_bg_color,
+    is_default: crm.is_default,
+  };
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-surface-elevated hover:text-foreground"
+          aria-label={`${t("Opções de")} «${crm.name}»`}
+          data-testid={`menu-crm-${crm.slug}`}
+        >
+          <DotsThree size={20} aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem onSelect={() => setAberto("editar")} data-testid={`menu-crm-editar-${crm.slug}`}>
+            <PencilSimple size={14} className="mr-2" aria-hidden /> {t("Editar CRM")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setAberto("funis")} data-testid={`menu-crm-funis-${crm.slug}`}>
+            <Kanban size={14} className="mr-2" aria-hidden /> {t("Gerenciar funis")}
+          </DropdownMenuItem>
+          {!crm.is_default && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => setAberto("arquivar")}
+                className="text-destructive focus:text-destructive"
+                data-testid={`menu-crm-arquivar-${crm.slug}`}
+              >
+                <Archive size={14} className="mr-2" aria-hidden /> {t("Arquivar CRM")}
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {(aberto === "editar" || aberto === "arquivar") && (
+        <EditarCrmDialog crm={editavel} naGrade arquivando={aberto === "arquivar"} onClose={() => setAberto(null)} />
+      )}
+      {aberto === "funis" && (
+        <GerenciarFunisDialog
+          open
+          onOpenChange={(v) => !v && setAberto(null)}
+          funis={crm.funis}
+          // Nenhum quadro aberto na grade: arquivar ou excluir um funil só relê a lista.
+          pipelineAtualId=""
+        />
+      )}
+    </>
+  );
+}
+
+function CardDoCrm({ crm, podeGerenciar }: { crm: CrmDoCard; podeGerenciar: boolean }) {
   const t = useT();
   // Separador de milhar do idioma da tela ("12.480" em pt, "12,480" em en).
   const formato = new Intl.NumberFormat(useTagDeIdioma());
@@ -69,6 +147,7 @@ function CardDoCrm({ crm }: { crm: CrmDoCard }) {
           </div>
           <p className="truncate font-mono text-xs text-muted-foreground">/{crm.slug}</p>
         </div>
+        {podeGerenciar && <MenuDoCrm crm={crm} />}
       </header>
 
       <dl className="grid grid-cols-2 gap-4">
@@ -189,7 +268,7 @@ export function CrmsClient({
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="crms-grade">
           {crms.map((crm) => (
-            <CardDoCrm key={crm.id} crm={crm} />
+            <CardDoCrm key={crm.id} crm={crm} podeGerenciar={podeGerenciar} />
           ))}
         </div>
       )}
