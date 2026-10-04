@@ -22,6 +22,7 @@ import { z } from "zod";
 import { respostaDeRecusa } from "@/lib/api/recusa";
 import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
+import { FORMATO_DE_COR } from "@/lib/kanban/cores-de-etapa";
 import { arquivarEtapa, atualizarEtapa } from "@/lib/leads/stage-operations";
 import { createClient } from "@/lib/supabase/server";
 import { traduzir } from "@/lib/i18n/dicionario";
@@ -53,6 +54,8 @@ const bodySchema = z
     win_probability: z.number().int().min(0).max(100).nullable().optional(),
     /** Negócio que entra nesta etapa abre um aviso na Central (migration 0440). */
     avisar_na_central: z.boolean().optional(),
+    /** Hex da paleta (`lib/kanban/cores-de-etapa.ts`), ou `null` = sem cor. */
+    color: z.string().regex(FORMATO_DE_COR).nullable().optional(),
   })
   .strict()
   .refine((b) => Object.keys(b).length > 0, { message: "Nada para alterar." });

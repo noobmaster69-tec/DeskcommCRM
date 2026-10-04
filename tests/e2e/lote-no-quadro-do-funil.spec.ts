@@ -514,11 +514,12 @@ test.describe("Quadro do funil — agir em vários cards de uma vez", () => {
         el.scrollTop = el.scrollHeight;
       });
       const cabecalho = coluna(page, etapaOrigemId).locator("[data-cabecalho-da-etapa]");
-      // Quem entra aqui é manager: para ele o nome da etapa é o campo
-      // editável do cabeçalho (#1738), não um <h2>. É o nome que tem de
-      // ficar à vista, qualquer que seja o elemento que o carrega.
+      // Quem entra aqui é manager: para ele o nome da etapa é o botão que
+      // abre a edição da coluna (Funis no modelo Kommo, Fase B), não um <h2>
+      // solto. É o nome que tem de ficar à vista, qualquer que seja o
+      // elemento que o carrega.
       const nomeDaEtapa = cabecalho.getByTestId("nome-etapa-quadro");
-      await expect(nomeDaEtapa).toHaveValue("Origem");
+      await expect(nomeDaEtapa).toHaveText("Origem");
       await expect(nomeDaEtapa).toBeInViewport();
       const topoDoCabecalho = (await cabecalho.boundingBox())!.y;
       const topoDoQuadro = (await quadro.boundingBox())!.y;

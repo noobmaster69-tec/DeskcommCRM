@@ -158,6 +158,10 @@ async function primeiraEtapa(
     .eq("is_archived", false)
     .eq("is_won", false)
     .eq("is_lost", false)
+    // A Etapa de entrada do funil principal (9007) ganha de qualquer posição:
+    // é a coluna declarada para o contato novo, e reordenar as outras não pode
+    // tirá-la da frente.
+    .order("is_entry", { ascending: false })
     .order("position", { ascending: true })
     .limit(1)
     .maybeSingle();

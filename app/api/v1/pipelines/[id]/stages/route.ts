@@ -24,6 +24,7 @@ import { z } from "zod";
 import { respostaDeRecusa } from "@/lib/api/recusa";
 import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
+import { FORMATO_DE_COR } from "@/lib/kanban/cores-de-etapa";
 import { criarEtapa } from "@/lib/leads/stage-operations";
 import { createClient } from "@/lib/supabase/server";
 import { traduzir } from "@/lib/i18n/dicionario";
@@ -36,7 +37,19 @@ interface RouteCtx {
 
 // `.max(80)`: o nome é o topo de uma coluna do quadro, não um parágrafo. O banco
 // não limita, mas a tela quebra muito antes disso.
-const bodySchema = z.object({ name: z.string().min(1).max(80) }).strict();
+/**
+ * Só o nome é obrigatório. A cor e a marcação de ganho/perda chegam juntas para
+ * a coluna nascer pronta pelo modal "+ Nova etapa" do quadro — sem isso seriam
+ * duas idas (criar, depois editar) e uma janela com a coluna pela metade.
+ */
+const bodySchema = z
+  .object({
+    name: z.string().min(1).max(80),
+    color: z.string().regex(FORMATO_DE_COR).nullable().optional(),
+    is_won: z.boolean().optional(),
+    is_lost: z.boolean().optional(),
+  })
+  .strict();
 
 /**
  * GET — as etapas vivas do funil, na ordem do quadro.
@@ -60,10 +73,12 @@ export async function GET(_req: NextRequest, ctx: RouteCtx): Promise<Response> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("crm_stages")
-    .select("id, name, position, is_won, is_lost")
+    .select("id, name, position, color, is_entry, is_won, is_lost")
     .eq("organization_id", authz.org.orgId)
     .eq("pipeline_id", id)
     .eq("is_archived", false)
+    // A Etapa de entrada (9007) primeiro — a mesma ordem do quadro.
+    .order("is_entry", { ascending: false })
     .order("position", { ascending: true });
   if (error) return fail("internal_error", t("Falha ao listar etapas."), 500, { requestId });
 
@@ -105,7 +120,13 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<Response> {
         actor: { type: "user", id: authz.user.id, role: authz.org.role },
         requestId,
       },
-      { pipelineId, nome: parsed.data.name },
+      {
+        pipelineId,
+        nome: parsed.data.name,
+        cor: parsed.data.color,
+        is_won: parsed.data.is_won,
+        is_lost: parsed.data.is_lost,
+      },
     );
     return ok(funil, { status: 201, requestId });
   } catch (err) {

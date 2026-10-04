@@ -28,6 +28,11 @@ export interface Stage {
   slug: string;
   position: number;
   color: string | null;
+  /**
+   * A Etapa de entrada do funil principal (migration 9007): primeira coluna,
+   * fixa — não se renomeia, não se arrasta, não sai do quadro.
+   */
+  is_entry?: boolean;
   is_won: boolean;
   is_lost: boolean;
   is_archived: boolean;

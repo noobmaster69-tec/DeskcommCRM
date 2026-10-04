@@ -114,6 +114,8 @@ describe("POST /api/v1/pipelines/[id]/stages", () => {
         // A última posição do funil é 4000 (a fixture chega embaralhada): a etapa
         // nova entra DEPOIS dela, não no meio.
         position: 5000,
+        // Sem cor pedida, a coluna nasce sem cor — declarado, não omitido.
+        color: null,
       }),
     );
 
@@ -200,3 +202,52 @@ vi.mock("@/lib/impersonate/support", async (importOriginal) => ({
   requireSupportWrite: vi.fn(async () => null),
   authenticatedSessionId: vi.fn(async () => "f2200000-0000-4000-8000-000000000099"),
 }));
+
+describe("POST com cor e marcação (Funis no modelo Kommo, Fase B)", () => {
+  it("cria com a cor no insert e MOVE o ganho: insert, solta a antiga, marca a nova — nessa ordem", async () => {
+    authOk();
+    const db = makeDb({ stages: funil() });
+    const { POST } = await import("./route");
+    const res = await POST(reqPost({ name: "Fechado - ganho", color: "#d7fc70", is_won: true }), ctx);
+
+    expect(res.status).toBe(201);
+    expect(db.escritas.map((e) => e.tipo)).toEqual(["insert", "update", "update"]);
+    expect(db.escritas[0]?.patch).toMatchObject({ name: "Fechado - ganho", color: "#d7fc70" });
+    expect(db.escritas[0]?.patch).not.toHaveProperty("is_won");
+    // «Pago» (e3) era o ganho: solta ANTES — o índice único é imediato.
+    expect(db.escritas[1]?.filtros).toContainEqual(["id", "e3"]);
+    expect(db.escritas[1]?.patch).toEqual(comAutoria({ is_won: false }));
+    expect(db.escritas[2]?.filtros).toContainEqual(["id", "novo-1-0"]);
+    expect(db.escritas[2]?.patch).toEqual(comAutoria({ is_won: true }));
+  });
+
+  it("ganho E perda ao mesmo tempo → 422, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ stages: funil() });
+    const { POST } = await import("./route");
+    const res = await POST(reqPost({ name: "Fim", is_won: true, is_lost: true }), ctx);
+    expect(res.status).toBe(422);
+    expect(db.escritas).toEqual([]);
+  });
+
+  it("cor fora do formato → 422 do Zod, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ stages: funil() });
+    const { POST } = await import("./route");
+    const res = await POST(reqPost({ name: "Retorno", color: "red" }), ctx);
+    expect(res.status).toBe(422);
+    expect(db.escritas).toEqual([]);
+  });
+
+  it("num funil com Etapa de entrada, a coluna nova entra depois da MAIS À DIREITA, não da última da lista", async () => {
+    authOk();
+    // A entrada tem posição alta de propósito: a leitura a põe na frente da
+    // lista, e "a última da lista" deixaria de ser a mais à direita.
+    const db = makeDb({
+      stages: [...funil(), etapa({ id: "en", name: "Etapa de entrada", position: 9000, is_entry: true })],
+    });
+    const { POST } = await import("./route");
+    await POST(reqPost({ name: "Retorno" }), ctx);
+    expect((db.escritas[0]?.patch as Record<string, unknown>).position).toBe(10000);
+  });
+});

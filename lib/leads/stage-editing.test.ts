@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   validarNomeDeEtapa, slugDeNome, validarMarcacao, updatesDeMarcacao,
-  posicaoEntre, validarArquivamento,
+  posicaoEntre, validarArquivamento, validarEdicaoDaEntrada, indiceDoVizinho,
 } from './stage-editing';
 
 const etapas = [
@@ -219,5 +219,63 @@ describe('validarArquivamento', () => {
     // Funil sem etapa nenhuma não recebe negócio novo e some do board.
     const so = [etapas[0]!];
     expect(validarArquivamento(so, 'e1', { negocios: 0, destinoId: null }).ok).toBe(false);
+  });
+});
+
+// A Etapa de entrada do funil principal (migration 9007): primeira coluna,
+// fixa, onde cai todo contato novo do CRM.
+const comEntrada = [
+  { id: 'en', name: 'Etapa de entrada', slug: 'entrada-x', position: 0,    is_won: false, is_lost: false, is_archived: false, agent_stage_hint: null, is_entry: true },
+  ...etapas,
+];
+const entrada = comEntrada[0]!;
+
+describe('a Etapa de entrada (9007)', () => {
+  it('não se renomeia — mas mandar o MESMO nome não é renomear', () => {
+    const r = validarEdicaoDaEntrada(entrada, { name: 'Novos contatos' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.erro).toContain('«Etapa de entrada»');
+    expect(validarEdicaoDaEntrada(entrada, { name: ' Etapa de entrada ' }).ok).toBe(true);
+  });
+
+  it('não muda de lugar', () => {
+    expect(validarEdicaoDaEntrada(entrada, { depois_de: 'e2' }).ok).toBe(false);
+    expect(validarEdicaoDaEntrada(entrada, { depois_de: null }).ok).toBe(false);
+  });
+
+  it('as outras colunas seguem livres para renomear e mover', () => {
+    expect(validarEdicaoDaEntrada(comEntrada[1]!, { name: 'Contato', depois_de: null }).ok).toBe(true);
+  });
+
+  it('não vira etapa de ganho nem de perda', () => {
+    expect(validarMarcacao(comEntrada, 'en', { is_won: true }).ok).toBe(false);
+    expect(validarMarcacao(comEntrada, 'en', { is_lost: true }).ok).toBe(false);
+  });
+
+  it('não se arquiva, mesmo vazia', () => {
+    const r = validarArquivamento(comEntrada, 'en', { negocios: 0, destinoId: null });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.precisaDestino).toBeUndefined();
+  });
+
+  it('pode RECEBER os negócios de uma coluna arquivada — é uma etapa em aberto', () => {
+    expect(validarArquivamento(comEntrada, 'e2', { negocios: 3, destinoId: 'en' }).ok).toBe(true);
+  });
+});
+
+describe('indiceDoVizinho', () => {
+  const ativas = comEntrada.filter((e) => e.id !== 'e2');
+
+  it('"primeira coluna" num funil com entrada quer dizer logo depois dela', () => {
+    expect(indiceDoVizinho(ativas, null)).toBe(0);
+  });
+
+  it('sem entrada, "primeira coluna" é a ponta esquerda de verdade', () => {
+    expect(indiceDoVizinho(etapas, null)).toBe(-1);
+  });
+
+  it('acha o vizinho pedido, e devolve null quando ele sumiu', () => {
+    expect(indiceDoVizinho(ativas, 'e3')).toBe(2);
+    expect(indiceDoVizinho(ativas, 'nao-existe')).toBeNull();
   });
 });

@@ -31,6 +31,9 @@ export interface StageRow {
   is_won: boolean;
   is_lost: boolean;
   is_archived: boolean;
+  /** A Etapa de entrada (9007). Ausente nas fixtures antigas = `false`. */
+  is_entry?: boolean;
+  color?: string | null;
   agent_stage_hint: string | null;
   pipeline_id: string;
   organization_id: string;
@@ -233,7 +236,9 @@ export function makeDb(opts: DbOpts = {}): Registro {
     let patch: Record<string, unknown> | null = null;
     let nova: Record<string, unknown> | Record<string, unknown>[] | null = null;
     let colunas: string[] | null = null;
-    let ordem: string | null = null;
+    // Várias chaves, na ordem das chamadas, como o PostgREST: a leitura do funil
+    // ordena por `is_entry` desc e DEPOIS por `position` (9007).
+    const ordem: Array<{ col: string; asc: boolean }> = [];
     let contar = false;
     let head = false;
     let apagar = false;
@@ -261,7 +266,15 @@ export function makeDb(opts: DbOpts = {}): Registro {
      */
     const lidos = () => {
       let rows = [...casam()];
-      if (ordem) rows.sort((a, b) => Number(a[ordem!]) - Number(b[ordem!]));
+      if (ordem.length > 0) {
+        rows.sort((a, b) => {
+          for (const { col, asc } of ordem) {
+            const d = Number(a[col] ?? 0) - Number(b[col] ?? 0);
+            if (d !== 0) return asc ? d : -d;
+          }
+          return 0;
+        });
+      }
       if (teto !== null) rows = rows.slice(0, teto);
       // `select("*")` (usado por `app/api/v1/leads/_handler.ts`) é o CURINGA do
       // PostgREST — a linha inteira, não uma coluna literal chamada "*". Sem
@@ -396,8 +409,8 @@ export function makeDb(opts: DbOpts = {}): Registro {
         teto = n;
         return b;
       },
-      order: (col: string) => {
-        ordem = col;
+      order: (col: string, o?: { ascending?: boolean }) => {
+        ordem.push({ col, asc: o?.ascending !== false });
         return b;
       },
       maybeSingle: async () => {

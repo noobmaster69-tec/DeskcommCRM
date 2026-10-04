@@ -22,6 +22,8 @@ import { apiClient } from "@/lib/api/client";
 export interface EtapaDoFunil {
   id: string;
   name: string;
+  /** A Etapa de entrada do funil principal (9007): fixa, sempre a primeira. */
+  is_entry?: boolean;
   is_won: boolean;
   is_lost: boolean;
   /**

@@ -685,3 +685,92 @@ vi.mock("@/lib/impersonate/support", async (importOriginal) => ({
   requireSupportWrite: vi.fn(async () => null),
   authenticatedSessionId: vi.fn(async () => "f2200000-0000-4000-8000-000000000099"),
 }));
+
+/** O funil principal (9007): a Etapa de entrada na frente, fora da ordem de `position` na tabela. */
+function funilComEntrada() {
+  return [...funil(), etapa({ id: "en", name: "Etapa de entrada", slug: "entrada-x", position: 0, is_entry: true })];
+}
+
+describe("a Etapa de entrada e a cor (Funis no modelo Kommo, Fase B)", () => {
+  it("renomear a Etapa de entrada → 409 com a frase da regra, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ stages: funilComEntrada() });
+    const { PATCH } = await import("./route");
+    const res = await PATCH(reqPatch({ name: "Novos" }), ctx("en"));
+
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toContain("Etapa de entrada");
+    expect(db.escritas).toEqual([]);
+  });
+
+  it("mover a Etapa de entrada → 409, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ stages: funilComEntrada() });
+    const { PATCH } = await import("./route");
+    const res = await PATCH(reqPatch({ depois_de: "e2" }), ctx("en"));
+
+    expect(res.status).toBe(409);
+    expect(db.escritas).toEqual([]);
+  });
+
+  it("a Etapa de entrada muda de cor — um update só", async () => {
+    authOk();
+    const db = makeDb({ stages: funilComEntrada() });
+    const { PATCH } = await import("./route");
+    const res = await PATCH(reqPatch({ color: "#a4c8fa" }), ctx("en"));
+
+    expect(res.status).toBe(200);
+    expect(db.escritas).toHaveLength(1);
+    expect(db.escritas[0]?.patch).toEqual(comAutoria({ color: "#a4c8fa" }));
+  });
+
+  it("tirar a cor → color null no update, não ausente", async () => {
+    authOk();
+    const db = makeDb({ stages: funil().map((e) => ({ ...e, color: "#f9d9dc" })) });
+    const { PATCH } = await import("./route");
+    await PATCH(reqPatch({ color: null }), ctx());
+    expect(db.escritas[0]?.patch).toEqual(comAutoria({ color: null }));
+  });
+
+  it("cor fora do formato do banco → 422 do Zod, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ stages: funil() });
+    const { PATCH } = await import("./route");
+    const res = await PATCH(reqPatch({ color: "azul" }), ctx());
+    expect(res.status).toBe(422);
+    expect(db.escritas).toEqual([]);
+  });
+
+  it("levar uma coluna para o começo num funil com entrada → cai LOGO DEPOIS dela", async () => {
+    authOk();
+    const db = makeDb({ stages: funilComEntrada() });
+    const { PATCH } = await import("./route");
+    // Entrada em 0, «Novo» em 1000: a «Proposta» vai para o meio, 500.
+    const res = await PATCH(reqPatch({ depois_de: null }), ctx());
+
+    expect(res.status).toBe(200);
+    expect(db.escritas[0]?.patch).toEqual(comAutoria({ position: 500 }));
+  });
+
+  it("a resposta traz a entrada na frente, com is_entry e color", async () => {
+    authOk();
+    makeDb({ stages: funilComEntrada() });
+    const { PATCH } = await import("./route");
+    const res = await PATCH(reqPatch({ name: "Orçamento" }), ctx());
+    const body = (await res.json()) as {
+      data: { etapas: Array<{ id: string; is_entry: boolean; color: string | null }> };
+    };
+    expect(body.data.etapas[0]).toMatchObject({ id: "en", is_entry: true, color: null });
+    expect(body.data.etapas.filter((e) => e.is_entry)).toHaveLength(1);
+  });
+
+  it("arquivar a Etapa de entrada → 422, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ stages: funilComEntrada() });
+    const { DELETE } = await import("./route");
+    const res = await DELETE(reqDelete(), ctx("en"));
+
+    expect(res.status).toBe(422);
+    expect(db.escritas).toEqual([]);
+  });
+});

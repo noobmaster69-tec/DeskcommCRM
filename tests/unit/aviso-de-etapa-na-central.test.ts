@@ -181,7 +181,10 @@ describe("a chave da etapa é gravada e lida pela regra de etapas", () => {
         const q = {
           select: () => q,
           eq: () => q,
-          order: async () => ({ data: linhas, error: null }),
+          // A leitura do funil encadeia DOIS `order` (a Etapa de entrada primeiro,
+          // depois a posição — 9007): a consulta só se resolve no `await`.
+          order: () => q,
+          then: (ok: (v: unknown) => unknown) => Promise.resolve({ data: linhas, error: null }).then(ok),
           maybeSingle: async () => ({ data: tabela === "crm_pipelines" ? { id: PIPE } : null, error: null }),
           update: (patch: Record<string, unknown>) => {
             updates.push(patch);

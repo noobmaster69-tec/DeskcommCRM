@@ -1,12 +1,14 @@
 "use client";
 import { useCallback, useMemo, useState } from "react";
-import { DragDropContext, type DropResult } from "@hello-pangea/dnd";
+import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import { useT } from "@/hooks/i18n/useT";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBoard } from "@/hooks/kanban/useBoard";
 import { useMoveCard, type RecusaDeCampos, type RetomadaPendente } from "@/hooks/kanban/useMoveCard";
-import { useRenameStage } from "@/hooks/kanban/useRenameStage";
+import { useReordenarEtapa } from "@/hooks/kanban/useEtapasDoQuadro";
+import { Plus } from "@/lib/ui/icons";
+import { EtapaDialog } from "./EtapaDialog";
 import { CamposObrigatoriosDialog } from "./CamposObrigatoriosDialog";
 import { useAssignableMembers } from "@/hooks/inbox/useAssignableMembers";
 import { useAtRiskLeads } from "@/hooks/leads/useAtRiskLeads";
@@ -39,12 +41,13 @@ interface KanbanBoardProps {
   /** Lead a abrir já na montagem (deep link `?lead=` — ver o dossiê abaixo). */
   leadInicial?: string | null;
   /**
-   * `manager`+ pode renomear a etapa direto no cabeçalho da coluna — mesmo
-   * corte de papel da rota (`PATCH .../stages/:stageId`, `requireRole("manager")`).
-   * `viewer`/`agent` também abrem este board (ele não é rota manager-only),
-   * então o cabeçalho fica só leitura para eles.
+   * `manager`+ mexe nas colunas direto no quadro: "+ Nova etapa", clicar no
+   * título para editar e arrastar a coluna — mesmo corte de papel das rotas
+   * (`.../stages`, `requireRole("manager")`). `viewer`/`agent` também abrem
+   * este board (ele não é rota manager-only), e para eles as colunas ficam
+   * só leitura.
    */
-  podeRenomearEtapa?: boolean;
+  podeEditarEtapas?: boolean;
 }
 
 function groupLeadsByStage(stages: Stage[], leads: Lead[]): Map<string, Lead[]> {
@@ -88,12 +91,14 @@ export function KanbanBoard({
   pulses: pulsesProp,
   onSelectionChange,
   leadInicial,
-  podeRenomearEtapa = false,
+  podeEditarEtapas = false,
 }: KanbanBoardProps) {
   const t = useT();
   const useExternal = stagesProp !== undefined && leadsProp !== undefined;
   const queryResult = useBoard(useExternal ? null : pipelineId);
-  const renameStage = useRenameStage(pipelineId);
+  const reordenar = useReordenarEtapa(pipelineId);
+  /** O modal de etapa: `"nova"` = criar no fim; um id = editar essa coluna. */
+  const [modalDeEtapa, setModalDeEtapa] = useState<"nova" | string | null>(null);
   // A RECUSA DE CAMPOS ABRE DIÁLOGO, não toast (issue #1536): o 422 traz em
   // `details.faltando` o que falta, o diálogo coleta, e o reenvio leva os
   // valores NA MESMA escrita que muda a etapa. O hook é o MESMO de antes —
@@ -209,6 +214,23 @@ export function KanbanBoard({
       if (!data || !grouped) return;
       const { source, destination, draggableId } = result;
       if (!destination) return;
+
+      // ── ARRASTAR A COLUNA ───────────────────────────────────────────────────
+      // O PATCH quer o vizinho da ESQUERDA, não a posição: a conta é dele.
+      // Ninguém passa à frente da Etapa de entrada — soltar na ponta esquerda
+      // vira "logo depois dela", a mesma regra que o servidor aplica.
+      if (result.type === "COLUMN") {
+        const ordem = data.stages.map((s) => s.id);
+        const [movida] = ordem.splice(source.index, 1);
+        if (!movida) return;
+        const piso = data.stages[0]?.is_entry && movida !== data.stages[0].id ? 1 : 0;
+        const destino = Math.max(destination.index, piso);
+        if (destino === source.index) return;
+        ordem.splice(destino, 0, movida);
+        reordenar.mutate({ stageId: movida, depoisDe: ordem[destino - 1] ?? null, novaOrdem: ordem });
+        return;
+      }
+
       if (
         source.droppableId === destination.droppableId &&
         source.index === destination.index
@@ -245,7 +267,7 @@ export function KanbanBoard({
         expectedUpdatedAt: lead.updated_at,
       });
     },
-    [data, grouped, moveCard],
+    [data, grouped, moveCard, reordenar],
   );
 
   if (isLoading) {
@@ -289,29 +311,73 @@ export function KanbanBoard({
           de 16px acima dele por onde os cards apareciam rolando (medido no e2e
           "o quadro cabe na tela"). O respiro até os filtros vem do `gap-4` da
           página. */}
-      <div
-        className="flex min-h-0 flex-1 items-start gap-3 overflow-auto px-4 pb-4"
-        data-quadro-do-funil
-      >
-        {data.stages.map((stage) => (
-          <StageColumn
-            key={stage.id}
-            stage={stage}
-            leads={grouped.get(stage.id) ?? []}
-            pipelineId={pipelineId}
-            ownerNames={ownerNames}
-            coolingIds={coolingIds}
-            reactivations={reactivations}
-            pulses={pulsesProp ?? queryResult.pulses}
-            canonicalTags={canonicalTags}
-            selectedLeadIds={selectedLeadIds}
-            onSelectMany={handleSelectMany}
-            onOpen={setDossieId}
-            podeRenomear={podeRenomearEtapa}
-            onRenomear={(nome) => renameStage.mutate({ stageId: stage.id, name: nome })}
-          />
-        ))}
-      </div>
+      <Droppable droppableId="colunas-do-quadro" type="COLUMN" direction="horizontal">
+        {(colunas) => (
+          <div
+            ref={colunas.innerRef}
+            {...colunas.droppableProps}
+            className="flex min-h-0 flex-1 items-start gap-3 overflow-auto px-4 pb-4"
+            data-quadro-do-funil
+          >
+            {data.stages.map((stage, index) => (
+              <Draggable
+                key={stage.id}
+                draggableId={`coluna:${stage.id}`}
+                index={index}
+                isDragDisabled={!podeEditarEtapas || stage.is_entry === true}
+              >
+                {(arraste) => (
+                  <div
+                    ref={arraste.innerRef}
+                    {...arraste.draggableProps}
+                    className="flex min-h-full shrink-0"
+                    data-coluna-arrastavel={stage.id}
+                  >
+                    <StageColumn
+                      stage={stage}
+                      leads={grouped.get(stage.id) ?? []}
+                      pipelineId={pipelineId}
+                      ownerNames={ownerNames}
+                      coolingIds={coolingIds}
+                      reactivations={reactivations}
+                      pulses={pulsesProp ?? queryResult.pulses}
+                      canonicalTags={canonicalTags}
+                      selectedLeadIds={selectedLeadIds}
+                      onSelectMany={handleSelectMany}
+                      onOpen={setDossieId}
+                      podeEditar={podeEditarEtapas}
+                      onEditar={() => setModalDeEtapa(stage.id)}
+                      alcaDeArraste={podeEditarEtapas && !stage.is_entry ? arraste.dragHandleProps : null}
+                    />
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {colunas.placeholder}
+            {podeEditarEtapas && (
+              <button
+                type="button"
+                onClick={() => setModalDeEtapa("nova")}
+                className="flex h-11 w-56 shrink-0 items-center justify-center gap-2 rounded-lg border border-dashed border-border text-sm font-medium text-text-muted hover:border-accent hover:text-text"
+                data-testid="nova-etapa"
+              >
+                <Plus size={16} aria-hidden /> {t("Nova etapa")}
+              </button>
+            )}
+          </div>
+        )}
+      </Droppable>
+      {modalDeEtapa !== null && (
+        <EtapaDialog
+          // Remonta a cada abertura: o rascunho do modal nasce da coluna atual.
+          key={modalDeEtapa}
+          open
+          onOpenChange={(aberto) => !aberto && setModalDeEtapa(null)}
+          pipelineId={pipelineId}
+          stages={data.stages}
+          etapa={modalDeEtapa === "nova" ? null : (data.stages.find((s) => s.id === modalDeEtapa) ?? null)}
+        />
+      )}
       {leadDoDossie && (
         <LeadDossier
           open

@@ -37,6 +37,61 @@ export interface EtapaEditavel extends EtapaDoMapa {
   slug: string;
   position: number;
   is_archived: boolean;
+  /**
+   * A Etapa de entrada do funil principal (migration 9007): primeira coluna,
+   * fixa, onde cai todo contato novo do CRM. Opcional porque quem monta a lista
+   * à mão (testes, telas antigas) não precisa conhecê-la — ausente vale `false`.
+   */
+  is_entry?: boolean;
+}
+
+/**
+ * A frase da recusa sobre a Etapa de entrada, num lugar só: ela aparece no
+ * renomear, no reordenar, na marcação e no arquivamento, e quatro cópias
+ * divergiriam no primeiro ajuste de texto.
+ */
+function entradaFixa(nome: string, oQue: string): string {
+  return `«${nome}» é a Etapa de entrada deste funil — é onde todo contato novo chega — e ${oQue}.`;
+}
+
+/**
+ * Recusa o que não se faz com a Etapa de entrada: trocar o nome ou a posição.
+ * Cor, chance e aviso na Central seguem livres. Marcar ganho/perda e arquivar
+ * são recusados em `validarMarcacao` e `validarArquivamento`, junto com as
+ * outras regras daquelas operações.
+ *
+ * O banco recusa o mesmo (gatilho `trg_crm_stages_guarda_entrada`, 9007); aqui
+ * é para a frase sair em português, citando a etapa.
+ */
+export function validarEdicaoDaEntrada(
+  etapa: EtapaEditavel,
+  pedido: { name?: string; depois_de?: string | null },
+): Resultado {
+  if (!etapa.is_entry) return { ok: true };
+  if (pedido.name !== undefined && pedido.name.trim() !== etapa.name) {
+    return { ok: false, erro: entradaFixa(etapa.name, "o nome dela não muda") };
+  }
+  if (pedido.depois_de !== undefined) {
+    return { ok: false, erro: entradaFixa(etapa.name, "ela fica sempre na primeira coluna") };
+  }
+  return { ok: true };
+}
+
+/**
+ * Onde a etapa movida cai na régua das ativas (sem ela): o índice do vizinho da
+ * esquerda, `-1` = primeira coluna.
+ *
+ * ⚠️ NINGUÉM PASSA À FRENTE DA ENTRADA. "Primeira coluna" num funil com Etapa
+ * de entrada quer dizer "logo depois dela": é o que quem arrastou para a ponta
+ * esquerda esperava ver, e a alternativa (recusar) faria o arraste mais natural
+ * do quadro dar erro.
+ *
+ * Devolve `null` quando o vizinho pedido não está mais no funil.
+ */
+export function indiceDoVizinho(ativas: EtapaEditavel[], depoisDe: string | null): number | null {
+  if (depoisDe === null) return ativas[0]?.is_entry ? 0 : -1;
+  const i = ativas.findIndex((e) => e.id === depoisDe);
+  return i < 0 ? null : i;
 }
 
 export type Resultado = { ok: true } | { ok: false; erro: string };
@@ -200,6 +255,10 @@ export function validarMarcacao(
     };
   }
 
+  if (etapa.is_entry && (desejado.won || desejado.lost)) {
+    return { ok: false, erro: entradaFixa(etapa.name, "por isso não fecha negócio") };
+  }
+
   for (const passo of ["won", "lost"] as const) {
     const campo = CAMPO_DO_PASSO[passo];
     const desfecho = passo === "won" ? "de ganho" : "de perda";
@@ -325,6 +384,10 @@ export function validarArquivamento(
   const etapa = etapas.find((e) => e.id === etapaId);
   if (!etapa) {
     return { ok: false, erro: "Essa etapa não faz parte deste funil. Recarregue a página e tente de novo." };
+  }
+
+  if (etapa.is_entry) {
+    return { ok: false, erro: entradaFixa(etapa.name, "não sai do quadro") };
   }
 
   const restantes = ativas(etapas).filter((e) => e.id !== etapaId);

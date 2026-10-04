@@ -90,6 +90,7 @@ const bodySchema = z.object({
  * a regra do mapeamento carregar um campo que ela nunca lê.
  */
 type EtapaComAutoria = EtapaDoMapa & {
+  is_entry?: boolean | null;
   avisar_na_central?: boolean | null;
   last_change_actor_kind: string | null;
   last_change_at: string | null;
@@ -115,11 +116,13 @@ async function lerFunil(
     // consulta só para ela seria um round-trip por render numa tela de
     // configuração — e um caminho a mais para a lista e a autoria divergirem.
     .select(
-      "id, name, is_won, is_lost, win_probability, agent_stage_hint, avisar_na_central, last_change_actor_kind, last_change_at",
+      "id, name, is_entry, is_won, is_lost, win_probability, agent_stage_hint, avisar_na_central, last_change_actor_kind, last_change_at",
     )
     .eq("organization_id", orgId)
     .eq("pipeline_id", pipelineId)
     .eq("is_archived", false)
+    // A Etapa de entrada (9007) primeiro — a mesma ordem do quadro.
+    .order("is_entry", { ascending: false })
     .order("position", { ascending: true });
   if (error) throw new Error(error.message);
 
@@ -146,6 +149,7 @@ function corpo(etapas: EtapaComAutoria[]) {
     etapas: etapas.map((e) => ({
       id: e.id,
       name: e.name,
+      is_entry: e.is_entry === true,
       is_won: e.is_won,
       is_lost: e.is_lost,
       avisar_na_central: e.avisar_na_central === true,

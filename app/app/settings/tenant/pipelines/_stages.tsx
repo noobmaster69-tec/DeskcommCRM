@@ -27,7 +27,7 @@ import {
 import { LEAD_STAGES, type LeadStage } from "@/lib/agent-engine/agent/lead-state";
 import { ApiError } from "@/lib/api/types";
 import { ROTULO_DO_PASSO } from "@/lib/leads/agent-mapping";
-import { Archive, CaretDown, CaretUp, Plus, Warning } from "@/lib/ui/icons";
+import { Archive, CaretDown, CaretUp, Lock, Plus, Warning } from "@/lib/ui/icons";
 import { SeloDeAutoria } from "@/components/operacao/SeloDeAutoria";
 import { useT } from "@/hooks/i18n/useT";
 
@@ -370,6 +370,11 @@ export function StagesSection({
           const confirmandoAqui = confirmacao?.etapaId === etapa.id ? confirmacao : null;
           const arquivandoAqui = arquivamento?.etapaId === etapa.id ? arquivamento : null;
           const destinos = destinosPossiveis(etapas, etapa.id);
+          // A Etapa de entrada (9007) é fixa: sem renomear, mover, mudar de papel
+          // nem arquivar — o servidor recusa, e a tela não oferece. E nenhuma
+          // coluna sobe para antes dela.
+          const entrada = etapa.is_entry === true;
+          const atrasDaEntrada = i === 1 && etapas[0]?.is_entry === true;
 
           return (
             <li
@@ -390,9 +395,18 @@ export function StagesSection({
                   </span>
                   <NomeDaEtapa
                     etapa={etapa}
-                    desabilitado={ocupado}
+                    desabilitado={ocupado || entrada}
                     aoConfirmar={(nome) => aplicar(etapa.id, { name: nome })}
                   />
+                  {entrada && (
+                    <p
+                      className="flex items-center gap-1 text-xs text-text-muted"
+                      data-testid={`entrada-${etapa.id}`}
+                    >
+                      <Lock size={12} aria-hidden />
+                      {t("Etapa de entrada: fixa, é onde todo contato novo chega.")}
+                    </p>
+                  )}
                 </div>
 
                 {/* A calibração da previsão (issue #1535). Ganho e perda valem
@@ -426,7 +440,7 @@ export function StagesSection({
                     size="icon"
                     aria-label={`${t("Mover")} «${etapa.name}» ${t("uma coluna para trás")}`}
                     data-testid={`subir-${etapa.id}`}
-                    disabled={i === 0 || ocupado}
+                    disabled={i === 0 || entrada || atrasDaEntrada || ocupado}
                     onClick={() =>
                       aplicar(etapa.id, { depois_de: vizinhoAoMover(etapas, i, "subir") })
                     }
@@ -438,7 +452,7 @@ export function StagesSection({
                     size="icon"
                     aria-label={`${t("Mover")} «${etapa.name}» ${t("uma coluna para frente")}`}
                     data-testid={`descer-${etapa.id}`}
-                    disabled={i === etapas.length - 1 || ocupado}
+                    disabled={i === etapas.length - 1 || entrada || ocupado}
                     onClick={() =>
                       aplicar(etapa.id, { depois_de: vizinhoAoMover(etapas, i, "descer") })
                     }
@@ -455,7 +469,7 @@ export function StagesSection({
                   <Select
                     value={papelDaEtapa(etapa)}
                     onValueChange={(v) => escolherPapel(etapa, v as Papel)}
-                    disabled={ocupado}
+                    disabled={ocupado || entrada}
                   >
                     <SelectTrigger
                       aria-label={`${t("Papel de")} «${etapa.name}» ${t("no funil")}`}
@@ -478,7 +492,7 @@ export function StagesSection({
                   size="sm"
                   className={`${LARGURA.arquivar} shrink-0`}
                   data-testid={`arquivar-${etapa.id}`}
-                  disabled={ocupado}
+                  disabled={ocupado || entrada}
                   onClick={() => {
                     setErro(null);
                     setArquivamento({ etapaId: etapa.id, negocios: null, destino: null, erro: null });
