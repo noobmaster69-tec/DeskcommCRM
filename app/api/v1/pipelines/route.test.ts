@@ -59,7 +59,7 @@ describe("POST /api/v1/pipelines", () => {
     expect(db.escritas).toEqual([]);
   });
 
-  it("cria o funil COM as quatro etapas, na mesma requisição", async () => {
+  it("cria o funil COM as etapas finais (ganho e perda), na mesma requisição", async () => {
     // ⚠️ Funil sem etapa é quadro morto: o board abre sem coluna nenhuma e não
     // recebe negócio. As etapas não são cortesia — são parte da criação.
     authOk();
@@ -78,8 +78,11 @@ describe("POST /api/v1/pipelines", () => {
 
     const stagesInsert = db.escritas.find((e) => e.table === "crm_stages");
     const etapas = stagesInsert?.patch as Record<string, unknown>[];
-    expect(etapas).toHaveLength(4);
-    expect(etapas.map((e) => e.name)).toEqual(["Novo", "Em andamento", "Ganho", "Perdido"]);
+    // Funis no modelo Kommo (Fase C): as colunas do meio são de quem cria; o
+    // funil nasce só com as finais. A Etapa de entrada, se ele nascer
+    // principal, vem do gatilho da 9007 — não desta escrita.
+    expect(etapas).toHaveLength(2);
+    expect(etapas.map((e) => e.name)).toEqual(["Ganho", "Perdido"]);
     expect(etapas.filter((e) => e.is_won)).toHaveLength(1);
     expect(etapas.every((e) => e.organization_id === ORG_ID)).toBe(true);
   });
@@ -219,3 +222,22 @@ vi.mock("@/lib/impersonate/support", async (importOriginal) => ({
   requireSupportWrite: vi.fn(async () => null),
   authenticatedSessionId: vi.fn(async () => "f2200000-0000-4000-8000-000000000099"),
 }));
+
+describe("POST /api/v1/pipelines com cor (Funis no modelo Kommo, Fase C)", () => {
+  it("a cor vai no insert do funil", async () => {
+    authOk();
+    const db = makeDb({ pipelines: umFunil() });
+    const { POST } = await import("./route");
+    const res = await POST(reqPost({ name: "SDR", color: "#a3efc5" }));
+    expect(res.status).toBe(201);
+    expect(db.escritas.find((e) => e.table === "crm_pipelines")?.patch).toMatchObject({ name: "SDR", color: "#a3efc5" });
+  });
+
+  it("cor fora do formato → 422 do Zod, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ pipelines: umFunil() });
+    const { POST } = await import("./route");
+    expect((await POST(reqPost({ name: "SDR", color: "verde" }))).status).toBe(422);
+    expect(db.escritas).toEqual([]);
+  });
+});

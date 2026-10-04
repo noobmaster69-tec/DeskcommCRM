@@ -88,6 +88,42 @@ export function validarEdicaoDaEntrada(
  *
  * Devolve `null` quando o vizinho pedido não está mais no funil.
  */
+/**
+ * Onde entra a coluna NOVA: os vizinhos da esquerda e da direita (`null` =
+ * ponta), para `posicaoEntre`.
+ *
+ * ⚠️ ANTES DAS FINAIS QUE FECHAM O FUNIL, como no Kommo: se as últimas colunas
+ * forem a de ganho e/ou a de perda, a nova entra antes delas — senão, num funil
+ * que nasce só com "Ganho" e "Perdido", toda coluna criada cairia DEPOIS de
+ * "Perdido". Ganho no meio do funil (o seed de e-commerce tem "Pago" antes de
+ * "Em separação") não conta: só as finais que estão na ponta.
+ *
+ * Arquivadas não ocupam lugar no quadro; a Etapa de entrada não conta como
+ * "última" mesmo com posição alta, porque a leitura a põe sempre na frente.
+ */
+export function vizinhasDaEtapaNova(etapas: EtapaEditavel[]): { antes: number | null; depois: number | null } {
+  const quadro = ativas(etapas)
+    .filter((e) => !e.is_entry)
+    .sort((a, b) => a.position - b.position);
+  let i = quadro.length;
+  while (i > 0 && (quadro[i - 1]!.is_won || quadro[i - 1]!.is_lost)) i--;
+  const depois = quadro[i]?.position ?? null;
+  // Sem coluna aberta antes das finais, o vizinho da esquerda é a entrada — só
+  // se a posição dela estiver mesmo à esquerda (uma posição mexida à mão não
+  // pode jogar a coluna nova para depois da final).
+  const entrada = ativas(etapas).find((e) => e.is_entry);
+  const entradaAntes = entrada && (depois === null || entrada.position < depois) ? entrada.position : null;
+  const antes = i > 0 ? quadro[i - 1]!.position : entradaAntes;
+  // Funil sem final nenhuma na ponta: depois da MAIOR posição de todas, inclusive
+  // as arquivadas — mesma régua de antes desta função, para não reocupar o
+  // lugar de uma coluna arquivada.
+  if (depois === null) {
+    const maior = etapas.length > 0 ? Math.max(...etapas.map((e) => e.position)) : null;
+    return { antes: maior, depois: null };
+  }
+  return { antes, depois };
+}
+
 export function indiceDoVizinho(ativas: EtapaEditavel[], depoisDe: string | null): number | null {
   if (depoisDe === null) return ativas[0]?.is_entry ? 0 : -1;
   const i = ativas.findIndex((e) => e.id === depoisDe);

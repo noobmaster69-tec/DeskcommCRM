@@ -36,13 +36,20 @@ export default async function CrmsPage() {
     supabase.rpc("fn_crms_com_metricas", { p_org: activeOrg.orgId }),
     supabase
       .from("crm_pipelines")
-      .select("id, crm_id, name, slug, description, position, is_default, is_client_pipeline")
+      .select("id, crm_id, name, slug, description, position, is_default, is_client_pipeline, is_primary")
       .eq("organization_id", activeOrg.orgId)
       .eq("is_archived", false)
       .order("position"),
   ]);
 
   type LinhaDeMetrica = Database["public"]["Functions"]["fn_crms_com_metricas"]["Returns"][number];
+  // "Abrir CRM" abre o QUADRO do funil principal, como no Kommo (Funis no modelo
+  // Kommo, Fase C). CRM sem funil principal (nenhum funil vivo) cai na lista.
+  const principalDoCrm = new Map(
+    ((funis ?? []) as Array<{ id: string; crm_id: string | null; is_primary?: boolean }>)
+      .filter((f) => f.is_primary && f.crm_id)
+      .map((f) => [f.crm_id as string, f.id]),
+  );
   const crms: CrmDoCard[] = ((metricas ?? []) as LinhaDeMetrica[]).map((c) => ({
     id: c.id,
     name: c.name,
@@ -54,6 +61,7 @@ export default async function CrmsPage() {
     leads_count: Number(c.leads_count),
     funis_count: Number(c.funis_count),
     last_updated_at: c.last_updated_at,
+    quadro_id: principalDoCrm.get(c.id) ?? null,
   }));
 
   // A importação escolhe um FUNIL; na grade ele vem nomeado pelo CRM, porque

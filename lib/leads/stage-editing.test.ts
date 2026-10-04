@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   validarNomeDeEtapa, slugDeNome, validarMarcacao, updatesDeMarcacao,
-  posicaoEntre, validarArquivamento, validarEdicaoDaEntrada, indiceDoVizinho,
+  posicaoEntre, validarArquivamento, validarEdicaoDaEntrada, indiceDoVizinho, vizinhasDaEtapaNova,
 } from './stage-editing';
 
 const etapas = [
@@ -277,5 +277,35 @@ describe('indiceDoVizinho', () => {
   it('acha o vizinho pedido, e devolve null quando ele sumiu', () => {
     expect(indiceDoVizinho(ativas, 'e3')).toBe(2);
     expect(indiceDoVizinho(ativas, 'nao-existe')).toBeNull();
+  });
+});
+
+describe('vizinhasDaEtapaNova', () => {
+  const e = (id: string, position: number, over: Record<string, unknown> = {}) =>
+    ({ id, name: id, slug: id, position, is_won: false, is_lost: false, is_archived: false, agent_stage_hint: null, ...over });
+
+  it('entra ANTES das finais da ponta (ganho e perda), como no Kommo', () => {
+    expect(vizinhasDaEtapaNova([e('a', 1000), e('g', 2000, { is_won: true }), e('p', 3000, { is_lost: true })]))
+      .toEqual({ antes: 1000, depois: 2000 });
+  });
+
+  it('funil só com entrada e finais: entre a entrada e a primeira final', () => {
+    expect(vizinhasDaEtapaNova([e('en', 0, { is_entry: true }), e('g', 1000, { is_won: true }), e('p', 2000, { is_lost: true })]))
+      .toEqual({ antes: 0, depois: 1000 });
+  });
+
+  it('ganho no MEIO não conta: sem final na ponta, vai depois da maior posição', () => {
+    expect(vizinhasDaEtapaNova([e('pago', 1000, { is_won: true }), e('entregue', 2000)]))
+      .toEqual({ antes: 2000, depois: null });
+  });
+
+  it('arquivada não conta como final da ponta, mas ocupa a régua da maior posição', () => {
+    expect(vizinhasDaEtapaNova([e('a', 1000), e('x', 5000, { is_lost: true, is_archived: true })]))
+      .toEqual({ antes: 5000, depois: null });
+  });
+
+  it('entrada com posição mexida à mão (à direita da final) não puxa a coluna para depois da final', () => {
+    expect(vizinhasDaEtapaNova([e('en', 9000, { is_entry: true }), e('g', 1000, { is_won: true })]))
+      .toEqual({ antes: null, depois: 1000 });
   });
 });

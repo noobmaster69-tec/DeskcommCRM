@@ -9,6 +9,8 @@ import {
   validarNomeDeFunil,
   type DependenciasDoFunil,
   type FunilEditavel,
+  validarMudancaDeCrm,
+  nomeDoFunilPrincipal,
 } from './pipeline-editing';
 
 const funis: FunilEditavel[] = [
@@ -261,5 +263,39 @@ describe('ETAPAS_INICIAIS', () => {
     const slugs = ETAPAS_INICIAIS.map((e) => e.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
     for (const slug of slugs) expect(slug).toMatch(/^[a-z0-9_-]{2,40}$/);
+  });
+});
+
+describe("o funil principal (Funis no modelo Kommo)", () => {
+  const funis = [
+    { id: "p", name: "Pedidos", slug: "pedidos", position: 1, is_default: true, is_archived: false, crm_id: "A" },
+    { id: "s", name: "Social Seller", slug: "social", position: 2, is_default: false, is_archived: false, crm_id: "B", is_primary: true },
+    { id: "d", name: "SDR", slug: "sdr", position: 3, is_default: false, is_archived: false, crm_id: "B" },
+  ];
+  const semDeps = { negocios: 0, fontesDeWebhook: [], regrasAtivas: [] };
+
+  it("não se arquiva nem se exclui, mesmo sem dependência nenhuma", () => {
+    expect(validarArquivamento(funis, "s", semDeps).ok).toBe(false);
+    expect(podeExcluirDeVez(funis, "s", semDeps).ok).toBe(false);
+    expect(validarArquivamento(funis, "d", semDeps).ok).toBe(true);
+  });
+
+  it("não muda de CRM; o adicional muda", () => {
+    expect(validarMudancaDeCrm(funis[1]!, "A").ok).toBe(false);
+    expect(validarMudancaDeCrm(funis[1]!, "B").ok).toBe(true);
+    expect(validarMudancaDeCrm(funis[2]!, "A").ok).toBe(true);
+  });
+
+  it("o funil de um CRM novo se chama «Funil de vendas», ou leva o nome do CRM se o nome estiver tomado", () => {
+    expect(nomeDoFunilPrincipal("Apex", funis)).toBe("Funil de vendas");
+    const comVendas = [...funis, { id: "v", name: "Funil de vendas", slug: "fv", position: 4, is_default: false, is_archived: false }];
+    expect(nomeDoFunilPrincipal("Apex", comVendas)).toBe("Funil de vendas (Apex)");
+    const comAmbos = [...comVendas, { id: "w", name: "Funil de vendas (Apex)", slug: "fva", position: 5, is_default: false, is_archived: false }];
+    expect(nomeDoFunilPrincipal("Apex", comAmbos)).toBe("Funil de vendas (Apex 2)");
+  });
+
+  it("funil ARQUIVADO com o nome não toma o nome", () => {
+    const arquivado = [{ id: "v", name: "Funil de vendas", slug: "fv", position: 4, is_default: false, is_archived: true }];
+    expect(nomeDoFunilPrincipal("Apex", arquivado)).toBe("Funil de vendas");
   });
 });

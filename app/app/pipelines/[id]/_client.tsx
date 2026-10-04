@@ -20,7 +20,10 @@ function formatError(err: unknown, t: (texto: string) => string): string {
   }
   return String(err);
 }
+import Link from "next/link";
 import { KanbanBoard } from "@/components/kanban/KanbanBoard";
+import { SeletorDeFunil } from "@/components/kanban/SeletorDeFunil";
+import type { FunilDoSeletor } from "@/components/kanban/CorDoFunil";
 import { FilterBar } from "@/components/kanban/FilterBar";
 import { BulkActionBar } from "@/components/kanban/BulkActionBar";
 import { NewLeadDialog } from "@/components/kanban/NewLeadDialog";
@@ -31,14 +34,29 @@ import { applyFilters, filtersFromParams, filtersToParams } from "@/lib/kanban/f
 import { categoriaDoMotivo } from "@/lib/leads/motivos-de-perda-do-funil";
 import { ROLE_RANK, type Role } from "@/lib/auth/types";
 
+export type { FunilDoSeletor };
+
+/** O CRM do funil aberto, para o caminho "CRMs › nome do CRM" no topo. */
+export interface CrmDoQuadro {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export function PipelinePageClient({
   pipelineId,
   initialName,
   role,
+  crm,
+  funis,
 }: {
   pipelineId: string;
   initialName: string;
   role: Role;
+  /** `null` só num banco sem a 9004. */
+  crm: CrmDoQuadro | null;
+  /** Os funis vivos do mesmo CRM, na ordem do seletor (o aberto inclusive). */
+  funis: FunilDoSeletor[];
 }) {
   const t = useT();
   const { data, isLoading, error, pulses, realtimeStatus, seguranca } = useBoard(pipelineId);
@@ -114,9 +132,31 @@ export function PipelinePageClient({
           fora da viewport em telas estreitas. De `sm:` pra cima volta a ser
           uma linha só, como sempre foi. */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">
-          {data?.pipeline.name ?? initialName}
-        </h1>
+        <div className="min-w-0 space-y-0.5">
+          {crm && (
+            <nav aria-label={t("Caminho")} className="text-xs text-text-muted" data-testid="caminho-do-quadro">
+              <Link href="/app/crms" className="hover:text-text hover:underline">
+                {t("CRMs")}
+              </Link>
+              <span aria-hidden> › </span>
+              <Link href={`/app/crms/${crm.slug}`} className="hover:text-text hover:underline">
+                {crm.name}
+              </Link>
+            </nav>
+          )}
+          {/* O seletor de funil É o título (Funis no modelo Kommo, Fase C): o
+              nome do funil aberto, com a troca entre os funis do CRM dentro. */}
+          <SeletorDeFunil
+            pipelineId={pipelineId}
+            // O nome que o servidor acabou de reler ganha do cache do quadro: uma
+            // renomeação em "Gerenciar funis" relê a página (`router.refresh`),
+            // e o cache do quadro só se atualizaria no próximo refetch.
+            nomeAtual={funis.find((f) => f.id === pipelineId)?.name ?? data?.pipeline.name ?? initialName}
+            crmId={crm?.id ?? null}
+            funis={funis}
+            podeGerenciar={ROLE_RANK[role] >= ROLE_RANK.manager}
+          />
+        </div>
         <Button onClick={() => setNewOpen(true)} disabled={!data} className="shrink-0">
           <Plus size={16} className="mr-2" /> {t("Novo Lead")}
         </Button>

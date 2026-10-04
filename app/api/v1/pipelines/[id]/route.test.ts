@@ -331,3 +331,70 @@ vi.mock("@/lib/impersonate/support", async (importOriginal) => ({
   requireSupportWrite: vi.fn(async () => null),
   authenticatedSessionId: vi.fn(async () => "f2200000-0000-4000-8000-000000000099"),
 }));
+
+describe("o funil principal e a cor (Funis no modelo Kommo, Fase C)", () => {
+  const CRM_A = "77777777-7777-4777-8777-777777777777";
+  const CRM_B = "88888888-8888-4888-8888-888888888888";
+  const comPrincipal = () => [
+    funilRow({ id: PIPE, name: "Pedidos", slug: "pedidos", position: 1000, is_default: true, crm_id: CRM_A }),
+    funilRow({ id: OUTRO, name: "Social Seller", slug: "social", position: 2000, crm_id: CRM_B, is_primary: true }),
+    funilRow({ id: TERCEIRO, name: "SDR", slug: "sdr", position: 3000, crm_id: CRM_B }),
+  ];
+  const crms = () => [
+    { id: CRM_A, organization_id: ORG_ID, name: "PADRÃO", slug: "padrao", is_default: true, archived_at: null },
+    { id: CRM_B, organization_id: ORG_ID, name: "Apex", slug: "apex", is_default: false, archived_at: null },
+  ];
+
+  it("arquivar o principal → 422 com a frase da regra, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ pipelines: comPrincipal(), crms: crms() });
+    const { DELETE } = await import("./route");
+    const res = await DELETE(reqDelete(OUTRO), ctx(OUTRO));
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toContain("funil principal");
+    expect(db.escritas).toEqual([]);
+  });
+
+  it("excluir de vez o principal → 422, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ pipelines: comPrincipal(), crms: crms() });
+    const { DELETE } = await import("./route");
+    expect((await DELETE(reqDelete(OUTRO, "?definitivo=1"), ctx(OUTRO))).status).toBe(422);
+    expect(db.escritas).toEqual([]);
+  });
+
+  it("o funil adicional arquiva normalmente", async () => {
+    authOk();
+    const db = makeDb({ pipelines: comPrincipal(), crms: crms() });
+    const { DELETE } = await import("./route");
+    expect((await DELETE(reqDelete(TERCEIRO), ctx(TERCEIRO))).status).toBe(200);
+    expect(db.escritas[0]?.patch).toEqual({ is_archived: true });
+  });
+
+  it("levar o principal para outro CRM → 409, e nenhuma escrita", async () => {
+    authOk();
+    const db = makeDb({ pipelines: comPrincipal(), crms: crms() });
+    const { PATCH } = await import("./route");
+    const res = await PATCH(reqPatch({ crm_id: CRM_A }, OUTRO), ctx(OUTRO));
+    expect(res.status).toBe(409);
+    expect(db.escritas).toEqual([]);
+  });
+
+  it("o principal se renomeia e troca de cor", async () => {
+    authOk();
+    const db = makeDb({ pipelines: comPrincipal(), crms: crms() });
+    const { PATCH } = await import("./route");
+    const res = await PATCH(reqPatch({ name: "Funil de vendas", color: "#a4c8fa" }, OUTRO), ctx(OUTRO));
+    expect(res.status).toBe(200);
+    expect(db.escritas[0]?.patch).toEqual({ name: "Funil de vendas", color: "#a4c8fa" });
+  });
+
+  it("a resposta traz is_primary e color", async () => {
+    authOk();
+    makeDb({ pipelines: comPrincipal(), crms: crms() });
+    const { PATCH } = await import("./route");
+    const res = await PATCH(reqPatch({ color: null }, TERCEIRO), ctx(TERCEIRO));
+    const body = (await res.json()) as { data: { pipelines: Array<{ id: string; is_primary: boolean; color: string | null }> } };
+    expect(body.data.pipelines.find((f) => f.id === OUTRO)).toMatchObject({ is_primary: true, color: null });
+  });
+});

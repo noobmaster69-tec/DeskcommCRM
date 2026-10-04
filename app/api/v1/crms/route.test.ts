@@ -118,7 +118,13 @@ describe("POST /api/v1/crms", () => {
     const res = await POST(reqPost({ name: "PA Advogados - EUROPA", avatar_bg_color: "#386BF8" }));
 
     expect(res.status).toBe(201);
-    expect(db.escritas).toHaveLength(1);
+    // CRM + o funil principal que nasce com ele + as etapas finais do funil
+    // (Funis no modelo Kommo, Fase C). A entrada vem do gatilho da 9007.
+    expect(db.escritas.map((e) => `${e.tipo}:${e.table}`)).toEqual([
+      "insert:crm_crms",
+      "insert:crm_pipelines",
+      "insert:crm_stages",
+    ]);
     expect(db.escritas[0]).toMatchObject({
       tipo: "insert",
       table: "crm_crms",
@@ -215,5 +221,41 @@ describe("POST /api/v1/crms", () => {
     const res = await POST(reqPost({ name: "X1" }, { "Idempotency-Key": "abc" }));
     expect(res.status).toBe(400);
     expect(db.escritas).toEqual([]);
+  });
+});
+
+describe("POST /api/v1/crms nasce com o funil principal (Funis no modelo Kommo, Fase C)", () => {
+  it("o funil vai para o CRM novo, chamado «Funil de vendas», com ganho e perda", async () => {
+    authOk();
+    const db = makeDb({ crms: crmsDaOrg() });
+    const { POST } = await import("./route");
+    await POST(reqPost({ name: "Apex Company" }));
+    const crmId = (db.tabelas.crm_crms as Array<Record<string, unknown>>).find((c) => c.name === "Apex Company")?.id;
+    expect(db.escritas[1]?.patch).toMatchObject({ crm_id: crmId, name: "Funil de vendas" });
+    expect((db.escritas[2]?.patch as Array<Record<string, unknown>>).map((e) => e.name)).toEqual(["Ganho", "Perdido"]);
+  });
+
+  it("«Funil de vendas» já existe na organização → o do CRM novo leva o nome do CRM", async () => {
+    authOk();
+    const db = makeDb({
+      crms: crmsDaOrg(),
+      pipelines: [{ id: "99999999-9999-4999-8999-999999999999", name: "Funil de vendas", slug: "funil-de-vendas", organization_id: ORG_ID, is_archived: false, position: 1000 } as never],
+    });
+    const { POST } = await import("./route");
+    await POST(reqPost({ name: "PA Advogados - EUROPA" }));
+    expect(db.escritas[1]?.patch).toMatchObject({ name: "Funil de vendas (PA Advogados - EUROPA)" });
+  });
+
+  it("se as etapas do funil falham, desfaz o funil E o CRM — CRM sem quadro seria pior que nenhum", async () => {
+    authOk();
+    const db = makeDb({
+      crms: crmsDaOrg(),
+      writeError: (n, table) => (table === "crm_stages" ? { code: "XX000", message: "falhou" } : null),
+    });
+    const { POST } = await import("./route");
+    const res = await POST(reqPost({ name: "Apex Company" }));
+    expect(res.status).toBe(500);
+    expect(db.escritas.filter((e) => e.tipo === "delete").map((e) => e.table)).toEqual(["crm_pipelines", "crm_crms"]);
+    expect((db.tabelas.crm_crms as Array<Record<string, unknown>>).some((c) => c.name === "Apex Company")).toBe(false);
   });
 });

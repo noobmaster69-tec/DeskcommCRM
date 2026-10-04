@@ -36,6 +36,7 @@ import {
   validarEdicaoDaEntrada,
   validarMarcacao,
   validarNomeDeEtapa,
+  vizinhasDaEtapaNova,
   type EtapaEditavel,
   type PatchDeMarcacao,
   type UpdateDeMarcacao,
@@ -253,12 +254,12 @@ export interface PedidoDeCriacao {
 }
 
 /**
- * Cria uma etapa no FIM do funil.
+ * Cria uma etapa no fim do funil — ANTES das colunas finais (ganho/perda) que
+ * estiverem na ponta, como no Kommo (`vizinhasDaEtapaNova`).
  *
  * Etapa nova aparecendo no meio das colunas seria a operação decidindo por quem
- * pediu. A conta usa a última posição do funil INTEIRO e não a última ativa —
- * arquivada não aparece no quadro, então passar por cima dela não muda nada para
- * quem olha, e filtrar seria uma segunda régua de posição para sustentar de graça.
+ * pediu; as finais são a exceção porque fecham o funil, e coluna depois de
+ * "Perdido" não tem sentido no quadro.
  */
 export async function criarEtapa(deps: DepsDeEtapa, input: PedidoDeCriacao): Promise<EtapaCriada> {
   const name = input.nome.trim();
@@ -281,6 +282,7 @@ export async function criarEtapa(deps: DepsDeEtapa, input: PedidoDeCriacao): Pro
     );
   }
 
+  const novaPosicao = vizinhasDaEtapaNova(etapas);
   const autoria = autoriaDaMudanca(deps.actor);
   const row = {
     organization_id: deps.organizationId,
@@ -289,13 +291,9 @@ export async function criarEtapa(deps: DepsDeEtapa, input: PedidoDeCriacao): Pro
     // Slug nasce com a etapa e nunca muda (renomear não o toca). Arquivadas
     // entram na conta: `uniq_crm_stages_pipeline_slug` não é parcial.
     slug: slugDeNome(name, etapas.map((e) => e.slug)),
-    // A MAIOR posição, e não a da última da lista: `lerFunil` põe a Etapa de
-    // entrada na frente qualquer que seja a posição dela, então "a última da
-    // lista" deixou de ser "a mais à direita" (9007).
-    position: posicaoEntre(
-      etapas.length > 0 ? Math.max(...etapas.map((e) => e.position)) : null,
-      null,
-    ),
+    // Antes das finais (ganho/perda) que fecham o funil, ou depois da maior
+    // posição quando não há final na ponta — a regra é de `stage-editing`.
+    position: posicaoEntre(novaPosicao.antes, novaPosicao.depois),
     color: input.cor ?? null,
     ...autoria,
   };

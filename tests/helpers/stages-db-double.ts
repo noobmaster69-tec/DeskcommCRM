@@ -85,6 +85,10 @@ export interface PipelineRow {
   organization_id: string;
   /** O CRM do funil (migration 9004). */
   crm_id?: string;
+  /** O funil principal do CRM (9007). Ausente = `false`. */
+  is_primary?: boolean;
+  /** Cor do funil (9008). */
+  color?: string | null;
 }
 
 export function funilRow(over: Partial<PipelineRow> & { id: string; name: string }): PipelineRow {

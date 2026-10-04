@@ -23,12 +23,14 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
+import { FORMATO_DE_COR } from "@/lib/kanban/cores-de-etapa";
 import {
   podeExcluirDeVez,
   posicaoEntre,
   updatesDeMarcaExclusiva,
   updatesDePadrao,
   validarArquivamento,
+  validarMudancaDeCrm,
   validarNomeDeFunil,
   type FunilEditavel,
 } from "@/lib/pipelines/pipeline-editing";
@@ -81,12 +83,15 @@ const bodySchema = z
      * negócios e o lugar de padrão vão junto.
      */
     crm_id: z.string().uuid().optional(),
+    /** A "cor da aba" do funil no seletor do quadro (9008); `null` tira a cor. */
+    color: z.string().regex(FORMATO_DE_COR).nullable().optional(),
   })
   .strict()
   .refine((b) => Object.keys(b).length > 0, { message: "Nada para alterar." });
 
 type PatchDoFunil = {
   crm_id?: string;
+  color?: string | null;
   name?: string;
   description?: string | null;
   position?: number;
@@ -198,6 +203,10 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx): Promise<Response> 
 
   const patchDoAlvo: PatchDoFunil = {};
   if (pedido.crm_id !== undefined && pedido.crm_id !== alvo.crm_id) {
+    // O principal não muda de CRM (9007): o de origem ficaria sem Etapa de
+    // entrada, e o de destino já tem o dele.
+    const daMudanca = validarMudancaDeCrm(alvo, pedido.crm_id);
+    if (!daMudanca.ok) return fail("state_conflict", daMudanca.erro, 409, { requestId });
     try {
       if (!(await crmVivoDaOrg(supabase, orgId, pedido.crm_id))) {
         return fail("unprocessable_entity", t("CRM não encontrado. Escolha um CRM ativo da organização."), 422, {
@@ -210,6 +219,7 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx): Promise<Response> 
     patchDoAlvo.crm_id = pedido.crm_id;
   }
   if (pedido.name !== undefined) patchDoAlvo.name = pedido.name.trim();
+  if (pedido.color !== undefined) patchDoAlvo.color = pedido.color;
   if (pedido.description !== undefined) {
     patchDoAlvo.description = pedido.description?.trim() || null;
   }

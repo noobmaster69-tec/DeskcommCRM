@@ -19,6 +19,9 @@
  */
 import { fail } from "@/lib/api/wrappers";
 import {
+  ETAPAS_INICIAIS,
+  posicaoEntre,
+  slugDeFunil,
   regrasQueApontamPara,
   type DependenciasDoFunil,
   type FunilEditavel,
@@ -30,7 +33,7 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 /** `position` entra: a reordenação calcula em cima dela. */
 const COLUNAS =
-  "id, crm_id, name, slug, description, position, is_default, is_client_pipeline, is_archived";
+  "id, crm_id, name, slug, description, position, is_default, is_client_pipeline, is_archived, is_primary, color";
 
 /**
  * Os funis da organização, na ordem da lista, arquivados inclusive.
@@ -106,6 +109,10 @@ export interface FunilDoCorpo {
   position: number;
   is_default: boolean;
   is_client_pipeline: boolean;
+  /** O funil principal do CRM (9007) — o da Etapa de entrada. */
+  is_primary: boolean;
+  /** Cor do funil no seletor do quadro (9008), ou `null`. */
+  color: string | null;
 }
 
 function paraATela(f: FunilEditavel): FunilDoCorpo {
@@ -122,6 +129,8 @@ function paraATela(f: FunilEditavel): FunilDoCorpo {
     // mostra o badge. Ausente é "não é o funil de clientes", que é a
     // verdade nesse banco.
     is_client_pipeline: f.is_client_pipeline ?? false,
+    is_primary: f.is_primary ?? false,
+    color: f.color ?? null,
   };
 }
 
@@ -192,4 +201,87 @@ export function conflitoDoBanco(
     409,
     { requestId },
   );
+}
+
+/** O que é preciso para criar um funil — a validação do nome já foi feita por quem chama. */
+export interface NovoFunil {
+  orgId: string;
+  /** Ausente = o gatilho `trg_crm_pipelines_preencher_crm` põe no CRM padrão. */
+  crmId?: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+}
+
+/**
+ * Cria o funil COM as etapas com que ele nasce (`ETAPAS_INICIAIS`: ganho e
+ * perda; a Etapa de entrada, se ele nascer principal, vem do gatilho da 9007).
+ *
+ * É a MESMA porta para "+ Adicionar funil" (`POST /pipelines`) e para o funil
+ * principal que nasce com um CRM novo (`POST /crms`): duas cópias da sequência
+ * divergiriam na primeira mudança, e o sintoma seria um funil nascendo diferente
+ * conforme a tela que o criou.
+ *
+ * ⚠️ COMPENSAÇÃO, PORQUE SÃO DUAS ESCRITAS SEM TRANSAÇÃO. Funil sem etapa é
+ * quadro morto: o board abre sem coluna nenhuma e quem criou não tem como saber
+ * que aquilo nasceu quebrado. O funil recém-criado ainda não tem negócio, então
+ * `crm_leads_pipeline_id_fkey ON DELETE RESTRICT` não atrapalha o desfazimento.
+ */
+export async function criarFunilComEtapas(
+  supabase: Supabase,
+  funis: FunilEditavel[],
+  novo: NovoFunil,
+  requestId: string,
+): Promise<{ ok: true; pipelineId: string; slug: string; isDefault: boolean } | { ok: false; resposta: Response }> {
+  const row = {
+    organization_id: novo.orgId,
+    // `undefined` não vai no JSON: ausente = o gatilho decide.
+    crm_id: novo.crmId,
+    name: novo.name,
+    description: novo.description,
+    color: novo.color,
+    // Arquivados entram na conta do slug: `uniq_crm_pipelines_org_slug` não é parcial.
+    slug: slugDeFunil(novo.name, funis.map((f) => f.slug)),
+    // No fim da lista: funil novo aparecendo no meio seria a tela decidindo por
+    // quem criou. `lerFunis` vem ordenado.
+    position: posicaoEntre(funis[funis.length - 1]?.position ?? null, null),
+    // ⚠️ O PRIMEIRO FUNIL DA ORGANIZAÇÃO NASCE PADRÃO. Numa instalação onde o
+    // gatilho de seed não rodou, a org fica sem padrão nenhum — e todo lead
+    // criado sem funil escolhido não teria para onde ir. `uniq_..._org_default`
+    // é parcial, então só os ativos disputam esse lugar.
+    is_default: funis.filter((f) => !f.is_archived).length === 0,
+  };
+
+  const { data: criado, error } = await supabase.from("crm_pipelines").insert(row).select("id").single();
+  if (error) {
+    const conflito = conflitoDoBanco(error as { code?: string }, novo.name, requestId);
+    return { ok: false, resposta: conflito ?? fail("internal_error", error.message, 500, { requestId }) };
+  }
+  const pipelineId = (criado as { id: string }).id;
+
+  const { error: etapasErr } = await supabase.from("crm_stages").insert(
+    ETAPAS_INICIAIS.map((etapa, i) => ({
+      organization_id: novo.orgId,
+      pipeline_id: pipelineId,
+      name: etapa.name,
+      slug: etapa.slug,
+      position: (i + 1) * 1000,
+      is_won: etapa.is_won,
+      is_lost: etapa.is_lost,
+    })),
+  );
+  if (etapasErr) {
+    await supabase.from("crm_pipelines").delete().eq("id", pipelineId).eq("organization_id", novo.orgId);
+    return {
+      ok: false,
+      resposta: fail(
+        "internal_error",
+        `Não consegui criar as etapas de «${novo.name}». Nada foi salvo — tente de novo.`,
+        500,
+        { requestId, details: { erro: etapasErr.message } },
+      ),
+    };
+  }
+
+  return { ok: true, pipelineId, slug: row.slug, isDefault: row.is_default };
 }

@@ -448,3 +448,20 @@ describe("vínculo número ↔ CRM", () => {
     expect(sql(`select count(*) from public.crm_waha_session_bindings where channel_session_id = '${SESSAO_A1}'`)).toBe("0");
   });
 });
+
+describe("cor do funil (migration 9008)", () => {
+  it("a coluna existe, é opcional e nasce vazia", () => {
+    expect(
+      sql(`select is_nullable || ':' || coalesce(column_default, '-') from information_schema.columns
+            where table_schema = 'public' and table_name = 'crm_pipelines' and column_name = 'color'`),
+    ).toBe("YES:-");
+    expect(sql(`select count(*) from public.crm_pipelines where organization_id = '${ORG_A}' and color is not null`)).toBe("0");
+  });
+
+  it("aceita hex de 6 dígitos e recusa o resto (CHECK, mesmo formato da cor da etapa)", () => {
+    const funil = funilPadrao(ORG_A);
+    expect(sqlstate(`update public.crm_pipelines set color = '#a4c8fa' where id = '${funil}';`)).toBeNull();
+    expect(sqlstate(`update public.crm_pipelines set color = 'azul' where id = '${funil}';`)).toBe("23514");
+    expect(sqlstate(`update public.crm_pipelines set color = null where id = '${funil}';`)).toBeNull();
+  });
+});

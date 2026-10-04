@@ -163,12 +163,19 @@ test.describe("gatilho de etapa do funil", () => {
       expect(funil, "o funil recém-criado tem que voltar na lista").toBeTruthy();
       funilId = funil.id;
 
+      // Funil novo nasce só com as finais «Ganho» e «Perdido» (Funis no modelo
+      // Kommo, Fase C): negócio criado em «Ganho» já nasceria fechado. O cenário
+      // cria as DUAS colunas abertas de que precisa — elas entram antes das finais.
+      for (const nome of ["Origem", "Destino"]) {
+        const criada = await page.request.post(`/api/v1/pipelines/${funil.id}/stages`, { data: { name: nome } });
+        expect(criada.status()).toBe(201);
+      }
       const etapasRes = await page.request.get(`/api/v1/pipelines/${funil.id}/agent-mapping`);
       expect(etapasRes.status()).toBe(200);
       const { data: mapa } = (await etapasRes.json()) as { data: { etapas: Array<{ id: string; name: string }> } };
-      expect(mapa.etapas.length, "funil novo nasce com etapas").toBeGreaterThanOrEqual(2);
-      const etapaOrigem = mapa.etapas[0]!;
-      const etapaDestino = mapa.etapas[1]!;
+      const etapaOrigem = mapa.etapas.find((e) => e.name === "Origem")!;
+      const etapaDestino = mapa.etapas.find((e) => e.name === "Destino")!;
+      expect(etapaOrigem && etapaDestino, "as duas colunas abertas do cenário existem").toBeTruthy();
 
       const contatoRes = await page.request.post("/api/v1/contacts", {
         data: { display_name: `Contato Gatilho ${marca}`, phone_number: `+5511${String(marca).slice(-9)}` },
@@ -379,9 +386,10 @@ test.describe("gatilho de etapa do funil", () => {
     } finally {
       // ⚠️ A SPEC APAGA O QUE A API DEIXA APAGAR — e isto não é asseio, é
       // correção de causa. Cada execução criava um funil com «Novo / Em
-      // andamento / Ganho / Perdido», e era a PRÓPRIA spec que tornava
-      // «Em andamento» ambíguo para a execução seguinte: o clique quebrou
-      // quando o nome passou a casar 5 opções.
+      // andamento / Ganho / Perdido» (hoje «Origem / Destino / Ganho /
+      // Perdido»), e era a PRÓPRIA spec que tornava «Em andamento» ambíguo
+      // para a execução seguinte: o clique quebrou quando o nome passou a
+      // casar 5 opções.
       //
       // Ordem imposta pelas FKs: `crm_leads.pipeline_id` é RESTRICT (o negócio
       // sai primeiro), `crm_stages.pipeline_id` é CASCADE (as 4 etapas vão de

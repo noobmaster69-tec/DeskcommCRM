@@ -13974,6 +13974,25 @@ export const DICIONARIO: Traducoes = {
   "Escolha a coluna": { es: "Elige la columna" },
   "Mover os cards e excluir": { es: "Mover las tarjetas y eliminar" },
   "Excluir etapa": { es: "Eliminar etapa" },
+  // Funis no modelo Kommo, Fase C (fork jhoow): seletor e gestão de funis no quadro.
+  "Trocar de funil": { es: "Cambiar de embudo" },
+  "Principal": { es: "Principal" },
+  "Funil atual": { es: "Embudo actual" },
+  "Adicionar funil": { es: "Agregar embudo" },
+  "Gerenciar funis": { es: "Administrar embudos" },
+  "foi criado.": { es: "fue creado." },
+  "O funil nasce com as etapas finais de ganho e perda; as colunas do meio você cria no quadro.": { es: "El embudo nace con las etapas finales de ganancia y pérdida; las columnas del medio las creas en el tablero." },
+  "Cor da aba": { es: "Color de la pestaña" },
+  "Os funis deste CRM, na ordem do seletor. O funil principal tem a Etapa de entrada e não se arquiva.": { es: "Los embudos de este CRM, en el orden del selector. El embudo principal tiene la Etapa de entrada y no se archiva." },
+  "Cor de": { es: "Color de" },
+  "Funil renomeado.": { es: "Embudo renombrado." },
+  "Ordem atualizada.": { es: "Orden actualizado." },
+  "foi arquivado.": { es: "fue archivado." },
+  "Cor atualizada.": { es: "Color actualizado." },
+  "Excluir apaga o funil de vez. Só funciona em funil sem negócio, formulário ou automação.": { es: "Eliminar borra el embudo para siempre. Solo funciona en un embudo sin negocios, formularios ni automatizaciones." },
+  "foi excluído.": { es: "fue eliminado." },
+  "Nome do funil": { es: "Nombre del embudo" },
+  "A coluna nova entra no fim do funil, antes das etapas finais de ganho e perda.": { es: "La columna nueva entra al final del embudo, antes de las etapas finales de ganancia y pérdida." },
 };
 
 /**

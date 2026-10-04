@@ -102,16 +102,19 @@ test.describe("gestão de funis", () => {
     await expect(linhaDoFunil(page, NOME)).toBeVisible();
     await page.screenshot({ path: path.join(EVIDENCIA, "funis-01-criado.png"), fullPage: true });
 
-    // ---- o funil nasce com as quatro colunas (senão o quadro é morto) ----
+    // ---- o funil nasce com as colunas finais (senão o quadro é morto) ----
+    // Funis no modelo Kommo (Fase C): funil adicional nasce só com «Ganho» e
+    // «Perdido» — as colunas do meio são de quem cria, pelo «+ Nova etapa».
     await linhaDoFunil(page, NOME).getByRole("link").click();
     await page.waitForURL(/\/app\/pipelines\//);
-    // Quem cria funil é manager+: para ele o nome da etapa é o campo editável
-    // do cabeçalho (#1738), e `getByText` não lê o valor de um <input>.
-    for (const coluna of ["Novo", "Em andamento", "Ganho", "Perdido"]) {
-      const nome = page.getByRole("textbox", { name: `«${coluna}»` }).first();
-      await expect(nome).toHaveValue(coluna);
+    // Quem cria funil é manager+: para ele o nome da etapa é o botão que abre a
+    // edição da coluna (Fase B), dentro do <h2> do cabeçalho.
+    for (const coluna of ["Ganho", "Perdido"]) {
+      const nome = page.locator("[data-etapa-do-quadro] h2", { hasText: coluna }).first();
+      await expect(nome).toHaveText(coluna);
       await expect(nome).toBeVisible();
     }
+    await expect(page.getByTestId("nova-etapa")).toBeVisible();
     await page.screenshot({ path: path.join(EVIDENCIA, "funis-02-quadro-novo.png"), fullPage: true });
 
     await page.goto("/app/crms/padrao");

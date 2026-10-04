@@ -40,6 +40,13 @@ export interface FunilEditavel {
   is_archived: boolean;
   /** Opcional porque NENHUMA regra daqui a usa — ela só existe para a tela. */
   description?: string | null;
+  /**
+   * O funil principal do CRM (migration 9007): o único com a Etapa de entrada,
+   * onde cai todo contato novo do CRM. Opcional: ausente vale `false`.
+   */
+  is_primary?: boolean;
+  /** Cor do funil no seletor do quadro (9008). Só a tela usa. */
+  color?: string | null;
 }
 
 /** O que amarra o funil ao resto do sistema, contado ANTES de arquivar ou excluir. */
@@ -120,6 +127,13 @@ export function validarArquivamento(
     return { ok: false, erro: "Esse funil não está mais na sua lista. Recarregue a página e tente de novo." };
   }
 
+  // O principal vem antes de tudo: nada que o usuário resolva o tira daqui (não
+  // há "eleger outro principal"), então mandá-lo resolver outra recusa primeiro
+  // seria gastar um passo dele à toa.
+  if (funil.is_primary) {
+    return { ok: false, erro: principalFixo(funil.name, "não se arquiva nem se exclui — dá para renomear e trocar a cor") };
+  }
+
   if (ativos(funis).filter((f) => f.id !== funilId).length === 0) {
     return {
       ok: false,
@@ -166,6 +180,41 @@ export function validarArquivamento(
   // Funil COM negócios arquiva: some da lista e do seletor, o histórico continua
   // apontando para ele. É exatamente o que arquivar existe para fazer.
   return { ok: true };
+}
+
+/**
+ * A frase da recusa sobre o funil principal, num lugar só (arquivar, excluir e
+ * mover de CRM usam a mesma).
+ */
+function principalFixo(nome: string, oQue: string): string {
+  return `«${nome}» é o funil principal deste CRM — é nele que fica a Etapa de entrada, onde chega todo contato novo — e ${oQue}.`;
+}
+
+/**
+ * Recusa levar o funil principal para outro CRM: o CRM de origem ficaria sem
+ * Etapa de entrada, e o de destino já tem o principal dele (índice único).
+ */
+export function validarMudancaDeCrm(funil: FunilEditavel, crmDestino: string): Resultado {
+  if (!funil.is_primary || funil.crm_id === crmDestino) return { ok: true };
+  return { ok: false, erro: principalFixo(funil.name, "não muda de CRM") };
+}
+
+/**
+ * O nome do funil principal que nasce com um CRM novo — "Funil de vendas", como
+ * no Kommo. O nome de funil é único entre os VIVOS da organização (regra da tela),
+ * então no segundo CRM ele leva o nome do CRM entre parênteses, a mesma
+ * convenção de `fn_crm_duplicar`, e um contador se ainda colidir.
+ */
+export function nomeDoFunilPrincipal(nomeDoCrm: string, funis: FunilEditavel[]): string {
+  const base = "Funil de vendas";
+  const livre = (nome: string) => validarNomeDeFunil(nome, funis, null).ok;
+  if (livre(base)) return base;
+  const comCrm = `${base} (${nomeDoCrm.trim()})`.slice(0, 80);
+  if (livre(comCrm)) return comCrm;
+  for (let n = 2; ; n++) {
+    const candidato = `${base} (${nomeDoCrm.trim()} ${n})`.slice(0, 80);
+    if (livre(candidato)) return candidato;
+  }
 }
 
 /**
@@ -274,18 +323,19 @@ export function regrasQueApontamPara(regras: RegraDeAutomacao[], pipelineId: str
 }
 
 /**
- * As etapas com que um funil novo nasce.
+ * As etapas com que um funil novo nasce: só as duas FINAIS, ganho e perda.
  *
- * ⚠️ FUNIL SEM ETAPA É QUADRO MORTO — a doutrina do sistema vivo em uma linha: o
- * board abriria sem coluna nenhuma e não receberia negócio. E a etapa de GANHO
- * não é enfeite: `/leads/[id]/win` procura `is_won` e responde 422
- * `pipeline_no_won_stage` sem ela, ou seja, o funil nasceria incapaz de fechar
- * negócio.
+ * ⚠️ AS COLUNAS DO MEIO SÃO DE QUEM CRIA (decisão do dono, Funis no modelo
+ * Kommo): funil adicional nasce só com as colunas que o usuário criar, mais
+ * "Ganho" e "Perdido". E as duas finais não são enfeite — `/leads/[id]/win`
+ * procura `is_won` e responde 422 `pipeline_no_won_stage` sem ela, e levar um
+ * negócio para outro funil exige etapa de perda na ORIGEM
+ * (`origem_sem_etapa_de_perda`): sem ela o negócio ficaria preso no funil.
  *
- * Os nomes são neutros de propósito. O gatilho `fn_seed_default_pipeline_for_org`
- * semeia um funil de e-commerce ("Carrinho abandonado") em toda org nova, e é
- * justamente isso que uma clínica não consegue usar — repetir o erro no funil
- * criado à mão seria absurdo. Tudo aqui é renomeável em Configurações › Funis.
+ * O funil que nasce PRINCIPAL (o primeiro de um CRM) ganha também a Etapa de
+ * entrada, na frente — quem a cria é o gatilho `trg_crm_pipelines_entrada`
+ * (9007), não esta lista. As colunas novas do quadro entram ANTES destas duas
+ * (`posicaoDaEtapaNova` em `lib/leads/stage-editing.ts`).
  */
 export const ETAPAS_INICIAIS: ReadonlyArray<{
   name: string;
@@ -293,8 +343,6 @@ export const ETAPAS_INICIAIS: ReadonlyArray<{
   is_won: boolean;
   is_lost: boolean;
 }> = [
-  { name: "Novo", slug: "novo", is_won: false, is_lost: false },
-  { name: "Em andamento", slug: "em_andamento", is_won: false, is_lost: false },
   { name: "Ganho", slug: "ganho", is_won: true, is_lost: false },
   { name: "Perdido", slug: "perdido", is_won: false, is_lost: true },
 ];

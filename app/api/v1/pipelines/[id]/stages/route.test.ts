@@ -111,9 +111,10 @@ describe("POST /api/v1/pipelines/[id]/stages", () => {
         pipeline_id: PIPE,
         name: "Pós-venda",
         slug: "pos-venda",
-        // A última posição do funil é 4000 (a fixture chega embaralhada): a etapa
-        // nova entra DEPOIS dela, não no meio.
-        position: 5000,
+        // As duas últimas colunas são as finais («Pago» ganho em 3000,
+        // «Cancelado» perda em 4000): a nova entra ANTES delas, como no Kommo —
+        // entre «Proposta» (2000) e «Pago».
+        position: 2500,
         // Sem cor pedida, a coluna nasce sem cor — declarado, não omitido.
         color: null,
       }),
@@ -123,9 +124,9 @@ describe("POST /api/v1/pipelines/[id]/stages", () => {
     expect(body.data.etapas.map((e) => e.name)).toEqual([
       "Novo",
       "Proposta",
+      "Pós-venda",
       "Pago",
       "Cancelado",
-      "Pós-venda",
     ]);
   });
 
@@ -239,15 +240,32 @@ describe("POST com cor e marcação (Funis no modelo Kommo, Fase B)", () => {
     expect(db.escritas).toEqual([]);
   });
 
-  it("num funil com Etapa de entrada, a coluna nova entra depois da MAIS À DIREITA, não da última da lista", async () => {
+  it("funil que só tem a entrada e as finais: a coluna nova entra entre a entrada e «Ganho»", async () => {
     authOk();
-    // A entrada tem posição alta de propósito: a leitura a põe na frente da
-    // lista, e "a última da lista" deixaria de ser a mais à direita.
+    // É o funil adicional/principal como nasce na Fase C: sem colunas do meio.
     const db = makeDb({
-      stages: [...funil(), etapa({ id: "en", name: "Etapa de entrada", position: 9000, is_entry: true })],
+      stages: [
+        etapa({ id: "g", name: "Ganho", position: 1000, is_won: true }),
+        etapa({ id: "p", name: "Perdido", position: 2000, is_lost: true }),
+        etapa({ id: "en", name: "Etapa de entrada", position: 0, is_entry: true }),
+      ],
     });
     const { POST } = await import("./route");
-    await POST(reqPost({ name: "Retorno" }), ctx);
-    expect((db.escritas[0]?.patch as Record<string, unknown>).position).toBe(10000);
+    await POST(reqPost({ name: "Qualificando" }), ctx);
+    expect((db.escritas[0]?.patch as Record<string, unknown>).position).toBe(500);
+  });
+
+  it("funil sem final na ponta: a coluna nova entra depois da MAIOR posição", async () => {
+    authOk();
+    const db = makeDb({
+      stages: [
+        etapa({ id: "a", name: "Pago", position: 1000, is_won: true }),
+        etapa({ id: "b", name: "Cancelado", position: 2000, is_lost: true }),
+        etapa({ id: "c", name: "Entregue", position: 3000 }),
+      ],
+    });
+    const { POST } = await import("./route");
+    await POST(reqPost({ name: "Pós-venda" }), ctx);
+    expect((db.escritas[0]?.patch as Record<string, unknown>).position).toBe(4000);
   });
 });

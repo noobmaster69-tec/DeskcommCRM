@@ -26,6 +26,8 @@ export interface CrmDoCard {
   leads_count: number;
   funis_count: number;
   last_updated_at: string | null;
+  /** O funil principal do CRM — "Abrir CRM" leva ao quadro dele. `null` = sem funil vivo. */
+  quadro_id: string | null;
 }
 
 function CardDoCrm({ crm }: { crm: CrmDoCard }) {
@@ -89,7 +91,7 @@ function CardDoCrm({ crm }: { crm: CrmDoCard }) {
           {rodape}
         </span>
         <Link
-          href={`/app/crms/${crm.slug}`}
+          href={crm.quadro_id ? `/app/pipelines/${crm.quadro_id}` : `/app/crms/${crm.slug}`}
           className="inline-flex items-center gap-1 text-sm font-medium text-accent-text hover:underline"
           data-testid={`abrir-crm-${crm.slug}`}
         >

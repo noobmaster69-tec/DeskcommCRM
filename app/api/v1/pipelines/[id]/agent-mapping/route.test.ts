@@ -258,6 +258,9 @@ describe("GET /api/v1/pipelines/[id]/agent-mapping", () => {
     expect(body.data.etapas[0]).toEqual({
       id: "e1",
       name: "Novo",
+      // A Etapa de entrada (9007): a tela de etapas trava os controles dela.
+      // Ausente na fixture = etapa comum.
+      is_entry: false,
       is_won: false,
       is_lost: false,
       // Migration 0440: a tela de etapas lê daqui a chave «avisar na Central».

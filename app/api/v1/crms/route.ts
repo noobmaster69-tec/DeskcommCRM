@@ -37,6 +37,8 @@ import {
 import { traduzir } from "@/lib/i18n/dicionario";
 import { createClient } from "@/lib/supabase/server";
 
+import { nomeDoFunilPrincipal } from "@/lib/pipelines/pipeline-editing";
+import { criarFunilComEtapas, lerFunis } from "../pipelines/_funis";
 import { conflitoDoBanco, crmDaApi, lerCrms, lerMetricas, type CrmDaApi, type LinhaDeCrm } from "./_crms";
 
 export const dynamic = "force-dynamic";
@@ -159,6 +161,24 @@ export async function POST(req: NextRequest): Promise<Response> {
     }
     const crmId = (criado as { id: string }).id;
 
+    // ⚠️ O CRM NASCE COM O FUNIL PRINCIPAL, como no Kommo (Funis no modelo
+    // Kommo, Fase C): sem ele o CRM abre vazio, sem quadro e sem Etapa de
+    // entrada para onde mandar contato novo. É a MESMA porta de "+ Adicionar
+    // funil" — o gatilho da 9007 o torna principal e cria a entrada. Se falhar,
+    // o CRM recém-criado (ainda sem funil nenhum, então apagável) é desfeito:
+    // um CRM sem quadro seria pior que nenhum.
+    const funis = await lerFunis(supabase, orgId);
+    const funil = await criarFunilComEtapas(
+      supabase,
+      funis,
+      { orgId, crmId, name: nomeDoFunilPrincipal(name, funis), description: null, color: null },
+      requestId,
+    );
+    if (!funil.ok) {
+      await supabase.from("crm_crms").delete().eq("id", crmId).eq("organization_id", orgId);
+      return { resposta: { erro: funil.resposta }, status: funil.resposta.status };
+    }
+
     // Marcar padrão DEPOIS de existir, na ordem que o índice único cobra.
     if (viraPadrao) {
       const comNovo = [...crms, { id: crmId, name, slug, is_default: false, archived_at: null }];
@@ -179,7 +199,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       resourceType: "crm_crm",
       resourceId: crmId,
       requestId,
-      metadata: { name, slug, is_default: viraPadrao },
+      metadata: { name, slug, is_default: viraPadrao, funil_principal_id: funil.pipelineId },
     });
 
     const depois = (await lerCrms(supabase, orgId)).find((c) => c.id === crmId);

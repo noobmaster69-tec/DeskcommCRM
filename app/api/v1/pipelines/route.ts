@@ -5,7 +5,9 @@ import { requireSupportWrite } from "@/lib/impersonate/support";
  * pipeline do CreateSourceDialog (feature Webhooks). `?crm_id=<uuid>` recorta
  * para os funis de um CRM (migration 9004).
  *
- * POST /api/v1/pipelines — cria um funil COM as etapas com que ele nasce.
+ * POST /api/v1/pipelines — cria um funil COM as etapas com que ele nasce
+ * (`criarFunilComEtapas`: ganho e perda; a Etapa de entrada se ele nascer
+ * principal).
  * `crm_id` é OPCIONAL: sem ele, o funil entra no CRM padrão da organização (o
  * gatilho `trg_crm_pipelines_preencher_crm` decide). Obrigatório quebraria todo
  * integrador que já cria funil por aqui.
@@ -17,15 +19,10 @@ import { z } from "zod";
 import { ok, fail } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
-import {
-  ETAPAS_INICIAIS,
-  posicaoEntre,
-  slugDeFunil,
-  validarNomeDeFunil,
-  type FunilEditavel,
-} from "@/lib/pipelines/pipeline-editing";
+import { FORMATO_DE_COR } from "@/lib/kanban/cores-de-etapa";
+import { validarNomeDeFunil, type FunilEditavel } from "@/lib/pipelines/pipeline-editing";
 import { createClient } from "@/lib/supabase/server";
-import { conflitoDoBanco, corpo, crmVivoDaOrg, lerFunis } from "./_funis";
+import { corpo, criarFunilComEtapas, crmVivoDaOrg, lerFunis } from "./_funis";
 import { listPipelinesHandler } from "./_handler";
 import { traduzir } from "@/lib/i18n/dicionario";
 
@@ -66,21 +63,10 @@ const bodySchema = z
     name: z.string().min(1).max(80),
     description: z.string().max(280).nullable().optional(),
     crm_id: z.string().uuid().optional(),
+    /** A "cor da aba" do funil no seletor do quadro (9008). */
+    color: z.string().regex(FORMATO_DE_COR).nullable().optional(),
   })
   .strict();
-
-/** As etapas com que o funil nasce, já com a régua de posição do board. */
-function etapasIniciais(orgId: string, pipelineId: string) {
-  return ETAPAS_INICIAIS.map((etapa, i) => ({
-    organization_id: orgId,
-    pipeline_id: pipelineId,
-    name: etapa.name,
-    slug: etapa.slug,
-    position: (i + 1) * 1000,
-    is_won: etapa.is_won,
-    is_lost: etapa.is_lost,
-  }));
-}
 
 export async function POST(req: NextRequest): Promise<Response> {
   const supportDenied = await requireSupportWrite();
@@ -136,61 +122,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     }
   }
 
-  const row = {
-    organization_id: orgId,
-    // Ausente = o gatilho põe no CRM padrão. `undefined` não vai no JSON.
-    crm_id: crmId,
-    name,
-    description,
-    // Arquivados entram na conta do slug: `uniq_crm_pipelines_org_slug` não é parcial.
-    slug: slugDeFunil(name, funis.map((f) => f.slug)),
-    // No fim da lista: funil novo aparecendo no meio seria a tela decidindo por
-    // quem criou. `lerFunis` vem ordenado.
-    position: posicaoEntre(funis[funis.length - 1]?.position ?? null, null),
-    // ⚠️ O PRIMEIRO FUNIL DA ORGANIZAÇÃO NASCE PADRÃO. Numa instalação onde o
-    // gatilho de seed não rodou, a org fica sem padrão nenhum — e todo lead
-    // criado sem funil escolhido não teria para onde ir. `uniq_..._org_default`
-    // é parcial, então só os ativos disputam esse lugar.
-    is_default: funis.filter((f) => !f.is_archived).length === 0,
-  };
-
-  const { data: criado, error } = await supabase
-    .from("crm_pipelines")
-    .insert(row)
-    .select("id")
-    .single();
-
-  if (error) {
-    const conflito = conflitoDoBanco(error as { code?: string }, name, requestId);
-    if (conflito) return conflito;
-    return fail("internal_error", error.message, 500, { requestId });
-  }
-  const pipelineId = (criado as { id: string }).id;
-
-  const { error: etapasErr } = await supabase
-    .from("crm_stages")
-    .insert(etapasIniciais(orgId, pipelineId));
-
-  // ⚠️ COMPENSAÇÃO, PORQUE SÃO DUAS ESCRITAS SEM TRANSAÇÃO. Um funil sem etapa é
-  // quadro morto: o board abre sem coluna nenhuma, não recebe negócio, e quem
-  // criou não tem como saber que aquilo nasceu quebrado. O funil recém-criado
-  // ainda não tem negócio, então `crm_leads_pipeline_id_fkey ON DELETE RESTRICT`
-  // não atrapalha o desfazimento. A alternativa correta-por-construção seria uma
-  // função SQL transacional — que custaria migration + apêndice no baseline para
-  // um caso que estas três linhas cobrem.
-  if (etapasErr) {
-    await supabase
-      .from("crm_pipelines")
-      .delete()
-      .eq("id", pipelineId)
-      .eq("organization_id", orgId);
-    return fail(
-      "internal_error",
-      `Não consegui criar as etapas de «${name}». Nada foi salvo — tente de novo.`,
-      500,
-      { requestId, details: { erro: etapasErr.message } },
-    );
-  }
+  const criado = await criarFunilComEtapas(
+    supabase,
+    funis,
+    { orgId, crmId, name, description, color: parsed.data.color ?? null },
+    requestId,
+  );
+  if (!criado.ok) return criado.resposta;
+  const pipelineId = criado.pipelineId;
 
   void audit({
     action: "pipeline.created",
@@ -199,7 +138,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     resourceType: "crm_pipeline",
     resourceId: pipelineId,
     requestId,
-    metadata: { name, slug: row.slug, is_default: row.is_default, crm_id: crmId ?? null },
+    metadata: { name, slug: criado.slug, is_default: criado.isDefault, crm_id: crmId ?? null },
   });
 
   // Relê em vez de espelhar o que foi pedido: a tela mostra o que o banco tem.

@@ -27,9 +27,8 @@ import {
   type EdicaoDeEtapa,
 } from "@/hooks/kanban/useEtapasDoQuadro";
 import { ApiError } from "@/lib/api/types";
-import { CORES_DE_ETAPA, NOMES_DAS_CORES } from "@/lib/kanban/cores-de-etapa";
 import type { Stage } from "@/lib/kanban/types";
-import { cn } from "@/lib/utils";
+import { PaletaDeCores } from "./PaletaDeCores";
 
 interface EtapaDialogProps {
   open: boolean;
@@ -163,7 +162,7 @@ export function EtapaDialog({ open, onOpenChange, pipelineId, stages, etapa }: E
           <DialogDescription>
             {etapa
               ? t("Mude o nome, a cor ou o papel desta coluna do funil.")
-              : t("A coluna nova entra à direita da última.")}
+              : t("A coluna nova entra no fim do funil, antes das etapas finais de ganho e perda.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -190,40 +189,7 @@ export function EtapaDialog({ open, onOpenChange, pipelineId, stages, etapa }: E
 
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">{t("Cor")}</legend>
-            <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={t("Cor")}>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={cor === null}
-                aria-label={t("Sem cor")}
-                title={t("Sem cor")}
-                data-testid="etapa-cor-nenhuma"
-                onClick={() => setCor(null)}
-                className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-full border border-border text-[10px] text-text-muted",
-                  cor === null && "ring-2 ring-accent ring-offset-2 ring-offset-background",
-                )}
-              >
-                ⌀
-              </button>
-              {CORES_DE_ETAPA.map((hex) => (
-                <button
-                  key={hex}
-                  type="button"
-                  role="radio"
-                  aria-checked={cor?.toLowerCase() === hex}
-                  aria-label={t(NOMES_DAS_CORES[hex])}
-                  title={t(NOMES_DAS_CORES[hex])}
-                  data-testid={`etapa-cor-${hex.slice(1)}`}
-                  onClick={() => setCor(hex)}
-                  style={{ backgroundColor: hex }}
-                  className={cn(
-                    "h-7 w-7 rounded-full border border-black/10",
-                    cor?.toLowerCase() === hex && "ring-2 ring-accent ring-offset-2 ring-offset-background",
-                  )}
-                />
-              ))}
-            </div>
+            <PaletaDeCores valor={cor} onChange={setCor} prefixo="etapa" />
           </fieldset>
 
           <div className="space-y-3">
