@@ -3,8 +3,9 @@ import { requireSupportWrite } from "@/lib/impersonate/support";
  * GET    /api/v1/crms/[id] — um CRM, com as métricas dos funis vivos.
  * PATCH  /api/v1/crms/[id] — nome, endereço (slug), descrição, cor do avatar e
  *                            eleger padrão.
- * DELETE /api/v1/crms/[id] — ARQUIVA (`archived_at`). Recusa o padrão e o CRM
- *                            que ainda tem funil vivo.
+ * DELETE /api/v1/crms/[id] — ARQUIVA o CRM e os funis dele (`fn_crm_arquivar`,
+ *                            9009). Recusa o padrão e o CRM com funil que é o
+ *                            padrão da org ou recebe lead de formulário/automação.
  *
  * `[id]` é o uuid. A tela que abre por endereço (`/app/crms/[slug]`) resolve o
  * slug na própria página; a API fica com a chave que não muda quando o CRM é
@@ -33,7 +34,9 @@ import {
 import { traduzir } from "@/lib/i18n/dicionario";
 import { createClient } from "@/lib/supabase/server";
 
-import { conflitoDoBanco, contarFunisVivos, crmDaApi, lerCrms, lerMetricas, type LinhaDeCrm } from "../_crms";
+import { conflitoDoBanco, crmDaApi, lerCrms, lerMetricas, type LinhaDeCrm } from "../_crms";
+import { lerDependencias, lerFunis } from "../../pipelines/_funis";
+import type { FunilDoCrmArquivado } from "@/lib/crms/crms";
 
 export const dynamic = "force-dynamic";
 
@@ -230,13 +233,22 @@ export async function DELETE(_req: NextRequest, ctx: RouteCtx): Promise<Response
 
   const supabase = await createClient();
   let crms: LinhaDeCrm[];
-  let funisVivos: number;
+  let funis: FunilDoCrmArquivado[];
   try {
     crms = await lerCrms(supabase, orgId);
     if (!crms.some((c) => c.id === id)) {
       return fail("not_found", t("CRM não encontrado."), 404, { requestId });
     }
-    funisVivos = await contarFunisVivos(supabase, orgId, id);
+    // Os funis vivos do CRM, com o que amarra cada um (formulário, automação):
+    // arquivar o CRM os arquiva juntos (9009), então as mesmas recusas do
+    // arquivar de funil valem aqui.
+    const vivos = (await lerFunis(supabase, orgId)).filter((f) => f.crm_id === id && !f.is_archived);
+    funis = await Promise.all(
+      vivos.map(async (f) => {
+        const deps = await lerDependencias(supabase, orgId, f.id);
+        return { name: f.name, is_default: f.is_default, fontesDeWebhook: deps.fontesDeWebhook, regrasAtivas: deps.regrasAtivas };
+      }),
+    );
   } catch (err) {
     return fail("internal_error", (err as Error).message, 500, { requestId });
   }
@@ -246,14 +258,12 @@ export async function DELETE(_req: NextRequest, ctx: RouteCtx): Promise<Response
   // estado, sem escrever nem auditar.
   if (alvo.archived_at !== null) return ok(crmDaApi(alvo), { requestId });
 
-  const veredito = validarArquivamentoDeCrm(alvo, funisVivos);
+  const veredito = validarArquivamentoDeCrm(alvo, funis);
   if (!veredito.ok) return fail("state_conflict", veredito.erro, 409, { requestId });
 
-  const { error } = await supabase
-    .from("crm_crms")
-    .update({ archived_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("organization_id", orgId);
+  // CRM, funis vivos (o principal inclusive) e vínculos de número numa transação
+  // só — `security invoker`, a RLS manager+ das três tabelas vale.
+  const { error } = await supabase.rpc("fn_crm_arquivar", { p_crm: id });
   if (error) return fail("internal_error", error.message, 500, { requestId });
 
   void audit({
@@ -263,7 +273,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteCtx): Promise<Response
     resourceType: "crm_crm",
     resourceId: id,
     requestId,
-    metadata: { name: alvo.name, slug: alvo.slug },
+    metadata: { name: alvo.name, slug: alvo.slug, funis_arquivados: funis.map((f) => f.name) },
   });
 
   try {

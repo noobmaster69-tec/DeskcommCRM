@@ -119,18 +119,60 @@ export function validarSlugDeCrm(slug: string, crms: CrmEditavel[], crmId: strin
  * fazer. Funil vivo dentro também barra: arquivar o CRM esconderia quadros em
  * uso.
  */
-export function validarArquivamentoDeCrm(crm: CrmEditavel, funisVivos: number): Resultado {
+/** Um funil vivo do CRM, com o que o amarra ao resto do sistema. */
+export interface FunilDoCrmArquivado {
+  name: string;
+  /** O funil padrão da ORGANIZAÇÃO — destino do negócio criado sem funil escolhido. */
+  is_default: boolean;
+  /** Formulários (fontes de webhook) que mandam lead para ele. */
+  fontesDeWebhook: string[];
+  /** Automações ativas que mandam card para ele. */
+  regrasAtivas: string[];
+}
+
+/**
+ * Recusa arquivar o CRM que deixaria uma entrada de lead sem destino.
+ *
+ * ⚠️ ARQUIVAR O CRM ARQUIVA OS FUNIS DELE JUNTO, o principal inclusive (Funis no
+ * modelo Kommo, Fase D — `fn_crm_arquivar`, migration 9009). A regra antiga
+ * exigia "zero funil vivo", e com o funil principal fixo (9007) isso tornou todo
+ * CRM inarquivável. Os negócios ficam como histórico, como no arquivar de funil.
+ * O que continua barrando é o que barra arquivar um funil: ser o padrão, ou ter
+ * formulário/automação mandando lead para ele — senão o lead que chegasse por
+ * ali ficaria sem quadro.
+ */
+export function validarArquivamentoDeCrm(crm: CrmEditavel, funis: FunilDoCrmArquivado[]): Resultado {
   if (crm.is_default) {
     return {
       ok: false,
       erro: `«${crm.name}» é o CRM padrão. Marque OUTRO CRM como padrão antes de arquivar este.`,
     };
   }
-  if (funisVivos > 0) {
-    const n = funisVivos === 1 ? "1 funil ativo" : `${funisVivos} funis ativos`;
+  const padrao = funis.find((f) => f.is_default);
+  if (padrao) {
     return {
       ok: false,
-      erro: `«${crm.name}» ainda tem ${n}. Arquive ou mova os funis para outro CRM antes.`,
+      erro:
+        `O funil «${padrao.name}» deste CRM é o funil padrão da organização. Marque OUTRO funil como padrão ` +
+        `antes de arquivar o CRM.`,
+    };
+  }
+  const comFormulario = funis.find((f) => f.fontesDeWebhook.length > 0);
+  if (comFormulario) {
+    return {
+      ok: false,
+      erro:
+        `O funil «${comFormulario.name}» recebe lead do formulário ${comFormulario.fontesDeWebhook.map((n) => `«${n}»`).join(", ")}. ` +
+        `Aponte o formulário para outro funil antes de arquivar o CRM.`,
+    };
+  }
+  const comAutomacao = funis.find((f) => f.regrasAtivas.length > 0);
+  if (comAutomacao) {
+    return {
+      ok: false,
+      erro:
+        `A automação ${comAutomacao.regrasAtivas.map((n) => `«${n}»`).join(", ")} manda card para o funil ` +
+        `«${comAutomacao.name}». Ajuste a automação antes de arquivar o CRM.`,
     };
   }
   return { ok: true };

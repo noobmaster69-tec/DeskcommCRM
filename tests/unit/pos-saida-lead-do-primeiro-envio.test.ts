@@ -28,6 +28,8 @@ vi.mock("@/lib/campanhas/origem-do-lead", () => ({
   origemDeCampanhaDaConversa: async () => null,
   marcaDaOrigem: () => null,
 }));
+const audit = vi.fn(async (..._a: unknown[]) => undefined);
+vi.mock("@/lib/audit", () => ({ audit: (...a: unknown[]) => audit(...a) }));
 const emitLeadActivity = vi.fn(async (..._a: unknown[]) => ({ ok: true }));
 vi.mock("@/lib/leads/activity-emitter", () => ({
   emitLeadActivity: (...a: unknown[]) => emitLeadActivity(...a),
@@ -40,17 +42,40 @@ const ORG = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CONTATO = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const CONVERSA = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
-type Lead = { id: string; organization_id: string; contact_id: string; status: string };
+type Lead = { id: string; organization_id: string; contact_id: string; status: string; pipeline_id?: string };
+
+/**
+ * O CRM de cada funil (Funis no modelo Kommo, Fase D): a régua "um lead aberto"
+ * passou a valer POR CRM. `funil-entrada` é o destino do nascimento; um lead em
+ * `funil-de-outro-crm` não segura o card novo.
+ */
+const CRM_DO_FUNIL: Record<string, string> = { "funil-entrada": "crm-1", "funil-de-outro-crm": "crm-2" };
 
 let leads: Lead[] = [];
 let rpcs: Array<{ nome: string; args: Record<string, unknown> }> = [];
 
-/** Builder encadeável do PostgREST; o efeito acontece no `maybeSingle()`. */
+/**
+ * Builder encadeável do PostgREST; o efeito acontece no `maybeSingle()` (uma
+ * linha) ou no `await` direto (lista — a leitura das demandas do contato e o
+ * CRM dos funis, desde a Fase D).
+ */
 function banco() {
   const tabela = (nome: string) => {
     const filtros: Array<[string, unknown]> = [];
     const b: Record<string, unknown> = {};
-    for (const m of ["select", "order", "limit"]) b[m] = () => b;
+    for (const m of ["select", "order", "limit", "is", "in"]) b[m] = () => b;
+    const lista = () => {
+      if (nome === "crm_leads") {
+        return leads
+          .filter((l) => filtros.every(([col, val]) => (l as Record<string, unknown>)[col] === val))
+          .map((l) => ({ ...l, pipeline_id: l.pipeline_id ?? "funil-entrada" }));
+      }
+      if (nome === "crm_pipelines") {
+        return Object.entries(CRM_DO_FUNIL).map(([id, crm_id]) => ({ id, crm_id }));
+      }
+      return [];
+    };
+    b.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: lista(), error: null }).then(ok);
     b.eq = (col: string, val: unknown) => {
       filtros.push([col, val]);
       return b;
@@ -90,6 +115,7 @@ beforeEach(() => {
   rpcs = [];
   ehContatoDoNumeroInterno.mockReset().mockResolvedValue(false);
   emitLeadActivity.mockClear();
+  audit.mockClear();
 });
 
 describe("pos-saida: a loja fala primeiro", () => {
@@ -169,5 +195,29 @@ describe("a régua da ENTRADA não mudou", () => {
     });
 
     expect(r).toEqual({ criado: false, motivo: "ja_existe" });
+  });
+
+  it("card aberto em OUTRO CRM não segura o card novo — um lead aberto por CRM (Fase D)", async () => {
+    leads = [{ id: "lead-da-apex", organization_id: ORG, contact_id: CONTATO, status: "open", pipeline_id: "funil-de-outro-crm" }];
+
+    const r = await garantirLeadDaConversa(banco(), {
+      organizationId: ORG,
+      contactId: CONTATO,
+      conversationId: CONVERSA,
+      nomeDoContato: null,
+    });
+
+    expect(r.criado, "o contato com card na Apex que escreve para o número da PA ganha card na PA").toBe(true);
+  });
+
+  it("conversa de número SEM vínculo nasce no CRM padrão e deixa o rastro do fallback na auditoria", async () => {
+    const r = await garantirLeadDaConversa(banco(), {
+      organizationId: ORG,
+      contactId: CONTATO,
+      conversationId: CONVERSA,
+      nomeDoContato: null,
+    });
+    expect(r.criado).toBe(true);
+    expect(audit.mock.calls.map((c) => (c[0] as { action: string }).action)).toContain("lead.crm_fallback");
   });
 });

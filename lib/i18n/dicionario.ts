@@ -13993,6 +13993,25 @@ export const DICIONARIO: Traducoes = {
   "foi excluído.": { es: "fue eliminado." },
   "Nome do funil": { es: "Nombre del embudo" },
   "A coluna nova entra no fim do funil, antes das etapas finais de ganho e perda.": { es: "La columna nueva entra al final del embudo, antes de las etapas finales de ganancia y pérdida." },
+  // Funis no modelo Kommo, Fase D (fork jhoow): números de WhatsApp ligados a CRMs.
+  "Números de WhatsApp": { es: "Números de WhatsApp" },
+  "Cada número manda o contato novo para a Etapa de entrada de um CRM. Número sem vínculo manda para o CRM padrão": { es: "Cada número envía el contacto nuevo a la Etapa de entrada de un CRM. Un número sin vínculo lo envía al CRM predeterminado" },
+  "Nenhum número de WhatsApp conectado. Conecte um em Conexões.": { es: "Ningún número de WhatsApp conectado. Conecta uno en Conexiones." },
+  "Vinculado ao CRM": { es: "Vinculado al CRM" },
+  "Sem número": { es: "Sin número" },
+  "Sem vínculo (CRM padrão)": { es: "Sin vínculo (CRM predeterminado)" },
+  "Alterar": { es: "Cambiar" },
+  "Vincular…": { es: "Vincular…" },
+  "Esperando o QR code": { es: "Esperando el código QR" },
+  "Com falha": { es: "Con falla" },
+  "Número vinculado.": { es: "Número vinculado." },
+  "Número desvinculado.": { es: "Número desvinculado." },
+  "O contato novo deste número vai para a Etapa de entrada do CRM escolhido. Os leads que já existem não mudam de lugar.": { es: "El contacto nuevo de este número va a la Etapa de entrada del CRM elegido. Los leads que ya existen no cambian de lugar." },
+  "Vincular a qual CRM?": { es: "¿Vincular a qué CRM?" },
+  "Desvincular (usar o CRM padrão)": { es: "Desvincular (usar el CRM predeterminado)" },
+  "Número não encontrado.": { es: "Número no encontrado." },
+  "Escolha um CRM, ou desvincule o número.": { es: "Elige un CRM o desvincula el número." },
+  "Este número acabou de ser vinculado em outra aba. Recarregue a página.": { es: "Este número acaba de ser vinculado en otra pestaña. Recarga la página." },
 };
 
 /**

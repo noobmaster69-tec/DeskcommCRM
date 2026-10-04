@@ -109,22 +109,6 @@ export function crmDaApi(
   };
 }
 
-/** Quantos funis VIVOS o CRM tem — o que barra o arquivamento. */
-export async function contarFunisVivos(
-  supabase: Supabase,
-  orgId: string,
-  crmId: string,
-): Promise<number> {
-  const { count, error } = await supabase
-    .from("crm_pipelines")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", orgId)
-    .eq("crm_id", crmId)
-    .eq("is_archived", false);
-  if (error) throw new Error(error.message);
-  return count ?? 0;
-}
-
 /**
  * 23505 vira 409 com frase: as regras de `lib/crms` validam ANTES, e o índice
  * único só pega a corrida entre duas abas — o erro cru falaria de índice.

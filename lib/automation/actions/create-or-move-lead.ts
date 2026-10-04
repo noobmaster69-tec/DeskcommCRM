@@ -161,16 +161,37 @@ async function negocioAbertoEmOutroFunil(
   contactId: string,
   pipelineId: string,
 ): Promise<OrigemParaClonar | null> {
-  const { data } = await ctx.admin
+  // ⚠️ SÓ OS FUNIS DO MESMO CRM (Funis no modelo Kommo, Fase D). Desde o
+  // roteamento por número a regra é UM LEAD ABERTO POR CRM: o contato pode ter
+  // card na Apex E na PA ao mesmo tempo. Buscar em qualquer funil faria uma
+  // automação da Apex fechar o negócio da PA para "transferi-lo".
+  const { data: destino } = await ctx.admin
+    .from("crm_pipelines")
+    .select("crm_id")
+    .eq("organization_id", ctx.organizationId)
+    .eq("id", pipelineId)
+    .maybeSingle();
+  const crmId = (destino as { crm_id?: string | null } | null)?.crm_id ?? null;
+  let irmaos: string[] | null = null;
+  if (crmId) {
+    const { data: funis } = await ctx.admin
+      .from("crm_pipelines")
+      .select("id")
+      .eq("organization_id", ctx.organizationId)
+      .eq("crm_id", crmId);
+    irmaos = ((funis ?? []) as Array<{ id: string }>).map((f) => f.id).filter((id) => id !== pipelineId);
+    if (irmaos.length === 0) return null;
+  }
+
+  let consulta = ctx.admin
     .from("crm_leads")
     .select(COLUNAS_DA_ORIGEM)
     .eq("organization_id", ctx.organizationId)
     .eq("contact_id", contactId)
     .eq("status", "open")
-    .neq("pipeline_id", pipelineId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .neq("pipeline_id", pipelineId);
+  if (irmaos) consulta = consulta.in("pipeline_id", irmaos);
+  const { data } = await consulta.order("created_at", { ascending: false }).limit(1).maybeSingle();
   return (data as OrigemParaClonar | null) ?? null;
 }
 

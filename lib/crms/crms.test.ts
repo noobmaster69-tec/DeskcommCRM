@@ -87,15 +87,37 @@ describe("validarSlugDeCrm", () => {
 });
 
 describe("validarArquivamentoDeCrm", () => {
-  it("o padrão não se arquiva", () => {
-    expect(validarArquivamentoDeCrm(PADRAO, 0).ok).toBe(false);
+  const funil = (over: Partial<{ name: string; is_default: boolean; fontesDeWebhook: string[]; regrasAtivas: string[] }> = {}) => ({
+    name: "Ensaio",
+    is_default: false,
+    fontesDeWebhook: [] as string[],
+    regrasAtivas: [] as string[],
+    ...over,
   });
-  it("CRM com funil vivo não se arquiva", () => {
-    const r = validarArquivamentoDeCrm(GIRLY, 2);
-    expect(r).toEqual({ ok: false, erro: expect.stringContaining("2 funis ativos") });
+  it("o padrão não se arquiva", () => {
+    expect(validarArquivamentoDeCrm(PADRAO, []).ok).toBe(false);
+  });
+  it("CRM com funis vivos SE ARQUIVA — os funis vão junto (Fase D, 9009)", () => {
+    expect(validarArquivamentoDeCrm(GIRLY, [funil(), funil({ name: "Upsell" })]).ok).toBe(true);
+  });
+  it("funil que é o padrão da organização barra", () => {
+    const r = validarArquivamentoDeCrm(GIRLY, [funil({ is_default: true })]);
+    expect(r).toEqual({ ok: false, erro: expect.stringContaining("funil padrão da organização") });
+  });
+  it("funil com formulário barra, citando o formulário", () => {
+    expect(validarArquivamentoDeCrm(GIRLY, [funil({ fontesDeWebhook: ["Site"] })])).toEqual({
+      ok: false,
+      erro: expect.stringContaining("«Site»"),
+    });
+  });
+  it("funil com automação ativa barra, citando a automação", () => {
+    expect(validarArquivamentoDeCrm(GIRLY, [funil({ regrasAtivas: ["Boas-vindas"] })])).toEqual({
+      ok: false,
+      erro: expect.stringContaining("«Boas-vindas»"),
+    });
   });
   it("CRM vazio e não padrão se arquiva", () => {
-    expect(validarArquivamentoDeCrm(GIRLY, 0).ok).toBe(true);
+    expect(validarArquivamentoDeCrm(GIRLY, []).ok).toBe(true);
   });
 });
 

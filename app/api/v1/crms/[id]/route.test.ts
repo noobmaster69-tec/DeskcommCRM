@@ -176,37 +176,64 @@ describe("DELETE /api/v1/crms/[id] (arquivar)", () => {
     expect(db.escritas).toEqual([]);
   });
 
-  it("CRM com funil vivo → 409 contando os funis", async () => {
+  it("CRM com funis arquiva JUNTO com eles, pela fn_crm_arquivar, e audita os funis (Fase D)", async () => {
+    // A regra antiga ("zero funil vivo") + o funil principal fixo (9007)
+    // deixavam todo CRM inarquivável. Agora CRM, funis vivos e vínculos de
+    // número vão juntos, numa transação no banco (9009).
     authOk();
     const db = makeDb({
       crms: crmsDaOrg(),
       pipelines: [
-        { ...funilRow({ id: "f1", name: "Ensaio" }), crm_id: GIRLY },
+        { ...funilRow({ id: "f1", name: "Ensaio" }), crm_id: GIRLY, is_primary: true },
         { ...funilRow({ id: "f2", name: "Upsell" }), crm_id: GIRLY },
-        // arquivado não conta
+        // arquivado não entra na conta
         { ...funilRow({ id: "f3", name: "Velho", is_archived: true }), crm_id: GIRLY },
       ],
     });
     const { DELETE } = await import("./route");
     const res = await DELETE(req("DELETE"), ctx(GIRLY));
-    expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: { message: string } };
-    expect(body.error.message).toContain("2 funis ativos");
+    expect(res.status).toBe(200);
+    expect(db.rpcs).toEqual([{ nome: "fn_crm_arquivar", args: { p_crm: GIRLY } }]);
+    // Nada de update solto: a transação é da função.
     expect(db.escritas).toEqual([]);
+    expect(vi.mocked(audit).mock.calls[0]?.[0]).toMatchObject({
+      action: "crm.archived",
+      metadata: { funis_arquivados: ["Ensaio", "Upsell"] },
+    });
   });
 
-  it("CRM vazio arquiva (archived_at), sem apagar, e audita", async () => {
+  it("funil do CRM recebe lead de formulário → 409 com a frase, e nada arquivado", async () => {
+    authOk();
+    const db = makeDb({
+      crms: crmsDaOrg(),
+      pipelines: [{ ...funilRow({ id: "f1", name: "Ensaio" }), crm_id: GIRLY, is_primary: true }],
+      webhookSources: [{ organization_id: ORG_ID, default_pipeline_id: "f1", name: "Site" }],
+    });
+    const { DELETE } = await import("./route");
+    const res = await DELETE(req("DELETE"), ctx(GIRLY));
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toContain("«Site»");
+    expect(db.rpcs).toEqual([]);
+  });
+
+  it("o funil padrão da organização está no CRM → 409, e nada arquivado", async () => {
+    authOk();
+    const db = makeDb({
+      crms: crmsDaOrg(),
+      pipelines: [{ ...funilRow({ id: "f1", name: "Ensaio", is_default: true }), crm_id: GIRLY, is_primary: true }],
+    });
+    const { DELETE } = await import("./route");
+    expect((await DELETE(req("DELETE"), ctx(GIRLY))).status).toBe(409);
+    expect(db.rpcs).toEqual([]);
+  });
+
+  it("CRM vazio também arquiva pela função, e audita", async () => {
     authOk();
     const db = makeDb({ crms: crmsDaOrg(), pipelines: [] });
     const { DELETE } = await import("./route");
     const res = await DELETE(req("DELETE"), ctx(GIRLY));
     expect(res.status).toBe(200);
-    expect(db.escritas).toHaveLength(1);
-    expect(db.escritas[0]).toMatchObject({
-      tipo: "update",
-      table: "crm_crms",
-      patch: { archived_at: expect.any(String) },
-    });
+    expect(db.rpcs).toEqual([{ nome: "fn_crm_arquivar", args: { p_crm: GIRLY } }]);
     expect(vi.mocked(audit).mock.calls[0]?.[0]).toMatchObject({ action: "crm.archived" });
   });
 

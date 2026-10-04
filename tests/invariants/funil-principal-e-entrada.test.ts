@@ -75,10 +75,14 @@ function primeira(saida: string): string {
 
 /** O bloco da 9007 no apêndice do baseline, como o `update.sh` o reaplica. */
 function blocoDaMigration(): string {
+  return blocoDoBaseline("-- ---- funil principal e etapa de entrada (migration 9007) ----");
+}
+
+/** Um bloco rotulado do apêndice do baseline. */
+function blocoDoBaseline(rotulo: string): string {
   const baseline = readFileSync(join(__dirname, "..", "..", "supabase", "baseline.sql"), "utf8");
-  const rotulo = "-- ---- funil principal e etapa de entrada (migration 9007) ----";
   const inicio = baseline.lastIndexOf(rotulo);
-  if (inicio < 0) throw new Error("bloco da 9007 ausente do baseline");
+  if (inicio < 0) throw new Error(`bloco ausente do baseline: ${rotulo}`);
   const proximo = baseline.indexOf("\n-- ---- ", inicio + rotulo.length);
   return baseline.slice(inicio, proximo < 0 ? undefined : proximo);
 }
@@ -340,6 +344,9 @@ describe("backfill e reaplicação (update.sh)", () => {
     sql(blocoDaMigration());
     sql(blocoDaMigration());
     expect(foto()).toBe(antes);
+    // O update.sh aplica o baseline inteiro, em ordem: a 9009 redefine a guarda
+    // do principal e os gatilhos de nascimento que a 9007 acabou de recriar.
+    sql(blocoDoBaseline("-- ---- um lead aberto por CRM e arquivar CRM com o funil principal (migration 9009) ----"));
   });
 });
 

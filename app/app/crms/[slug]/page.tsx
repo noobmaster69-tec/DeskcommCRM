@@ -7,6 +7,8 @@ import { ROLE_RANK } from "@/lib/auth/types";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { createClient } from "@/lib/supabase/server";
 import { CaretRight } from "@/lib/ui/icons";
+import { NumerosDoCrm, type CrmDaEscolha, type NumeroDoCrm } from "@/components/crms/NumerosDoCrm";
+import { ARCHIVED_AT, queryTolerantToMissingArchived } from "@/lib/channels/archived";
 import { FunisClient, type FunilDaLista } from "./_client";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +68,52 @@ export default async function CrmPage({ params }: { params: Promise<{ slug: stri
   const podeImportar = ROLE_RANK[activeOrg.role] >= ROLE_RANK.agent;
   const t = (texto: string) => traduzir(texto, user.idioma);
 
+  // Números de WhatsApp e o CRM de cada um (Funis no modelo Kommo, Fase D). Só
+  // para manager+, que é quem pode trocar o vínculo (rota e RLS). Lidos com o
+  // client do usuário: a leitura de `channel_sessions` e dos vínculos é da org.
+  let numeros: NumeroDoCrm[] = [];
+  let crmsDaEscolha: CrmDaEscolha[] = [];
+  if (podeGerenciar) {
+    const base = () =>
+      supabase
+        .from("channel_sessions")
+        .select("id, phone_number, display_name, status")
+        .eq("organization_id", activeOrg.orgId)
+        .order("created_at");
+    const [{ data: sessoes }, { data: vinculos }, { data: crms }] = await Promise.all([
+      queryTolerantToMissingArchived(
+        () => base().is(ARCHIVED_AT, null),
+        () => base(),
+      ),
+      supabase.from("crm_waha_session_bindings").select("channel_session_id, crm_id").eq("organization_id", activeOrg.orgId),
+      supabase
+        .from("crm_crms")
+        .select("id, name, is_default")
+        .eq("organization_id", activeOrg.orgId)
+        .is("archived_at", null)
+        .order("name"),
+    ]);
+    crmsDaEscolha = (crms ?? []) as CrmDaEscolha[];
+    const nomeDoCrm = new Map(crmsDaEscolha.map((c) => [c.id, c.name]));
+    const crmDoNumero = new Map(
+      ((vinculos ?? []) as Array<{ channel_session_id: string; crm_id: string }>).map((v) => [v.channel_session_id, v.crm_id]),
+    );
+    numeros = ((sessoes ?? []) as Array<{ id: string; phone_number: string | null; display_name: string | null; status: string }>).map(
+      (s) => {
+        const vinculado = crmDoNumero.get(s.id);
+        // Vínculo para CRM arquivado não vale (cai no padrão): a tela diz o mesmo.
+        const nome = vinculado ? nomeDoCrm.get(vinculado) : undefined;
+        return {
+          id: s.id,
+          nome: s.display_name,
+          telefone: s.phone_number,
+          status: s.status,
+          crm: vinculado && nome ? { id: vinculado, name: nome } : null,
+        };
+      },
+    );
+  }
+
   return (
     <div className="flex h-full flex-col gap-4 p-6">
       <header className="flex flex-col gap-2">
@@ -92,6 +140,8 @@ export default async function CrmPage({ params }: { params: Promise<{ slug: stri
         podeImportar={podeImportar}
         crmId={crm.id}
       />
+
+      {podeGerenciar && <NumerosDoCrm crmId={crm.id} numeros={numeros} crms={crmsDaEscolha} />}
     </div>
   );
 }

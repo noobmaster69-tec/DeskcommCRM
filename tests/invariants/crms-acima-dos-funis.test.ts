@@ -239,6 +239,9 @@ describe("backfill e reaplicação (update.sh)", () => {
     // que redefine fn_crm_duplicar para conviver com o funil principal. Reaplicar
     // só a 9004 deixaria a versão antiga para o caso de duplicar, lá embaixo.
     sql(blocoDoBaseline("-- ---- funil principal e etapa de entrada (migration 9007) ----"));
+    // E a 9009, que redefine a guarda do principal e os gatilhos de nascimento
+    // que a 9007 acabou de recriar.
+    sql(blocoDoBaseline("-- ---- um lead aberto por CRM e arquivar CRM com o funil principal (migration 9009) ----"));
     expect(sql(`select count(*) || ':' || string_agg(id::text || crm_id::text, ',' order by id)
                   from public.crm_pipelines`)).toBe(antes);
     expect(sql(`select count(*) from public.crm_crms`)).toBe(crmsAntes);

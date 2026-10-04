@@ -1022,6 +1022,14 @@ export const AUDIT_ACTIONS = [
   // O funil que mudou de CRM. Separado de `pipeline.updated` pelo mesmo motivo
   // de `pipeline.unarchived`: some no meio dos renames.
   "pipeline.moved_crm",
+  // Número de WhatsApp ligado/desligado de um CRM (migration 9007, Funis no
+  // modelo Kommo, Fase D): decide para onde vai o contato novo daquele número.
+  "crm.number_bound",
+  "crm.number_unbound",
+  // O lead que nasceu no CRM PADRÃO porque o número da conversa não tem vínculo
+  // (ou o CRM vinculado foi arquivado). É o rastro que explica "por que este
+  // card caiu aqui e não no CRM do número".
+  "lead.crm_fallback",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

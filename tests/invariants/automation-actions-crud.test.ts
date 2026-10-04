@@ -38,7 +38,7 @@ function sqlLiteral(v: unknown): string {
 type QResult = { data: unknown; error: { message: string; code?: string } | null };
 type RowResult = { data: Record<string, unknown> | null; error: { message: string; code?: string } | null };
 
-type FilterOp = "eq" | "is" | "neq";
+type FilterOp = "eq" | "is" | "neq" | "in";
 interface Filter {
   op: FilterOp;
   col: string;
@@ -114,6 +114,19 @@ class FakeQuery implements PromiseLike<QResult> {
     return this;
   }
 
+  /**
+   * `.in(col, [...])` — pertinência (Funis no modelo Kommo, Fase D). Mesma
+   * história do `neq` acima: `negocioAbertoEmOutroFunil` passou a recortar os
+   * funis do MESMO CRM com `.in("pipeline_id", irmaos)` (um lead aberto por
+   * CRM), e sem este ramo o dublê estourava `TypeError` e a ação voltava
+   * `failed` — o invariante mediria o dublê. Lista vazia vira `false`, que é o
+   * que o PostgREST devolve para `in.()` (nenhuma linha).
+   */
+  in(col: string, vals: readonly unknown[]): this {
+    this.filters.push({ op: "in", col, val: [...vals] });
+    return this;
+  }
+
   order(col: string, opts: { ascending: boolean }): this {
     this.orderCol = col;
     this.orderAsc = opts.ascending;
@@ -132,6 +145,10 @@ class FakeQuery implements PromiseLike<QResult> {
         ? `${f.col} is ${f.val === null ? "null" : sqlLiteral(f.val)}`
         : f.op === "neq"
           ? `${f.col} <> ${sqlLiteral(f.val)}`
+          : f.op === "in"
+            ? (f.val as unknown[]).length === 0
+              ? "false"
+              : `${f.col} in (${(f.val as unknown[]).map(sqlLiteral).join(", ")})`
           : `${f.col} = ${sqlLiteral(f.val)}`,
     );
     return ` where ${clauses.join(" and ")}`;
