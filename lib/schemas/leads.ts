@@ -21,7 +21,13 @@ const flexibleTimestamp = z
 
 export const moveLeadSchema = z.object({
   stage_id: z.string().uuid(),
-  position_in_stage: z.number().finite(),
+  /**
+   * Onde o card cai na coluna. Opcional desde a Fase E (Funis no modelo Kommo):
+   * o seletor do Inbox move sem saber onde os cards estão, e a rota põe o card
+   * no FIM da coluna — a mesma régua do `moveLeadHandler`. O arrasto do quadro
+   * continua mandando a posição exata.
+   */
+  position_in_stage: z.number().finite().optional(),
   expected_updated_at: flexibleTimestamp,
   /**
    * O motivo da perda, quando a etapa de destino é de perda (issue #917). É o

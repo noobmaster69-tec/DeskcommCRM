@@ -343,8 +343,11 @@ describe("GET /api/v1/ai/followup-flows — list", () => {
   it("viewer (any member) → 200, só pointers da própria org", async () => {
     const db = makeDb(
       [
-        { id: "33333333-3333-4333-8333-333333333333", organization_id: ORG_ID, name: "A", status: "draft", active_version_id: null, handoff_policy: "pause", updated_at: "2026-01-01" },
-        { id: "44444444-4444-4444-8444-444444444444", organization_id: OTHER_ORG_ID, name: "B", status: "draft", active_version_id: null, handoff_policy: "pause", updated_at: "2026-01-01" },
+        // `surface` explícito: a lista sem filtro passou a trazer só as superfícies
+        // do relógio (`SUPERFICIES_DO_RELOGIO`, desde os Fluxos), e linha sem
+        // `surface` some — o teste mediria o filtro, não o isolamento por org.
+        { id: "33333333-3333-4333-8333-333333333333", organization_id: ORG_ID, name: "A", status: "draft", active_version_id: null, handoff_policy: "pause", updated_at: "2026-01-01", surface: "followup" },
+        { id: "44444444-4444-4444-8444-444444444444", organization_id: OTHER_ORG_ID, name: "B", status: "draft", active_version_id: null, handoff_policy: "pause", updated_at: "2026-01-01", surface: "followup" },
       ],
       [],
     );

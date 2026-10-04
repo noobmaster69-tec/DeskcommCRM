@@ -178,6 +178,42 @@ describe("roteamento por número", () => {
   });
 });
 
+describe("mover o card para outro funil do MESMO CRM (Fase E)", () => {
+  it("funil e etapa mudam juntos no banco; entrar no ganho do funil novo fecha como ganho", async () => {
+    const sdr = (
+      await um<{ id: string }>(
+        `insert into crm_pipelines (organization_id, crm_id, name, slug) values ($1, $2, $3, $4) returning id`,
+        [ORG, crmPa, "SDR da PA", "sdr-pa-9009"],
+      )
+    ).id;
+    // Funil adicional: não é principal, não ganha entrada (9007).
+    expect((await um<{ is_primary: boolean }>(`select is_primary from crm_pipelines where id = $1`, [sdr])).is_primary).toBe(false);
+    const reuniao = (
+      await um<{ id: string }>(
+        `insert into crm_stages (organization_id, pipeline_id, name, slug, position) values ($1, $2, $3, $4, 1000) returning id`,
+        [ORG, sdr, "Reunião", "reuniao"],
+      )
+    ).id;
+    const ganho = (
+      await um<{ id: string }>(
+        `insert into crm_stages (organization_id, pipeline_id, name, slug, position, is_won) values ($1, $2, $3, $4, 2000, true) returning id`,
+        [ORG, sdr, "Ganho", "ganho"],
+      )
+    ).id;
+    const lead = (await um<{ id: string }>(`select id from crm_leads where contact_id = $1 and pipeline_id = $2`, [contato, funilPa])).id;
+
+    await pool.query(`update crm_leads set pipeline_id = $2, stage_id = $3 where id = $1`, [lead, sdr, reuniao]);
+    expect(await um(`select pipeline_id, stage_id, status from crm_leads where id = $1`, [lead])).toEqual({
+      pipeline_id: sdr,
+      stage_id: reuniao,
+      status: "open",
+    });
+
+    await pool.query(`update crm_leads set stage_id = $2 where id = $1`, [lead, ganho]);
+    expect((await um<{ status: string }>(`select status from crm_leads where id = $1`, [lead])).status).toBe("won");
+  });
+});
+
 describe("arquivar CRM (9009)", () => {
   it("fn_crm_arquivar leva funis (o principal inclusive) e vínculos; o número dele cai no padrão", async () => {
     await pool.query(`select public.fn_crm_arquivar($1)`, [crmVelho]);

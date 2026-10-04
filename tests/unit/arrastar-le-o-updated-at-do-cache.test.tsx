@@ -40,6 +40,13 @@ vi.mock("@hello-pangea/dnd", () => ({
     capturado.onDragEnd = onDragEnd;
     return <div>{children}</div>;
   },
+  // As colunas viraram arrastáveis (Funis no modelo Kommo, Fase B): o quadro
+  // embrulha cada coluna num Draggable dentro de um Droppable de colunas. Aqui
+  // eles só repassam os filhos — este teste mede o updated_at do CARD.
+  Droppable: ({ children }: { children: (p: unknown) => ReactNode }) =>
+    <div>{children({ innerRef: () => {}, droppableProps: {}, placeholder: null })}</div>,
+  Draggable: ({ children }: { children: (p: unknown) => ReactNode }) =>
+    <div>{children({ innerRef: () => {}, draggableProps: {}, dragHandleProps: null })}</div>,
 }));
 vi.mock("@/components/kanban/StageColumn", () => ({ StageColumn: () => null }));
 vi.mock("@/components/kanban/LeadDossier", () => ({ LeadDossier: () => null }));

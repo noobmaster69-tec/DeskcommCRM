@@ -17,6 +17,7 @@ import { emitLeadActivity, stageChangeReason } from "@/lib/leads/activity-emitte
 import { listaLegivel } from "@/lib/leads/activity-vocabulary";
 import { camposAlterados } from "@/lib/leads/campos-alterados";
 import { RECUSA_DE_TROCA_DE_FUNIL } from "@/lib/leads/clonar-para-funil";
+import { lerFunisDoMovimento, podeMoverEntreFunis } from "@/lib/leads/mover-entre-funis";
 import {
   RECUSA_RETOMADA_ETAPA_INDISPONIVEL,
   RECUSA_RETOMADA_LEAD_ABERTO,
@@ -901,14 +902,30 @@ export async function moveLeadHandler(
       traduzir("Stage não encontrado.", ctx.idioma ?? "pt-BR"),
     );
   }
+  // OUTRO FUNIL: só no mesmo CRM, e o card vai junto (Funis no modelo Kommo,
+  // Fase E). A MESMA regra da rota `POST /leads/[id]/move` — lote, IA e MCP
+  // passam por aqui e não podem divergir do arrasto do quadro.
+  let entreFunis = false;
+  let nomesDosFunis: { origem: string; destino: string } | null = null;
   if (stage.pipeline_id !== lead.pipeline_id) {
-    throw new ApiError(
-      422,
-      "pipeline_immutable_use_clone",
-      { use: "/api/v1/leads/{id}/clone" },
-      ctx.requestId,
-      traduzir(RECUSA_DE_TROCA_DE_FUNIL, ctx.idioma ?? "pt-BR"),
-    );
+    const lidos = await lerFunisDoMovimento(supabase, ctx.organization_id, lead.pipeline_id, stage.pipeline_id);
+    if (lidos.erro) {
+      throw new ApiError(500, "internal_error", undefined, ctx.requestId, lidos.erro);
+    }
+    const origem = lidos.origem;
+    const destino = lidos.destino;
+    const movimento = origem && destino ? podeMoverEntreFunis(origem, destino) : null;
+    if (!movimento || !movimento.ok) {
+      throw new ApiError(
+        422,
+        movimento && !movimento.ok ? movimento.codigo : "pipeline_immutable_use_clone",
+        { use: "/api/v1/leads/{id}/clone" },
+        ctx.requestId,
+        traduzir(movimento && !movimento.ok ? movimento.mensagem : RECUSA_DE_TROCA_DE_FUNIL, ctx.idioma ?? "pt-BR"),
+      );
+    }
+    entreFunis = true;
+    nomesDosFunis = { origem: origem!.name, destino: destino!.name };
   }
 
   // ── RETOMAR COMO NOVO NEGÓCIO (issue #1538) ────────────────────────────────
@@ -920,7 +937,8 @@ export async function moveLeadHandler(
   // porque duas réguas para a mesma regra é como o defeito nasce.
   // Vem ANTES da régua de campos, como no arrasto: um encerrado que não reabre
   // não tem campo de etapa a pedir.
-  const settings = await settingsDoFunil(supabase, lead.pipeline_id);
+  // As regras são as do funil de DESTINO: é nele que o card vai estar.
+  const settings = await settingsDoFunil(supabase, stage.pipeline_id);
   {
     const recusa = recusaReabertura({
       modo: modoDeReabertura(settings),
@@ -1025,6 +1043,7 @@ export async function moveLeadHandler(
     .from("crm_leads")
     .update({
       stage_id: input.to_stage_id,
+      ...(entreFunis ? { pipeline_id: stage.pipeline_id } : {}),
       position_in_stage: position,
       updated_at: nowIso,
       ...veredito.patch,
@@ -1064,7 +1083,8 @@ export async function moveLeadHandler(
       p_entity_id: leadId,
       p_payload: {
         service_origin: serviceOrigin,
-        pipeline_id: lead.pipeline_id,
+        pipeline_id: stage.pipeline_id,
+        ...(entreFunis ? { from_pipeline_id: lead.pipeline_id } : {}),
         from_stage_id: lead.stage_id,
         to_stage_id: input.to_stage_id,
         position_in_stage: position,
@@ -1099,13 +1119,17 @@ export async function moveLeadHandler(
     sourceModule: "crm",
     sourceId: leadId,
     actor: ctx.actor,
-    reason: input.reason
-      ? `${stageChangeReason(fromStage?.name ?? null, stage.name)} — ${input.reason}`
-      : stageChangeReason(fromStage?.name ?? null, stage.name),
+    reason: (() => {
+      const base = nomesDosFunis
+        ? stageChangeReason(`${nomesDosFunis.origem} · ${fromStage?.name ?? "?"}`, `${nomesDosFunis.destino} · ${stage.name}`)
+        : stageChangeReason(fromStage?.name ?? null, stage.name);
+      return input.reason ? `${base} — ${input.reason}` : base;
+    })(),
     payload: {
       from_stage_id: lead.stage_id,
       to_stage_id: input.to_stage_id,
-      pipeline_id: lead.pipeline_id,
+      pipeline_id: stage.pipeline_id,
+      ...(entreFunis ? { from_pipeline_id: lead.pipeline_id } : {}),
     },
   });
   // ── O LAÇO (spec 17 passo 5) ──────────────────────────────────────────────

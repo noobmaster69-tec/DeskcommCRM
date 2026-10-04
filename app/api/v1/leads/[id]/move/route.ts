@@ -2,7 +2,9 @@ import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * POST /api/v1/leads/[id]/move
  *
- * Moves a lead within its pipeline (P-01: cross-pipeline moves require clone).
+ * Moves a lead to a stage of its pipeline — or of ANOTHER pipeline of the SAME
+ * CRM (Funis no modelo Kommo, Fase E: the card moves, keeping its history).
+ * Between CRMs it is still a clone (P-01): `podeMoverEntreFunis`.
  * Uses Pattern B optimistic concurrency (P-08): client sends `expected_updated_at`,
  * UPDATE filters by it, zero rows affected ⇒ 409 lead_stage_changed_concurrent.
  *
@@ -23,7 +25,7 @@ import {
   decideMotivoDaPerda,
   recusaDeMotivoDaPerdaPeloBanco,
 } from "@/lib/leads/motivo-da-perda";
-import { RECUSA_DE_TROCA_DE_FUNIL } from "@/lib/leads/clonar-para-funil";
+import { lerFunisDoMovimento, podeMoverEntreFunis, type FunilDoMovimento } from "@/lib/leads/mover-entre-funis";
 import { modoDeReabertura, recusaReabertura } from "@/lib/leads/reabertura";
 import {
   recusaDeCamposObrigatorios,
@@ -94,14 +96,27 @@ export async function POST(
   if (!stage) {
     return fail("not_found", t("Stage não encontrado."), 404, { requestId });
   }
+  // ── OUTRO FUNIL: SÓ NO MESMO CRM, E O CARD VAI JUNTO (Fase E) ─────────────
+  // Os dois funis são lidos para a regra decidir; o nome de cada um vai para a
+  // linha do tempo ("Funil A · Etapa X → Funil B · Etapa Y").
+  let funilDeOrigem: FunilDoMovimento | null = null;
+  let funilDeDestino: FunilDoMovimento | null = null;
   if (stage.pipeline_id !== lead.pipeline_id) {
-    return fail(
-      "pipeline_immutable_use_clone",
-      t(RECUSA_DE_TROCA_DE_FUNIL),
-      422,
-      { requestId, details: { use: "/api/v1/leads/{id}/clone" } },
-    );
+    const lidos = await lerFunisDoMovimento(supabase, lead.organization_id, lead.pipeline_id, stage.pipeline_id);
+    if (lidos.erro) return fail("internal_error", lidos.erro, 500, { requestId });
+    // Funil que não se lê (de outra org, ou sumiu) não decide "mesmo CRM": a
+    // recusa é a de sempre, a que aponta o clone.
+    funilDeOrigem = lidos.origem ?? { id: lead.pipeline_id, crm_id: null, is_archived: false, name: "" };
+    funilDeDestino = lidos.destino ?? { id: stage.pipeline_id, crm_id: null, is_archived: false, name: "" };
+    const movimento = podeMoverEntreFunis(funilDeOrigem, funilDeDestino);
+    if (!movimento.ok) {
+      return fail(movimento.codigo, t(movimento.mensagem), 422, {
+        requestId,
+        details: movimento.codigo === "pipeline_immutable_use_clone" ? { use: "/api/v1/leads/{id}/clone" } : undefined,
+      });
+    }
   }
+  const entreFunis = funilDeDestino !== null;
 
   // ── O FUNIL DECIDE SE ESTA ESCRITA REABRIRIA O NEGÓCIO (issue #1538) ───────
   //
@@ -113,7 +128,9 @@ export async function POST(
   // Vem ANTES da régua de campos: o card encerrado não reabre, então perguntar
   // pelos campos da etapa seria abrir um diálogo para uma escrita que o 409
   // abaixo recusa de qualquer jeito.
-  const settings = await settingsDoFunil(supabase, lead.pipeline_id);
+  // As regras (reabertura, campos obrigatórios, motivo de ganho) são as do funil
+  // de DESTINO: é nele que o card vai estar depois desta escrita.
+  const settings = await settingsDoFunil(supabase, stage.pipeline_id);
   const recusa = recusaReabertura({
     modo: modoDeReabertura(settings),
     statusAtual: (lead as { status?: string }).status,
@@ -205,13 +222,29 @@ export async function POST(
     return fail(veredito.codigo, veredito.mensagem, 422, { requestId });
   }
 
+  // Sem posição pedida (o seletor do Inbox não sabe onde os cards estão), o
+  // card entra no FIM da coluna de destino — a mesma régua do `moveLeadHandler`.
+  let posicao = input.position_in_stage;
+  if (posicao === undefined) {
+    const { data: ultimo } = await supabase
+      .from("crm_leads")
+      .select("position_in_stage")
+      .eq("stage_id", input.stage_id)
+      .order("position_in_stage", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    posicao = ultimo?.position_in_stage ? Number(ultimo.position_in_stage) + 1000 : 1000;
+  }
+
   // OCC update (Pattern B / Spec 09 §7.2). O motivo da perda entra NA MESMA
-  // escrita que muda a etapa — nunca numa segunda, que teria janela.
+  // escrita que muda a etapa — nunca numa segunda, que teria janela. O funil
+  // também: etapa e funil do card mudam juntos ou não mudam.
   const { data: updated, error: updErr } = await supabase
     .from("crm_leads")
     .update({
       stage_id: input.stage_id,
-      position_in_stage: input.position_in_stage,
+      ...(entreFunis ? { pipeline_id: stage.pipeline_id } : {}),
+      position_in_stage: posicao,
       updated_at: new Date().toISOString(),
       ...veredito.patch,
       // O motivo de ganho sai NA MESMA escrita que muda a etapa — o mesmo
@@ -282,11 +315,17 @@ export async function POST(
     sourceModule: "crm",
     sourceId: leadId,
     actor: { type: "user", id: user.id },
-    reason: stageChangeReason(fromStage?.name ?? null, stage.name),
+    reason: entreFunis
+      ? stageChangeReason(
+          `${funilDeOrigem!.name} · ${fromStage?.name ?? "?"}`,
+          `${funilDeDestino!.name} · ${stage.name}`,
+        )
+      : stageChangeReason(fromStage?.name ?? null, stage.name),
     payload: {
       from_stage_id: lead.stage_id,
       to_stage_id: input.stage_id,
-      pipeline_id: lead.pipeline_id,
+      pipeline_id: stage.pipeline_id,
+      ...(entreFunis ? { from_pipeline_id: funilDeOrigem!.id } : {}),
     },
   });
   if (!atividade.ok) {
@@ -324,8 +363,9 @@ export async function POST(
       p_payload: {
         from_stage_id: lead.stage_id,
         to_stage_id: input.stage_id,
-        position_in_stage: input.position_in_stage,
+        position_in_stage: posicao,
         status: finalLead.status,
+        ...(entreFunis ? { from_pipeline_id: funilDeOrigem!.id, to_pipeline_id: stage.pipeline_id } : {}),
       },
       p_metadata: { request_id: requestId, actor_user_id: user.id },
       p_organization_id: lead.organization_id,
@@ -344,7 +384,8 @@ export async function POST(
     metadata: {
       from_stage_id: lead.stage_id,
       to_stage_id: input.stage_id,
-      position_in_stage: input.position_in_stage,
+      position_in_stage: posicao,
+      ...(entreFunis ? { from_pipeline_id: funilDeOrigem!.id, to_pipeline_id: stage.pipeline_id } : {}),
     },
   });
 

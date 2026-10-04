@@ -132,7 +132,9 @@ function fakeDb(seed: Record<string, Row[]>) {
     return builder;
   }
 
-  return { client: { from } as never, tables };
+  // `rpc` responde sem erro: a rota de mover emite `lead.stage_changed` depois
+  // de gravar (fire-and-forget) — antes da Fase E nenhum caso daqui chegava lá.
+  return { client: { from, rpc: async () => ({ error: null }) } as never, tables };
 }
 
 function seed() {
@@ -610,5 +612,56 @@ describe("POST /api/v1/leads/[id]/move cross-pipeline", () => {
     expect(response.status).toBe(422);
     expect(body.error.code).toBe("pipeline_immutable_use_clone");
     expect(body.error.details).toMatchObject({ use: "/api/v1/leads/{id}/clone" });
+  });
+});
+
+describe("POST /api/v1/leads/[id]/move entre funis do MESMO CRM (Funis no modelo Kommo, Fase E)", () => {
+  const CRM_A = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const CRM_B = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const noCrm = (p1: string, p2: string, arquivarDestino = false) => {
+    db.tables.crm_pipelines![0]!.crm_id = p1;
+    db.tables.crm_pipelines![1]!.crm_id = p2;
+    db.tables.crm_pipelines![1]!.is_archived = arquivarDestino;
+  };
+
+  it("move o MESMO card: funil e etapa mudam juntos, sem clonar nem fechar nada", async () => {
+    noCrm(CRM_A, CRM_A);
+    const { POST } = await import("../move/route");
+    const response = await POST(
+      moveRequest({ stage_id: S2_B, expected_updated_at: "2026-09-15T10:00:00.000Z" }),
+      params,
+    );
+    expect(response.status).toBe(200);
+    const lead = db.tables.crm_leads!.find((l) => l.id === LEAD_ID)!;
+    expect(lead).toMatchObject({ pipeline_id: P2, stage_id: S2_B, status: "open" });
+    // Um card só: nada de clone.
+    expect(db.tables.crm_leads).toHaveLength(1);
+    // Sem posição pedida (o seletor do Inbox), o card entra no fim da coluna.
+    expect(lead.position_in_stage).toBe(1000);
+    const atividade = vi.mocked(emitLeadActivity).mock.calls.at(-1)?.[1] as { payload: Record<string, unknown> };
+    expect(atividade.payload).toMatchObject({ from_pipeline_id: P1, pipeline_id: P2, to_stage_id: S2_B });
+  });
+
+  it("outro CRM → 422 pipeline_immutable_use_clone, e o card não muda", async () => {
+    noCrm(CRM_A, CRM_B);
+    const { POST } = await import("../move/route");
+    const response = await POST(
+      moveRequest({ stage_id: S2_A, expected_updated_at: "2026-09-15T10:00:00.000Z" }),
+      params,
+    );
+    expect(response.status).toBe(422);
+    expect((await response.json()).error.code).toBe("pipeline_immutable_use_clone");
+    expect(db.tables.crm_leads![0]).toMatchObject({ pipeline_id: P1, stage_id: S1_A });
+  });
+
+  it("funil de destino arquivado → 422 pipeline_archived", async () => {
+    noCrm(CRM_A, CRM_A, true);
+    const { POST } = await import("../move/route");
+    const response = await POST(
+      moveRequest({ stage_id: S2_A, expected_updated_at: "2026-09-15T10:00:00.000Z" }),
+      params,
+    );
+    expect(response.status).toBe(422);
+    expect((await response.json()).error.code).toBe("pipeline_archived");
   });
 });

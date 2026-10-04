@@ -27,6 +27,7 @@ import { ConversationTagsEditor } from "./ConversationTagsEditor";
 import { ContactTagsEditor } from "./ContactTagsEditor";
 import { useDefaultPipeline } from "@/hooks/pipelines/useDefaultPipeline";
 import { NewLeadDialog } from "@/components/kanban/NewLeadDialog";
+import { MoverParaFunil, type FunilDoSeletorDoInbox } from "./MoverParaFunil";
 import { CustomFieldsEditor, type CustomFieldDef } from "@/components/contacts/CustomFieldsEditor";
 import { useEditLead } from "@/hooks/kanban/useUpdateLead";
 import { useBulkAction } from "@/hooks/kanban/useBulkAction";
@@ -54,6 +55,8 @@ interface LeadRow {
   stage_id?: string;
   /** As etapas ativas do funil, na ordem do quadro (rota crm-summary). */
   etapas_do_funil?: Array<{ id: string; name: string; is_won: boolean; is_lost: boolean }>;
+  /** Os funis do CRM do negócio, com etapas e cores — o seletor "Mover para funil" (Fase E). */
+  funis_do_crm?: FunilDoSeletorDoInbox[];
 }
 
 interface OrderRow {
@@ -398,7 +401,24 @@ function InboxLeadEditor({
           </p>
         </div>
       )}
-      <EtapaDoNegocio key={`etapa-${ativo.id}`} lead={ativo} onMovido={onSalvo} />
+      {ativo.stage_id && (ativo.funis_do_crm?.length ?? 0) > 0 ? (
+        <MoverParaFunil
+          key={`funil-${ativo.id}`}
+          negocio={{
+            id: ativo.id,
+            pipeline_id: ativo.pipeline_id,
+            stage_id: ativo.stage_id,
+            updated_at: ativo.updated_at,
+            funil_nome: ativo.funil_nome,
+            etapa_nome: ativo.etapa_nome,
+          }}
+          funis={ativo.funis_do_crm ?? []}
+          onMovido={onSalvo}
+        />
+      ) : (
+        // Resposta antiga (sem `funis_do_crm`) em cache: o seletor de etapa de sempre.
+        <EtapaDoNegocio key={`etapa-${ativo.id}`} lead={ativo} onMovido={onSalvo} />
+      )}
       <CamposDoFunil
         key={ativo.id}
         leadId={ativo.id}

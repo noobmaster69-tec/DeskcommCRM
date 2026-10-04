@@ -97,14 +97,17 @@ describe("crm-summary: a etapa do negócio e as etapas do funil", () => {
     expect(res.status).toBe(200);
     const [lead] = body.data.leads;
     expect(lead?.stage_id).toBe("s-dados");
+    // `color` e `is_entry` entraram na Fase E (Funis no modelo Kommo): o seletor
+    // em cascata pinta cada etapa com a cor da coluna. Ausentes na fixture =
+    // sem cor e etapa comum.
     expect(lead?.etapas_do_funil).toEqual([
-      { id: "s-dados", name: "Dados incompletos", is_won: false, is_lost: false },
-      { id: "s-confirmado", name: "Pedido confirmado", is_won: false, is_lost: false },
-      { id: "s-cancelado", name: "Cancelado", is_won: false, is_lost: true },
+      { id: "s-dados", name: "Dados incompletos", color: null, is_entry: false, is_won: false, is_lost: false },
+      { id: "s-confirmado", name: "Pedido confirmado", color: null, is_entry: false, is_won: false, is_lost: false },
+      { id: "s-cancelado", name: "Cancelado", color: null, is_entry: false, is_won: false, is_lost: true },
     ]);
     const select = banco.selects.join("|");
     expect(select).toContain("stage_id");
-    expect(select).toContain("etapas:crm_stages!crm_stages_pipeline_id_fkey(id, name, position, is_won, is_lost, is_archived)");
+    expect(select).toContain("etapas:crm_stages!crm_stages_pipeline_id_fkey(id, name, position, color, is_entry, is_won, is_lost, is_archived)");
   });
 });
 

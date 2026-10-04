@@ -14018,6 +14018,11 @@ export const DICIONARIO: Traducoes = {
   "Nome, endereço, descrição e cor deste CRM.": { es: "Nombre, dirección, descripción y color de este CRM." },
   "Arquivar o CRM arquiva também os funis dele. Os negócios ficam no histórico, e os números de WhatsApp ligados a ele voltam para o CRM padrão.": { es: "Archivar el CRM archiva también sus embudos. Los negocios quedan en el historial y los números de WhatsApp vinculados vuelven al CRM predeterminado." },
   "Arquivar CRM": { es: "Archivar CRM" },
+  // Funis no modelo Kommo, Fase E (fork jhoow): mover para funil no Inbox.
+  "Card movido para": { es: "Tarjeta movida a" },
+  "Funil e etapa": { es: "Embudo y etapa" },
+  "Para perder o negócio, use a etapa de perda do funil onde ele está.": { es: "Para perder el negocio, usa la etapa de pérdida del embudo donde está." },
+  "Este funil é de outro CRM. Dentro do mesmo CRM o card se move; para levá-lo a outro CRM, use «Levar para outro funil» no quadro (POST /api/v1/leads/[id]/clone) — ele cria o negócio lá e encerra este.": { es: "Este embudo es de otro CRM. Dentro del mismo CRM la tarjeta se mueve; para llevarla a otro CRM, usa «Llevar a otro embudo» en el tablero (POST /api/v1/leads/[id]/clone): crea el negocio allí y cierra este." },
 };
 
 /**

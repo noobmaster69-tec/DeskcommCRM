@@ -47,7 +47,16 @@ export const dynamic = "force-dynamic";
 // `stage_id` e as `etapas` do funil alimentam o seletor de etapa do painel: mover
 // o negócio (ex.: "Pedido confirmado") direto da conversa, sem ir ao quadro.
 const LEAD_COLS =
-  "id, title, status, value_cents, currency, updated_at, pipeline_id, stage_id, custom_fields, crm_pipelines!inner(name, settings, is_archived, etapas:crm_stages!crm_stages_pipeline_id_fkey(id, name, position, is_won, is_lost, is_archived)), crm_stages!crm_leads_stage_id_fkey(name)";
+  "id, title, status, value_cents, currency, updated_at, pipeline_id, stage_id, custom_fields, crm_pipelines!inner(name, settings, is_archived, crm_id, etapas:crm_stages!crm_stages_pipeline_id_fkey(id, name, position, color, is_entry, is_won, is_lost, is_archived)), crm_stages!crm_leads_stage_id_fkey(name)";
+
+/**
+ * Os funis do CRM de cada negócio, com as etapas e as cores (Funis no modelo
+ * Kommo, Fase E): é o que o seletor em cascata do painel lista — passa o mouse
+ * no funil, aparecem as etapas dele, clica e o card se move. Só os funis do
+ * MESMO CRM, porque mover entre CRMs é clonar, e isso mora no quadro.
+ */
+const FUNIS_DO_CRM_COLS =
+  "id, name, color, is_primary, position, crm_id, etapas:crm_stages!crm_stages_pipeline_id_fkey(id, name, position, color, is_entry, is_won, is_lost, is_archived)";
 const ORDER_COLS = "id, external_id, status, total_cents, currency, created_at";
 /** Acompanha o que a timeline mostra — `reason` e `actor_kind` inclusive. */
 /**
@@ -170,10 +179,47 @@ export async function GET(
   }>;
   const nomes = await nomesDosAtendentes(linhas.map((a) => a.performed_by_user_id ?? null));
 
+  // Os funis dos CRMs dos negócios do contato — uma leitura só, para todos.
+  const crmIds = [
+    ...new Set(
+      ((leads.data ?? []) as Array<Record<string, unknown>>)
+        .map((l) => crmDoEmbed(l.crm_pipelines))
+        .filter((c): c is string => c !== null),
+    ),
+  ];
+  const funisPorCrm = new Map<string, FunilDoSeletor[]>();
+  if (crmIds.length > 0) {
+    const { data: funis, error: funisErr } = await supabase
+      .from("crm_pipelines")
+      .select(FUNIS_DO_CRM_COLS)
+      .eq("organization_id", contactScope.organization_id)
+      .eq("is_archived", false)
+      .in("crm_id", crmIds)
+      .order("position", { ascending: true });
+    // Mesma política da rota: a falha sobe em vez de virar "sem funis".
+    if (funisErr) return fail("internal_error", funisErr.message, 500, { requestId });
+    for (const f of (funis ?? []) as Array<Record<string, unknown>>) {
+      const crm = f.crm_id as string;
+      const lista = funisPorCrm.get(crm) ?? [];
+      lista.push({
+        id: f.id as string,
+        name: f.name as string,
+        color: (f.color as string | null) ?? null,
+        is_primary: f.is_primary === true,
+        etapas: etapasDoEmbed(f),
+      });
+      funisPorCrm.set(crm, lista);
+    }
+  }
+
   return ok(
     {
       ...enrichment,
-      leads: (leads.data ?? []).map((row) => comCamposDoFunil(row as Record<string, unknown>)),
+      leads: (leads.data ?? []).map((row) => {
+        const r = row as Record<string, unknown>;
+        const crm = crmDoEmbed(r.crm_pipelines);
+        return { ...comCamposDoFunil(r), funis_do_crm: crm ? (funisPorCrm.get(crm) ?? []) : [] };
+      }),
       orders: orders.data ?? [],
       activities: linhas.map((a) => ({
         ...a,
@@ -199,15 +245,62 @@ function comCamposDoFunil(row: Record<string, unknown>) {
   };
 }
 
-/** As etapas ATIVAS do funil do negócio, na ordem do quadro. */
-function etapasDoEmbed(embed: unknown): Array<{ id: string; name: string; is_won: boolean; is_lost: boolean }> {
+/** Uma etapa como o painel a mostra. */
+interface EtapaDoSeletor {
+  id: string;
+  name: string;
+  color: string | null;
+  is_entry: boolean;
+  is_won: boolean;
+  is_lost: boolean;
+}
+
+/** Um funil do CRM do negócio, com as etapas — o seletor em cascata (Fase E). */
+interface FunilDoSeletor {
+  id: string;
+  name: string;
+  color: string | null;
+  is_primary: boolean;
+  etapas: EtapaDoSeletor[];
+}
+
+/**
+ * As etapas ATIVAS do funil do negócio, na ordem do quadro: a Etapa de entrada
+ * (9007) primeiro, depois por posição — a mesma ordem das colunas.
+ */
+function etapasDoEmbed(embed: unknown): EtapaDoSeletor[] {
   const alvo = Array.isArray(embed) ? embed[0] : embed;
   const etapas = (alvo as { etapas?: unknown } | null)?.etapas;
   if (!Array.isArray(etapas)) return [];
-  return (etapas as Array<{ id: string; name: string; position: number | string; is_won: boolean; is_lost: boolean; is_archived: boolean }>)
+  return (
+    etapas as Array<{
+      id: string;
+      name: string;
+      position: number | string;
+      color?: string | null;
+      is_entry?: boolean;
+      is_won: boolean;
+      is_lost: boolean;
+      is_archived: boolean;
+    }>
+  )
     .filter((e) => !e.is_archived)
-    .sort((a, b) => Number(a.position) - Number(b.position))
-    .map((e) => ({ id: e.id, name: e.name, is_won: e.is_won, is_lost: e.is_lost }));
+    .sort((a, b) => Number(b.is_entry === true) - Number(a.is_entry === true) || Number(a.position) - Number(b.position))
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      color: e.color ?? null,
+      is_entry: e.is_entry === true,
+      is_won: e.is_won,
+      is_lost: e.is_lost,
+    }));
+}
+
+/** O CRM do funil embutido no negócio (9004), ou `null`. */
+function crmDoEmbed(embed: unknown): string | null {
+  const alvo = Array.isArray(embed) ? embed[0] : embed;
+  const crm = (alvo as { crm_id?: unknown } | null)?.crm_id;
+  return typeof crm === "string" ? crm : null;
 }
 
 function nomeDoEmbed(embed: unknown): string | null {
