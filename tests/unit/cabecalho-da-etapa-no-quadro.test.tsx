@@ -54,10 +54,12 @@ describe("cabeçalho da coluna no quadro", () => {
     expect(screen.getByRole("heading", { name: /Etapa de entrada/ })).toBeTruthy();
   });
 
-  it("a cor vira a faixa de baixo do cabeçalho; sem cor, a borda neutra", () => {
+  it("a cor vira a faixa de baixo do cabeçalho — sombra interna, sem mudar a altura", () => {
     montar({ ...etapa, color: "#a4c8fa" }, false);
     const cabecalho = screen.getByTestId("cabecalho-da-etapa");
-    expect(cabecalho.style.borderBottomColor).toBe("rgb(164, 200, 250)");
-    expect(cabecalho.className).toContain("border-b-[3px]");
+    expect(cabecalho.style.boxShadow).toBe("inset 0 -3px 0 #a4c8fa");
+    // A borda é a mesma das colunas sem cor: é o que mantém as alturas iguais.
+    expect(cabecalho.className).toContain("border-border");
+    expect(cabecalho.className).not.toContain("border-b-[3px]");
   });
 });

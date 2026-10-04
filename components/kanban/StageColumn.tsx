@@ -159,14 +159,13 @@ export function StageColumn({
       <div className="sticky top-0 z-10 rounded-t-lg bg-background" data-cabecalho-da-etapa>
         <div className="bg-surface-muted/40 rounded-t-lg">
           {/* A COR É A FAIXA DE BAIXO do cabeçalho, como no Kommo: é o que dá para
-              ler de longe num quadro com dez colunas. Sem cor, a borda neutra de
-              sempre. */}
+              ler de longe num quadro com dez colunas. Sombra INTERNA, e não borda
+              mais grossa: a borda de 3px deixava o cabeçalho colorido 2px mais alto
+              que o vizinho (medido: 47 contra 45), e os cabeçalhos presos no alto
+              do quadro ficavam em degrau. */}
           <div
-            className={cn(
-              "group/etapa flex items-center gap-2 border-b px-3 py-2.5",
-              stage.color ? "border-b-[3px]" : "border-border",
-            )}
-            style={stage.color ? { borderBottomColor: stage.color } : undefined}
+            className="group/etapa flex items-center gap-2 border-b border-border px-3 py-2.5"
+            style={stage.color ? { boxShadow: `inset 0 -3px 0 ${stage.color}` } : undefined}
             data-testid="cabecalho-da-etapa"
             {...(alcaDeArraste ?? {})}
           >
@@ -217,7 +216,9 @@ export function StageColumn({
                 </button>
               </h2>
             ) : (
-              <h2 className="flex min-w-0 flex-1 items-center gap-1 truncate text-sm font-semibold text-text">
+              // `py-0.5` é o mesmo respiro do botão das colunas editáveis: sem ele a
+              // Etapa de entrada media 41,5px de cabeçalho contra 45 das vizinhas.
+              <h2 className="flex min-w-0 flex-1 items-center gap-1 truncate py-0.5 text-sm font-semibold text-text">
                 <span className="truncate">{stage.name}</span>
                 {stage.is_entry && (
                   <Lock
