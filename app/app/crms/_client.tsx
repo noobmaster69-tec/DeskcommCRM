@@ -1,6 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,10 +11,20 @@ import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import { useT } from "@/hooks/i18n/useT";
 import { melhorFrenteSobre } from "@/lib/branding/contraste";
 import { atualizacaoDoCrm } from "@/lib/crms/atualizado";
-import { Archive, ArrowRight, DotsThree, Kanban, PencilSimple, Plus } from "@/lib/ui/icons";
+import { Archive, ArrowRight, Copy, DotsThree, Kanban, PencilSimple, Plus, Star, Trash } from "@/lib/ui/icons";
+import { corDoAvatar } from "@/lib/crms/cor-do-avatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 import type { FunilDaLista } from "./[slug]/_client";
-import { GerenciarFunisDialog } from "@/components/kanban/GerenciarFunisDialog";
 import type { FunilDoSeletor } from "@/components/kanban/CorDoFunil";
 import {
   DropdownMenu,
@@ -22,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EditarCrmDialog } from "./_components/EditarCrm";
+import { FunisENumerosDialog } from "./_components/FunisENumeros";
 import { ImportarLeads } from "./_components/ImportarLeads";
 import { NovoCrm } from "./_components/NovoCrm";
 
@@ -45,14 +58,17 @@ export interface CrmDoCard {
 }
 
 /**
- * O menu "⋯" do card (manager+): editar o CRM, gerenciar os funis dele e
- * arquivá-lo, sem precisar abrir a página do CRM nem o quadro. Os modais são os
- * MESMOS da página do CRM (`EditarCrmDialog`) e do quadro (`GerenciarFunisDialog`)
- * — as regras são da API, e duas telas com a mesma regra divergiriam.
+ * O menu "⋯" do card (manager+), na ordem do pedido do Jhoow: Editar CRM ·
+ * Duplicar · Ver funis e números · Definir como padrão · Arquivar · Excluir.
+ * Editar/Arquivar usam o MESMO modal da página do CRM (`EditarCrmDialog`).
+ * Excluir é DE VEZ e só passa em CRM sem negócio nenhum (migration 9012) —
+ * quem tem história arquiva.
  */
 function MenuDoCrm({ crm }: { crm: CrmDoCard }) {
   const t = useT();
-  const [aberto, setAberto] = useState<"editar" | "funis" | "arquivar" | null>(null);
+  const router = useRouter();
+  const [ocupado, startTransition] = useTransition();
+  const [aberto, setAberto] = useState<"editar" | "funis" | "arquivar" | "excluir" | null>(null);
   const editavel = {
     id: crm.id,
     name: crm.name,
@@ -61,6 +77,25 @@ function MenuDoCrm({ crm }: { crm: CrmDoCard }) {
     avatar_bg_color: crm.avatar_bg_color,
     is_default: crm.is_default,
   };
+
+  const chamar = (url: string, method: string, corpo: unknown, sucesso: string, aoTerminar?: () => void) =>
+    startTransition(async () => {
+      const resp = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corpo),
+      }).catch(() => null);
+      const json = (await resp?.json().catch(() => null)) as { error?: { message?: string } } | null;
+      if (!resp?.ok) {
+        toast.error(json?.error?.message ?? t("Não foi possível concluir a ação."));
+        return;
+      }
+      toast.success(t(sucesso));
+      aoTerminar?.();
+      router.refresh();
+    });
+
+  const item = "gap-2";
   return (
     <>
       <DropdownMenu>
@@ -68,25 +103,49 @@ function MenuDoCrm({ crm }: { crm: CrmDoCard }) {
           className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-surface-elevated hover:text-foreground"
           aria-label={`${t("Opções de")} «${crm.name}»`}
           data-testid={`menu-crm-${crm.slug}`}
+          disabled={ocupado}
         >
           <DotsThree size={20} aria-hidden />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onSelect={() => setAberto("editar")} data-testid={`menu-crm-editar-${crm.slug}`}>
-            <PencilSimple size={14} className="mr-2" aria-hidden /> {t("Editar CRM")}
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem className={item} onSelect={() => setAberto("editar")} data-testid={`menu-crm-editar-${crm.slug}`}>
+            <PencilSimple size={14} aria-hidden /> {t("Editar CRM")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setAberto("funis")} data-testid={`menu-crm-funis-${crm.slug}`}>
-            <Kanban size={14} className="mr-2" aria-hidden /> {t("Gerenciar funis")}
+          <DropdownMenuItem
+            className={item}
+            onSelect={() => chamar(`/api/v1/crms/${crm.id}/duplicate`, "POST", {}, "CRM duplicado.")}
+            data-testid={`menu-crm-duplicar-${crm.slug}`}
+          >
+            <Copy size={14} aria-hidden /> {t("Duplicar")}
+          </DropdownMenuItem>
+          <DropdownMenuItem className={item} onSelect={() => setAberto("funis")} data-testid={`menu-crm-funis-${crm.slug}`}>
+            <Kanban size={14} aria-hidden /> {t("Ver funis e números")}
           </DropdownMenuItem>
           {!crm.is_default && (
+            <DropdownMenuItem
+              className={item}
+              onSelect={() => chamar(`/api/v1/crms/${crm.id}`, "PATCH", { is_default: true }, "CRM definido como padrão.")}
+              data-testid={`menu-crm-padrao-${crm.slug}`}
+            >
+              <Star size={14} aria-hidden /> {t("Definir como padrão")}
+            </DropdownMenuItem>
+          )}
+          {!crm.is_default && (
             <>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
+                className={item}
                 onSelect={() => setAberto("arquivar")}
-                className="text-destructive focus:text-destructive"
                 data-testid={`menu-crm-arquivar-${crm.slug}`}
               >
-                <Archive size={14} className="mr-2" aria-hidden /> {t("Arquivar CRM")}
+                <Archive size={14} aria-hidden /> {t("Arquivar")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => setAberto("excluir")}
+                className="gap-2 text-destructive focus:text-destructive"
+                data-testid={`menu-crm-excluir-${crm.slug}`}
+              >
+                <Trash size={14} aria-hidden /> {t("Excluir")}
               </DropdownMenuItem>
             </>
           )}
@@ -95,15 +154,33 @@ function MenuDoCrm({ crm }: { crm: CrmDoCard }) {
       {(aberto === "editar" || aberto === "arquivar") && (
         <EditarCrmDialog crm={editavel} naGrade arquivando={aberto === "arquivar"} onClose={() => setAberto(null)} />
       )}
-      {aberto === "funis" && (
-        <GerenciarFunisDialog
-          open
-          onOpenChange={(v) => !v && setAberto(null)}
-          funis={crm.funis}
-          // Nenhum quadro aberto na grade: arquivar ou excluir um funil só relê a lista.
-          pipelineAtualId=""
-        />
-      )}
+      {aberto === "funis" && <FunisENumerosDialog crm={crm} onClose={() => setAberto(null)} />}
+      <AlertDialog open={aberto === "excluir"} onOpenChange={(v) => !v && setAberto(null)}>
+        <AlertDialogContent data-testid={`excluir-crm-${crm.slug}`}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("Excluir")} «{crm.name}»?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("Tem certeza? Esta ação não pode ser desfeita. Só CRM sem nenhum negócio pode ser excluído — os outros, arquive.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("Cancelar")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-500"
+              disabled={ocupado}
+              onClick={(e) => {
+                e.preventDefault();
+                chamar(`/api/v1/crms/${crm.id}/excluir`, "POST", {}, "CRM excluído.", () => setAberto(null));
+              }}
+              data-testid={`excluir-crm-confirmar-${crm.slug}`}
+            >
+              {t("Excluir de vez")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -115,7 +192,8 @@ function CardDoCrm({ crm, podeGerenciar }: { crm: CrmDoCard; podeGerenciar: bool
   const numero = (n: number) => formato.format(n);
   const atualizacao = atualizacaoDoCrm(crm.last_updated_at);
   const rodape = "n" in atualizacao ? t(atualizacao.frase).replace("{n}", String(atualizacao.n)) : t(atualizacao.frase);
-  const cor = crm.avatar_bg_color;
+  // Sem cor escolhida, a cor vem do NOME (mesma paleta, sempre a mesma por CRM).
+  const cor = corDoAvatar(crm.name, crm.avatar_bg_color);
 
   return (
     <article
@@ -124,8 +202,8 @@ function CardDoCrm({ crm, podeGerenciar }: { crm: CrmDoCard; podeGerenciar: bool
     >
       <header className="flex items-start gap-3">
         <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-elevated text-sm font-semibold"
-          style={cor ? { backgroundColor: cor, color: melhorFrenteSobre(cor), borderColor: cor } : undefined}
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold"
+          style={{ backgroundColor: cor, color: melhorFrenteSobre(cor) }}
           aria-hidden
           data-testid={`crm-avatar-${crm.slug}`}
         >
@@ -169,27 +247,15 @@ function CardDoCrm({ crm, podeGerenciar }: { crm: CrmDoCard; podeGerenciar: bool
         <span className="text-xs text-muted-foreground" data-testid={`crm-atualizado-${crm.slug}`}>
           {rodape}
         </span>
-        <div className="flex items-center gap-4">
-          {/* A página do CRM (funis, arquivados e números de WhatsApp). "Abrir CRM"
-              leva ao quadro desde a Fase C, e sem este link a página ficava
-              escondida atrás do caminho no topo do quadro. */}
-          {crm.quadro_id && (
-            <Link
-              href={`/app/crms/${crm.slug}`}
-              className="text-sm text-muted-foreground hover:text-text hover:underline"
-              data-testid={`config-crm-${crm.slug}`}
-            >
-              {t("Funis e números")}
-            </Link>
-          )}
-          <Link
-            href={crm.quadro_id ? `/app/pipelines/${crm.quadro_id}` : `/app/crms/${crm.slug}`}
-            className="inline-flex items-center gap-1 text-sm font-medium text-accent-text hover:underline"
-            data-testid={`abrir-crm-${crm.slug}`}
-          >
-            {t("Abrir CRM")} <ArrowRight size={14} aria-hidden />
-          </Link>
-        </div>
+        {/* "Funis e números" saiu do rodapé: virou "Ver funis e números" no
+            menu "⋯" (o modal leva à página do CRM em "Gerenciar funis"). */}
+        <Link
+          href={crm.quadro_id ? `/app/pipelines/${crm.quadro_id}` : `/app/crms/${crm.slug}`}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-accent px-4 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+          data-testid={`abrir-crm-${crm.slug}`}
+        >
+          {t("Abrir CRM")} <ArrowRight size={14} aria-hidden />
+        </Link>
       </footer>
     </article>
   );

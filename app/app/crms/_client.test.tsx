@@ -114,7 +114,15 @@ describe("cards", () => {
     const avatar = screen.getByTestId("crm-avatar-clientes-girly");
     expect(avatar.style.backgroundColor).not.toBe("");
     expect(avatar.style.color).not.toBe("");
-    expect(screen.getByTestId("crm-avatar-pedidos").style.backgroundColor).toBe("");
+    // Sem cor escolhida, a cor vem do nome (paleta fixa) — nunca o quadrado neutro.
+    expect(screen.getByTestId("crm-avatar-pedidos").style.backgroundColor).not.toBe("");
+  });
+
+  it("card reorganizado: Abrir CRM é o botão de destaque e o link 'Funis e números' saiu", () => {
+    tela();
+    expect(screen.getByTestId("abrir-crm-pedidos").className).toMatch(/bg-accent/);
+    expect(screen.queryByText("Funis e números")).toBeNull();
+    expect(screen.queryByTestId("config-crm-pedidos")).toBeNull();
   });
 
   it("a importação recebe os funis nomeados pelo CRM", () => {
@@ -214,7 +222,7 @@ describe("modal '+ Novo CRM'", () => {
   });
 });
 
-describe("menu ⋯ do card (editar, gerenciar funis, arquivar)", () => {
+describe("menu ⋯ do card (editar, duplicar, funis e números, padrão, arquivar, excluir)", () => {
   it("manager vê o menu; o CRM padrão não oferece arquivar", async () => {
     tela();
     await userEvent.click(screen.getByTestId("menu-crm-pedidos"));
@@ -223,13 +231,43 @@ describe("menu ⋯ do card (editar, gerenciar funis, arquivar)", () => {
     expect(screen.queryByTestId("menu-crm-arquivar-pedidos")).toBeNull();
   });
 
-  it("'Gerenciar funis' abre o modal com os funis daquele CRM", async () => {
+  it("menu na ordem do pedido: Editar · Duplicar · Ver funis e números · Definir como padrão · Arquivar · Excluir", async () => {
+    tela();
+    await userEvent.click(screen.getByTestId("menu-crm-clientes-girly"));
+    await screen.findByTestId("menu-crm-editar-clientes-girly");
+    const itens = screen.getAllByRole("menuitem").map((i) => i.textContent?.trim());
+    expect(itens).toEqual(["Editar CRM", "Duplicar", "Ver funis e números", "Definir como padrão", "Arquivar", "Excluir"]);
+  });
+
+  it("'Ver funis e números' abre a tabela por funil, com o link Gerenciar funis", async () => {
+    const original = global.fetch;
+    global.fetch = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          data: {
+            funis: [{ id: "f1", name: "Funil de vendas", color: null, is_primary: true, leads: 7, etapas: 4, ultima_atividade: null }],
+            numeros: [],
+          },
+        }),
+        { status: 200 },
+      ),
+    ) as typeof fetch;
     tela();
     await userEvent.click(screen.getByTestId("menu-crm-pedidos"));
     await userEvent.click(await screen.findByTestId("menu-crm-funis-pedidos"));
-    const modal = await screen.findByTestId("gerenciar-funis-dialog");
-    expect(modal.textContent).toContain("Principal");
-    expect((screen.getByTestId("nome-do-funil") as HTMLInputElement).value).toBe("Funil de vendas");
+    const modal = await screen.findByTestId("funis-e-numeros-pedidos");
+    expect(await screen.findByTestId("funil-resumo-f1")).toHaveTextContent("Funil de vendas");
+    expect(screen.getByTestId("funil-resumo-f1")).toHaveTextContent("7");
+    expect(modal).toHaveTextContent("Funis de");
+    expect(screen.getByTestId("gerenciar-funis-pedidos")).toHaveAttribute("href", "/app/crms/pedidos");
+    global.fetch = original;
+  });
+
+  it("'Excluir' pede confirmação e explica que só CRM sem negócio sai de vez", async () => {
+    tela();
+    await userEvent.click(screen.getByTestId("menu-crm-clientes-girly"));
+    await userEvent.click(await screen.findByTestId("menu-crm-excluir-clientes-girly"));
+    expect(await screen.findByTestId("excluir-crm-clientes-girly")).toHaveTextContent("sem nenhum negócio");
   });
 
   it("'Arquivar CRM' abre o modal já na confirmação", async () => {

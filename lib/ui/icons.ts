@@ -170,4 +170,6 @@ export {
   DotsSixVertical,
   // composer compacto do Inbox (Resumir)
   ListBullets,
+  // card de CRM: "Definir como padrão"
+  Star,
 } from "@phosphor-icons/react/dist/ssr";

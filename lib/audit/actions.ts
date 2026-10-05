@@ -1039,6 +1039,8 @@ export const AUDIT_ACTIONS = [
   "fluxo.traduzido",
   // Fork jhoow (item 12): a tela Disparos foi salva.
   "fluxo.disparos_salvos",
+  // Fork jhoow: CRM excluído DE VEZ (sem negócio nenhum; migration 9012).
+  "crm.deleted",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

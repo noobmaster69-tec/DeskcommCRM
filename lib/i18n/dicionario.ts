@@ -14159,6 +14159,25 @@ export const DICIONARIO: Traducoes = {
   "Não foi possível ler a conversa.": { es: "No se pudo leer la conversación." },
   "Ainda não há mensagens para resumir.": { es: "Aún no hay mensajes para resumir." },
   "Configure um provedor em Credenciais para resumir.": { es: "Configura un proveedor en Credenciales para resumir." },
+  // CRMs › card reorganizado (fork jhoow): menu ⋯, funis e números, excluir.
+  "Ver funis e números": { es: "Ver embudos y números" },
+  "CRM duplicado.": { es: "CRM duplicado." },
+  "CRM definido como padrão.": { es: "CRM definido como predeterminado." },
+  "CRM excluído.": { es: "CRM eliminado." },
+  "Tem certeza? Esta ação não pode ser desfeita. Só CRM sem nenhum negócio pode ser excluído — os outros, arquive.": { es: "¿Seguro? Esta acción no se puede deshacer. Solo se puede eliminar un CRM sin ningún negocio — los demás, archívalos." },
+  "Não foi possível concluir a ação.": { es: "No se pudo completar la acción." },
+  "Funis de": { es: "Embudos de" },
+  "Funis e números de WhatsApp deste CRM": { es: "Embudos y números de WhatsApp de este CRM" },
+  "Não foi possível ler os funis.": { es: "No se pudieron leer los embudos." },
+  "Etapas": { es: "Etapas" },
+  "Nenhum funil ativo neste CRM.": { es: "Ningún embudo activo en este CRM." },
+  "Nenhum número ligado a este CRM.": { es: "Ningún número vinculado a este CRM." },
+  "Não foi possível excluir o CRM.": { es: "No se pudo eliminar el CRM." },
+  "Este é o CRM padrão. Marque OUTRO CRM como padrão antes de excluir.": { es: "Este es el CRM predeterminado. Marca OTRO CRM como predeterminado antes de eliminar." },
+  "Este CRM tem negócios. Arquive em vez de excluir.": { es: "Este CRM tiene negocios. Archívalo en lugar de eliminarlo." },
+  "Um funil deste CRM recebe leads de uma captura. Aponte a captura para outro funil antes.": { es: "Un embudo de este CRM recibe leads de una captura. Apunta la captura a otro embudo antes." },
+  "Uma etapa deste CRM é regra de conversão do Google Ads. Ajuste a regra antes.": { es: "Una etapa de este CRM es regla de conversión de Google Ads. Ajusta la regla antes." },
+  "Você não tem permissão para excluir este CRM.": { es: "No tienes permiso para eliminar este CRM." },
 };
 
 /**
