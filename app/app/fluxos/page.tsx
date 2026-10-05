@@ -21,7 +21,7 @@ export default async function FluxosPage() {
   const [{ data: ponteiros }, { data: pastas }] = await Promise.all([
     supabase
       .from("followup_flow_pointers")
-      .select("id, name, status, pasta_id, draft_graph, updated_at")
+      .select("id, name, status, pasta_id, draft_graph, updated_at, active_version_id, archived_at")
       .eq("organization_id", activeOrg.orgId)
       .eq("surface", "fluxo")
       .order("updated_at", { ascending: false }),
@@ -39,6 +39,8 @@ export default async function FluxosPage() {
     pasta_id: (p.pasta_id as string | null) ?? null,
     blocos: contarBlocos(p.draft_graph),
     atualizado_em: p.updated_at as string,
+    publicado: Boolean(p.active_version_id),
+    arquivado: Boolean(p.archived_at),
   }));
 
   return (

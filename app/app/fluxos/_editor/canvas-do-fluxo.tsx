@@ -16,6 +16,8 @@ export interface CanvasDoFluxo {
   distribuicoes: Record<string, Record<string, number>>;
   nomeDoFunil: (id: string) => string | null;
   nomeDoFluxo: (id: string) => string | null;
+  /** Link compartilhado (item 2): cartões sem ✏️ 📋 🗑️ e sem "ver mais". */
+  somenteLeitura?: boolean;
 }
 
 const NADA: CanvasDoFluxo = {

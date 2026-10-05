@@ -1030,6 +1030,13 @@ export const AUDIT_ACTIONS = [
   // (ou o CRM vinculado foi arquivado). É o rastro que explica "por que este
   // card caiu aqui e não no CRM do número".
   "lead.crm_fallback",
+  // Fork jhoow — menu "⋯" da lista de Fluxos (item 2) e arrastar para pasta (item 1).
+  "fluxo.movido_de_pasta",
+  "fluxo.arquivado",
+  "fluxo.desarquivado",
+  "fluxo.reativado",
+  "fluxo.compartilhado",
+  "fluxo.traduzido",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

@@ -163,4 +163,7 @@ export {
   ArrowLeft,
   // Fork jhoow — canvas de Fluxos no modelo Leona (botão Ferramentas)
   SquaresFour,
+  // Fork jhoow — menu ⋯ da lista de Fluxos (Compartilhar, Traduzir)
+  ShareNetwork,
+  Translate,
 } from "@phosphor-icons/react/dist/ssr";

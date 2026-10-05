@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { arvoreDePastas, idsDaPastaEDescendentes, type NoDaArvore, type PastaDoFluxo } from "@/lib/fluxos/pastas";
 import { passaNoFiltro, proximoNomeDeFluxo, type FiltroDeStatus, type StatusDoFluxo } from "@/lib/fluxos/lista";
 import { ImportarDoLeona } from "./ImportarDoLeona";
+import { MenuDoFluxo } from "./MenuDoFluxo";
 
 export interface FluxoDaLista {
   id: string;
@@ -27,12 +28,16 @@ export interface FluxoDaLista {
   pasta_id: string | null;
   blocos: number;
   atualizado_em: string;
+  /** Tem versão publicada — só então "Reativar" faz sentido (item 2). */
+  publicado: boolean;
+  arquivado: boolean;
 }
 
 const FILTROS: { valor: FiltroDeStatus; rotulo: string }[] = [
   { valor: "todos", rotulo: "Todos" },
   { valor: "ativos", rotulo: "Ativos" },
   { valor: "pausados", rotulo: "Pausados" },
+  { valor: "arquivados", rotulo: "Arquivados" },
 ];
 
 /**
@@ -53,7 +58,7 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
 
   const arvore = useMemo(() => {
     const porPasta = new Map<string, number>();
-    for (const f of fluxos) if (f.pasta_id) porPasta.set(f.pasta_id, (porPasta.get(f.pasta_id) ?? 0) + 1);
+    for (const f of fluxos) if (f.pasta_id && !f.arquivado) porPasta.set(f.pasta_id, (porPasta.get(f.pasta_id) ?? 0) + 1);
     return arvoreDePastas(pastas, porPasta);
   }, [fluxos, pastas]);
 
@@ -62,7 +67,7 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     return fluxos.filter(
       (f) =>
-        passaNoFiltro(f.status, filtro) &&
+        passaNoFiltro(f.status, filtro, f.arquivado) &&
         (!naPasta || (f.pasta_id !== null && naPasta.has(f.pasta_id))) &&
         (!termo || f.nome.toLocaleLowerCase("pt-BR").includes(termo)),
     );
@@ -163,7 +168,7 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
           <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("Pastas")}</p>
           <ItemDePasta
             nome={t("Todos os fluxos")}
-            total={fluxos.length}
+            total={fluxos.filter((f) => !f.arquivado).length}
             ativo={pastaAtual === null}
             nivel={0}
             onClick={() => setPastaAtual(null)}
@@ -181,12 +186,15 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
                 <th className="px-4 py-2 font-semibold">{t("Status")}</th>
                 <th className="px-4 py-2 font-semibold">{t("Blocos")}</th>
                 <th className="px-4 py-2 font-semibold">{t("Atualizado")}</th>
+                <th className="w-12 px-2 py-2">
+                  <span className="sr-only">{t("Ações")}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {visiveis.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-sm text-text-muted">
+                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-text-muted">
                     {fluxos.length === 0
                       ? t("Nenhum fluxo ainda. Clique em \"Novo fluxo\" para começar.")
                       : t("Nenhum fluxo com esses filtros.")}
@@ -197,7 +205,7 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
                   <tr
                     key={f.id}
                     onClick={() => router.push(`/app/fluxos/${f.id}`)}
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-surface-elevated"
+                    className="group cursor-pointer border-b border-border last:border-0 hover:bg-surface-elevated"
                   >
                     <td className="px-4 py-2.5">
                       <a href={`/app/fluxos/${f.id}`} className="font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
@@ -215,6 +223,9 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
                     </td>
                     <td className="px-4 py-2.5 tabular-nums text-text-muted">
                       {format(new Date(f.atualizado_em), "dd/MM/yyyy HH:mm", { locale })}
+                    </td>
+                    <td className="px-2 py-1.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      <MenuDoFluxo fluxo={f} />
                     </td>
                   </tr>
                 ))

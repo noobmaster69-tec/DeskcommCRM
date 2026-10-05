@@ -23,8 +23,9 @@ import { traduzir } from "@/lib/i18n/dicionario";
 
 export const dynamic = "force-dynamic";
 
+// `pasta_id` (fork jhoow, item 2): a cópia de um fluxo nasce na MESMA pasta.
 const SOURCE_COLUMNS =
-  "id, name, draft_graph, trigger_config, handoff_policy, surface, active_version_id";
+  "id, name, draft_graph, trigger_config, handoff_policy, surface, active_version_id, pasta_id";
 
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -82,6 +83,7 @@ export async function POST(_req: NextRequest, ctx: RouteCtx): Promise<Response> 
       trigger_config: origem.trigger_config,
       handoff_policy: origem.handoff_policy,
       surface: origem.surface ?? "followup",
+      pasta_id: (origem as { pasta_id?: string | null }).pasta_id ?? null,
     })
     .select("*")
     .single();

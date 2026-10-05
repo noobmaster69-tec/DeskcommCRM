@@ -4,7 +4,7 @@
  */
 
 export type StatusDoFluxo = "draft" | "active" | "disabled";
-export type FiltroDeStatus = "todos" | "ativos" | "pausados";
+export type FiltroDeStatus = "todos" | "ativos" | "pausados" | "arquivados";
 
 /**
  * Quantos BLOCOS o fluxo tem — a coluna "BLOCOS" da lista. Início e Fim são o
@@ -16,7 +16,13 @@ export function contarBlocos(grafo: unknown): number {
   return nos.filter((n) => n?.type !== "trigger" && n?.type !== "end").length;
 }
 
-export function passaNoFiltro(status: StatusDoFluxo, filtro: FiltroDeStatus): boolean {
+/**
+ * Arquivado (item 2, migration 9010) só aparece em "Arquivados" — e some de
+ * todos os outros filtros, inclusive "Todos": arquivar é tirar da frente.
+ */
+export function passaNoFiltro(status: StatusDoFluxo, filtro: FiltroDeStatus, arquivado = false): boolean {
+  if (filtro === "arquivados") return arquivado;
+  if (arquivado) return false;
   if (filtro === "ativos") return status === "active";
   if (filtro === "pausados") return status === "disabled";
   return true;

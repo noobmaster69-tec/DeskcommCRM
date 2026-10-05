@@ -62,7 +62,8 @@ export function FluxoNode({
   children,
 }: Props) {
   const t = useT();
-  const { editar, duplicar, excluir } = useCanvasDoFluxo();
+  const { editar, duplicar, excluir, somenteLeitura } = useCanvasDoFluxo();
+  const acoesVisiveis = somenteLeitura ? [] : acoes;
   const corpo = useRef<HTMLDivElement>(null);
   const [transborda, setTransborda] = useState(false);
   const temErro = (errors?.length ?? 0) > 0;
@@ -111,7 +112,7 @@ export function FluxoNode({
           {title}
         </p>
         <div className="flex shrink-0 items-center">
-          {acoes.map((a) => {
+          {acoesVisiveis.map((a) => {
             const { rotulo, Icone, fazer, perigo } = BOTOES[a];
             return (
               <button
@@ -140,7 +141,7 @@ export function FluxoNode({
           <div ref={corpo} className="max-h-[220px] space-y-1.5 overflow-hidden px-2.5 py-2" data-testid={`previa-${id}`}>
             {children}
           </div>
-          {transborda && (
+          {transborda && !somenteLeitura && (
             <button
               type="button"
               className="nodrag block w-full border-t border-border px-2.5 py-1 text-left text-xs font-medium text-accent hover:underline"
