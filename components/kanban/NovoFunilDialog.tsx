@@ -97,7 +97,7 @@ export function NovoFunilDialog({
           }}
         >
           <div className="space-y-1.5">
-            <label htmlFor="funil-nome" className="text-sm font-medium">
+            <label htmlFor="funil-nome" className="block text-sm font-medium">
               {t("Nome")} *
             </label>
             <Input

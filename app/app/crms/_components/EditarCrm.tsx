@@ -189,7 +189,7 @@ export function EditarCrmDialog({
                 </span>
                 <input
                   id="editar-crm-slug"
-                  className="h-9 w-full bg-transparent px-1 font-mono text-sm outline-none"
+                  className="h-9 w-full bg-transparent px-1 font-mono text-sm outline-hidden"
                   value={slug}
                   maxLength={40}
                   onChange={(e) => setSlug(e.target.value.replace(/^\/+/, ""))}
@@ -221,7 +221,7 @@ export function EditarCrmDialog({
                       value={cor}
                       onChange={(e) => setCor(e.target.value)}
                       aria-label={t("Cor de fundo do avatar")}
-                      className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent"
+                      className="h-8 w-10 cursor-pointer rounded-sm border border-border bg-transparent"
                       disabled={enviando}
                     />
                   ) : null}

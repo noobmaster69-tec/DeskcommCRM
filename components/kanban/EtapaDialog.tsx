@@ -174,7 +174,7 @@ export function EtapaDialog({ open, onOpenChange, pipelineId, stages, etapa }: E
           }}
         >
           <div className="space-y-1.5">
-            <label htmlFor="etapa-nome" className="text-sm font-medium">
+            <label htmlFor="etapa-nome" className="block text-sm font-medium">
               {t("Nome")} *
             </label>
             <Input

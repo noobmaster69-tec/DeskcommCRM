@@ -8,7 +8,7 @@ import { traduzir } from "@/lib/i18n/dicionario";
 import { createClient } from "@/lib/supabase/server";
 import { CaretRight } from "@/lib/ui/icons";
 import { NumerosDoCrm, type CrmDaEscolha, type NumeroDoCrm } from "@/components/crms/NumerosDoCrm";
-import { ARCHIVED_AT, queryTolerantToMissingArchived } from "@/lib/channels/archived";
+import { listSelectableChannels } from "@/lib/channels/selectable";
 import { EditarCrm, type CrmEditavel } from "../_components/EditarCrm";
 import { FunisClient, type FunilDaLista } from "./_client";
 
@@ -75,17 +75,10 @@ export default async function CrmPage({ params }: { params: Promise<{ slug: stri
   let numeros: NumeroDoCrm[] = [];
   let crmsDaEscolha: CrmDaEscolha[] = [];
   if (podeGerenciar) {
-    const base = () =>
-      supabase
-        .from("channel_sessions")
-        .select("id, phone_number, display_name, status")
-        .eq("organization_id", activeOrg.orgId)
-        .order("created_at");
-    const [{ data: sessoes }, { data: vinculos }, { data: crms }] = await Promise.all([
-      queryTolerantToMissingArchived(
-        () => base().is(ARCHIVED_AT, null),
-        () => base(),
-      ),
+    // Os números vêm da FONTE ÚNICA dos seletores de canal: ela já tira canal
+    // arquivado e linha de chamada de voz (tests/unit/canais-selecionaveis).
+    const [sessoes, { data: vinculos }, { data: crms }] = await Promise.all([
+      listSelectableChannels(supabase, activeOrg.orgId),
       supabase.from("crm_waha_session_bindings").select("channel_session_id, crm_id").eq("organization_id", activeOrg.orgId),
       supabase
         .from("crm_crms")
@@ -99,7 +92,7 @@ export default async function CrmPage({ params }: { params: Promise<{ slug: stri
     const crmDoNumero = new Map(
       ((vinculos ?? []) as Array<{ channel_session_id: string; crm_id: string }>).map((v) => [v.channel_session_id, v.crm_id]),
     );
-    numeros = ((sessoes ?? []) as Array<{ id: string; phone_number: string | null; display_name: string | null; status: string }>).map(
+    numeros = sessoes.map(
       (s) => {
         const vinculado = crmDoNumero.get(s.id);
         // Vínculo para CRM arquivado não vale (cai no padrão): a tela diz o mesmo.

@@ -145,7 +145,7 @@ export function NovoCrm({
               </span>
               <input
                 id="novo-crm-slug"
-                className="h-9 w-full bg-transparent px-1 font-mono text-sm outline-none"
+                className="h-9 w-full bg-transparent px-1 font-mono text-sm outline-hidden"
                 value={slugMostrado}
                 maxLength={40}
                 onChange={(e) => {
@@ -182,7 +182,7 @@ export function NovoCrm({
                     value={cor}
                     onChange={(e) => setCor(e.target.value)}
                     aria-label={t("Cor de fundo do avatar")}
-                    className="h-8 w-10 cursor-pointer rounded border border-border bg-transparent"
+                    className="h-8 w-10 cursor-pointer rounded-sm border border-border bg-transparent"
                     data-testid="novo-crm-cor"
                     disabled={enviando}
                   />

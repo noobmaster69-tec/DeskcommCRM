@@ -119,7 +119,7 @@ export function GerenciarFunisDialog({
                   }
                 />
                 {f.is_primary && (
-                  <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                  <span className="rounded-sm bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
                     {t("Principal")}
                   </span>
                 )}

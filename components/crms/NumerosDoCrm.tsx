@@ -182,7 +182,7 @@ function VinculoDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium" htmlFor="vinculo-crm">
+          <label className="block text-sm font-medium" htmlFor="vinculo-crm">
             {t("Vincular a qual CRM?")}
           </label>
           <Select value={escolha} onValueChange={setEscolha}>

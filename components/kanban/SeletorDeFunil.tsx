@@ -73,7 +73,7 @@ export function SeletorDeFunil({
                 <CorDoFunil cor={f.color} />
                 <span className="min-w-0 flex-1 truncate">{f.name}</span>
                 {f.is_primary && (
-                  <span className="rounded bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                  <span className="rounded-sm bg-surface px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
                     {t("Principal")}
                   </span>
                 )}

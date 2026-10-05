@@ -55,7 +55,7 @@ export function FerramentasPopover({ onAdd }: Props) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-md bg-violet-600 px-3 text-sm font-medium text-white shadow-md transition-colors hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+          className="inline-flex h-9 items-center gap-2 rounded-md bg-violet-600 px-3 text-sm font-medium text-white shadow-md transition-colors hover:bg-violet-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-violet-300"
           data-testid="ferramentas-botao"
         >
           <SquaresFour size={16} weight="fill" aria-hidden />
@@ -105,7 +105,7 @@ export function FerramentasPopover({ onAdd }: Props) {
                     setAberto(false);
                     setBusca("");
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-elevated focus-visible:bg-surface-elevated focus-visible:outline-none"
+                  className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-elevated focus-visible:bg-surface-elevated focus-visible:outline-hidden"
                   data-testid={`ferramenta-${visual.type}`}
                 >
                   <span
