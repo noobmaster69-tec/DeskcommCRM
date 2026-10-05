@@ -90,6 +90,12 @@ describe("contact_custom_fields", () => {
     ).toBe("42501");
   });
 
+  it("agent não apaga nem altera (a policy de escrita vale para DELETE)", () => {
+    expect(como(AGENT_A, `with x as (delete from public.contact_custom_fields where organization_id = '${ORG_A}' returning 1) select count(*) from x`)).toBe("0");
+    expect(como(AGENT_A, `with x as (update public.contact_custom_fields set label = 'X' where organization_id = '${ORG_A}' returning 1) select count(*) from x`)).toBe("0");
+    expect(sql(`select count(*) from public.contact_custom_fields where organization_id = '${ORG_A}' and label = 'Interesse'`)).toBe("1");
+  });
+
   it("formato da chave e tipo são do banco; chave única por organização", () => {
     expect(sqlstate(`insert into public.contact_custom_fields (organization_id, key, label) values ('${ORG_A}', 'Com Espaco', 'x')`)).toBe("23514");
     expect(sqlstate(`insert into public.contact_custom_fields (organization_id, key, label, type) values ('${ORG_A}', 'ok_key', 'x', 'cor')`)).toBe("23514");

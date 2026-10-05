@@ -1,5 +1,15 @@
 import type { CampanhaDetalhada } from "@/hooks/campanhas/useCampanhas";
 import { errosDoRitmo } from "@/components/campanhas/CamposDeRitmo";
+import type { ResumoDaLista } from "@/components/campanhas/ImportarLista";
+
+/** Item 1: de onde vem o público. A consulta avançada ficou de fora (RESUMO.md). */
+export type FonteDoPublico = "crm" | "etiqueta" | "importacao";
+export type OperadorDeCampo = "igual" | "contem" | "preenchido" | "vazio";
+export interface CondicaoDeCampo {
+  chave: string;
+  operador: OperadorDeCampo;
+  valor: string;
+}
 
 /**
  * O que o formulário de campanha edita — UM formato para criar e editar (fork
@@ -17,8 +27,21 @@ export interface ValoresDaCampanha {
   semTags: string;
   semInteracao: string;
   limite: string;
+  /** Item 1: o modo da fonte e o que cada modo usa. */
+  fonte: FonteDoPublico;
+  /** Só recorta a lista de funis na tela; não vai para o filtro. */
+  crmDoPublico: string;
   funilDoPublico: string;
-  etapaDoPublico: string;
+  etapasDoPublico: string[];
+  /** Data de entrada do negócio (AAAA-MM-DD). */
+  entrouDe: string;
+  entrouAte: string;
+  campos: CondicaoDeCampo[];
+  /** Modo etiqueta: "todas" exige todas as etiquetas; "alguma", qualquer uma. */
+  todasAsTags: boolean;
+  listaImportada: string;
+  /** Só da tela: as contagens da importação que acabou de rodar. */
+  resumoDaLista: ResumoDaLista | null;
   texto: string;
   /** Item 4: "text" manda a mensagem; "flow" inicia o fluxo `fluxo`. */
   modo: "text" | "flow";
@@ -43,6 +66,17 @@ export interface ValoresDaCampanha {
 const juntar = (v: unknown): string => (Array.isArray(v) ? v.map(String).join(", ") : "");
 const num = (v: unknown): string => (v === null || v === undefined ? "" : String(v));
 const primeiro = (v: unknown): string => (Array.isArray(v) && v.length > 0 ? String(v[0]) : "");
+const lista = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+const dia = (v: unknown): string => (typeof v === "string" ? v.slice(0, 10) : "");
+
+/** A fonte de uma campanha antiga (sem `fonte` gravada) sai do que o filtro usa. */
+function fonteDoFiltro(f: Record<string, unknown>): FonteDoPublico {
+  if (f.fonte === "importacao" || f.lista_importada) return "importacao";
+  if (f.fonte === "etiqueta" || f.fonte === "crm") return f.fonte;
+  const usaFunil = lista(f.funis).length > 0 || lista(f.etapas).length > 0 || !!f.entrou_de || !!f.entrou_ate;
+  const usaTag = lista(f.com_alguma_tag).length > 0 || lista(f.com_todas_tags).length > 0;
+  return !usaFunil && usaTag ? "etiqueta" : "crm";
+}
 
 export function listar(bruto: string): string[] {
   return bruto
@@ -60,12 +94,20 @@ export function valoresDaCampanha(c?: CampanhaDetalhada | null): ValoresDaCampan
     extras: c?.channel_session_ids ?? [],
     baseLegal: c?.base_legal === "legitimate_interest" ? "legitimate_interest" : "consent",
     liaRef: c?.lia_ref ?? "",
-    comAlgumaTag: juntar(f.com_alguma_tag),
+    comAlgumaTag: juntar(lista(f.com_todas_tags).length > 0 ? f.com_todas_tags : f.com_alguma_tag),
     semTags: juntar(f.sem_tags),
     semInteracao: num(f.sem_interacao_ha_dias),
     limite: f.limite == null ? "100" : String(f.limite),
+    fonte: fonteDoFiltro(f),
+    crmDoPublico: "",
     funilDoPublico: primeiro(f.funis),
-    etapaDoPublico: primeiro(f.etapas),
+    etapasDoPublico: lista(f.etapas),
+    entrouDe: dia(f.entrou_de),
+    entrouAte: dia(f.entrou_ate),
+    campos: Array.isArray(f.campos) ? (f.campos as CondicaoDeCampo[]) : [],
+    todasAsTags: lista(f.com_todas_tags).length > 0,
+    listaImportada: typeof f.lista_importada === "string" ? f.lista_importada : "",
+    resumoDaLista: null,
     texto: c?.message_body ?? "",
     modo: c?.mode === "flow" ? "flow" : "text",
     fluxo: c?.flow_id ?? "",
@@ -85,26 +127,44 @@ export function valoresDaCampanha(c?: CampanhaDetalhada | null): ValoresDaCampan
   };
 }
 
-/** O filtro do público, no formato de `filtroDeAudienciaSchema`. */
+/** O filtro do público, no formato de `filtroDeAudienciaSchema` — só o que o modo usa. */
 export function filtroDoFormulario(v: ValoresDaCampanha) {
+  const limite = Number(v.limite) || 100;
+  if (v.fonte === "importacao") {
+    return { fonte: "importacao" as const, lista_importada: v.listaImportada || null, limite };
+  }
+  const tags = listar(v.comAlgumaTag);
+  const silencio = v.semInteracao ? Number(v.semInteracao) : null;
+  if (v.fonte === "etiqueta") {
+    return {
+      fonte: "etiqueta" as const,
+      com_alguma_tag: v.todasAsTags ? [] : tags,
+      com_todas_tags: v.todasAsTags ? tags : [],
+      sem_tags: listar(v.semTags),
+      sem_interacao_ha_dias: silencio,
+      limite,
+    };
+  }
   return {
-    com_alguma_tag: listar(v.comAlgumaTag),
+    fonte: "crm" as const,
+    com_alguma_tag: tags,
     sem_tags: listar(v.semTags),
-    sem_interacao_ha_dias: v.semInteracao ? Number(v.semInteracao) : null,
+    sem_interacao_ha_dias: silencio,
     funis: v.funilDoPublico ? [v.funilDoPublico] : [],
-    etapas: v.etapaDoPublico ? [v.etapaDoPublico] : [],
-    limite: Number(v.limite) || 100,
+    etapas: v.funilDoPublico ? v.etapasDoPublico : [],
+    entrou_de: v.entrouDe ? `${v.entrouDe}T00:00:00.000Z` : null,
+    entrou_ate: v.entrouAte ? `${v.entrouAte}T23:59:59.999Z` : null,
+    campos: v.campos
+      .filter((c) => c.chave && (c.operador === "preenchido" || c.operador === "vazio" || c.valor.trim()))
+      .map((c) => ({ chave: c.chave, operador: c.operador, valor: c.valor.trim() })),
+    limite,
   };
 }
 
 export function temCriterio(v: ValoresDaCampanha): boolean {
-  const f = filtroDoFormulario(v);
-  return (
-    f.com_alguma_tag.length > 0 ||
-    f.sem_tags.length > 0 ||
-    f.funis.length > 0 ||
-    f.etapas.length > 0 ||
-    f.sem_interacao_ha_dias !== null
+  const f = filtroDoFormulario(v) as Record<string, unknown>;
+  return Object.entries(f).some(
+    ([k, x]) => k !== "fonte" && k !== "limite" && (Array.isArray(x) ? x.length > 0 : x !== null && x !== undefined),
   );
 }
 

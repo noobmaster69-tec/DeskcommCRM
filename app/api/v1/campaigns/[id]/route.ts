@@ -14,6 +14,7 @@ import type { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
 import { carregarCampanha } from "@/lib/campanhas/acoes";
+import { vincularListaACampanha } from "@/lib/campanhas/importar-audiencia";
 import { ehEditavel, ehTerminal } from "@/lib/campanhas/maquina-de-estados";
 import { gravarPool, lerPoolExtra } from "@/lib/campanhas/pool-de-numeros";
 import { editarCampanhaSchema } from "@/lib/campanhas/schemas";
@@ -233,6 +234,9 @@ export async function PATCH(
       { requestId },
     );
   }
+
+  if (entrada.audience_filter !== undefined)
+    await vincularListaACampanha(supabase, { organizationId: authz.org.orgId, campanhaId: id }, entrada.audience_filter);
 
   if (entrada.channel_session_ids !== undefined) {
     const r = await gravarPool(supabase, {

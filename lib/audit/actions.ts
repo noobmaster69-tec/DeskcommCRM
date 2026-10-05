@@ -923,6 +923,7 @@ export const AUDIT_ACTIONS = [
   "campaign.resumed",
   "campaign.cancelled",
   "campaign.duplicated",
+  "campaign.audience_imported",
   // Rodada do cron que MEXEU em alguma campanha (enviou, pulou, concluiu,
   // promoveu agendada). Rodada vazia não audita — o critério do `CLAUDE.md`.
   "cron.campaign_worker",

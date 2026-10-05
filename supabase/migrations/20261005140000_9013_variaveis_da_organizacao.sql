@@ -42,15 +42,34 @@ create trigger trg_contact_custom_fields_touch before update on public.contact_c
   for each row execute function public.fn_touch_updated_at();
 
 alter table public.contact_custom_fields enable row level security;
+-- Leitura: a organização. Escrita (inclusive DELETE): manager+. Uma policy
+-- `for all` com o USING de membro deixaria o agent APAGAR linhas.
 drop policy if exists tenant_isolation_contact_custom_fields_all on public.contact_custom_fields;
-create policy tenant_isolation_contact_custom_fields_all on public.contact_custom_fields
-  for all
-  using (organization_id in (select public.fn_user_org_ids()) or public.fn_is_platform_admin())
-  with check (
-    public.fn_is_platform_admin()
+drop policy if exists contact_custom_fields_select on public.contact_custom_fields;
+create policy contact_custom_fields_select on public.contact_custom_fields
+  for select
+  using (organization_id in (select public.fn_user_org_ids()) or public.fn_is_platform_admin());
+drop policy if exists contact_custom_fields_insert on public.contact_custom_fields;
+create policy contact_custom_fields_insert on public.contact_custom_fields
+  for insert
+  with check (public.fn_is_platform_admin()
     or (organization_id in (select public.fn_user_org_ids())
-        and public.fn_role_at_least(organization_id, 'manager'))
-  );
+        and public.fn_role_at_least(organization_id, 'manager')));
+drop policy if exists contact_custom_fields_update on public.contact_custom_fields;
+create policy contact_custom_fields_update on public.contact_custom_fields
+  for update
+  using (public.fn_is_platform_admin()
+    or (organization_id in (select public.fn_user_org_ids())
+        and public.fn_role_at_least(organization_id, 'manager')))
+  with check (public.fn_is_platform_admin()
+    or (organization_id in (select public.fn_user_org_ids())
+        and public.fn_role_at_least(organization_id, 'manager')));
+drop policy if exists contact_custom_fields_delete on public.contact_custom_fields;
+create policy contact_custom_fields_delete on public.contact_custom_fields
+  for delete
+  using (public.fn_is_platform_admin()
+    or (organization_id in (select public.fn_user_org_ids())
+        and public.fn_role_at_least(organization_id, 'manager')));
 revoke all on public.contact_custom_fields from anon;
 
 notify pgrst, 'reload schema';

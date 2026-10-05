@@ -34,10 +34,30 @@ export interface AgenteDisponivel {
   archived_at?: string | null;
 }
 
-export function useFunis() {
+/** `crmId` recorta os funis de UM CRM (Fonte do público › CRM); sem ele, os da organização. */
+export function useFunis(crmId?: string | null) {
   return useQuery({
-    queryKey: ["campanhas-funis"],
-    queryFn: async () => (await apiClient.get<{ data: FunilDaCampanha[] }>("/api/v1/pipelines")).data,
+    queryKey: ["campanhas-funis", crmId ?? null],
+    queryFn: async () =>
+      (
+        await apiClient.get<{ data: FunilDaCampanha[] }>(
+          crmId ? `/api/v1/pipelines?crm_id=${encodeURIComponent(crmId)}` : "/api/v1/pipelines",
+        )
+      ).data,
+    staleTime: 60_000,
+  });
+}
+
+export interface CrmDaCampanha {
+  id: string;
+  name: string;
+  is_default: boolean;
+}
+
+export function useCrms() {
+  return useQuery({
+    queryKey: ["campanhas-crms"],
+    queryFn: async () => (await apiClient.get<{ data: CrmDaCampanha[] }>("/api/v1/crms")).data,
     staleTime: 60_000,
   });
 }
@@ -63,6 +83,22 @@ export function useAgentesPublicados() {
       // silêncio na conversa, e o operador não teria como saber por quê.
       return (r.data ?? []).filter((a) => !!a.published_version_id && !a.archived_at);
     },
+    staleTime: 60_000,
+  });
+}
+
+export interface VariavelDaOrganizacao {
+  key: string;
+  label: string;
+}
+
+/** As variáveis personalizadas (Configurações › Variáveis) — condições do público. */
+export function useVariaveisDaOrganizacao() {
+  return useQuery({
+    queryKey: ["campanhas-variaveis"],
+    queryFn: async () =>
+      (await apiClient.get<{ data: { personalizadas: VariavelDaOrganizacao[] } }>("/api/v1/variaveis")).data
+        .personalizadas ?? [],
     staleTime: 60_000,
   });
 }

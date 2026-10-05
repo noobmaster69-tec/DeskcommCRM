@@ -17,6 +17,7 @@ import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
 import { FILTRO_VAZIO } from "@/lib/campanhas/audiencia";
+import { vincularListaACampanha } from "@/lib/campanhas/importar-audiencia";
 import { gravarPool } from "@/lib/campanhas/pool-de-numeros";
 import {
   codificarCursor,
@@ -178,6 +179,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const criada = data as unknown as { id: string };
+  await vincularListaACampanha(supabase, { organizationId: org.orgId, campanhaId: criada.id }, entrada.audience_filter);
   if ((entrada.channel_session_ids ?? []).length > 0) {
     // Falha do pool NÃO derruba a criação: a campanha existe e fala pelo número
     // principal. Devolver erro aqui faria o operador achar que nada foi criado

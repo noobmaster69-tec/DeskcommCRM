@@ -10,6 +10,8 @@ vi.mock("@/hooks/campanhas/useDestinoDaCampanha", () => ({
   useFunis: () => ({ data: [{ id: "f1", name: "Vendas" }] }),
   useEtapas: () => ({ data: [{ id: "e1", name: "Entrada", is_won: false, is_lost: false }] }),
   useAgentesPublicados: () => ({ data: [] }),
+  useCrms: () => ({ data: [{ id: "k1", name: "Comercial", is_default: true }] }),
+  useVariaveisDaOrganizacao: () => ({ data: [] }),
 }));
 
 import type { CampanhaDetalhada } from "@/hooks/campanhas/useCampanhas";
@@ -39,6 +41,10 @@ describe("formulário único de campanha", () => {
   it("editar e salvar DEVOLVE os mesmos filtros, ritmo e números (antes o editar apagava funil/etapa)", () => {
     const corpo = corpoDaCampanha(valoresDaCampanha(salva));
     expect(corpo.audience_filter).toEqual({
+      fonte: "crm",
+      campos: [],
+      entrou_de: null,
+      entrou_ate: null,
       com_alguma_tag: ["vip"],
       sem_tags: [],
       sem_interacao_ha_dias: 30,

@@ -23,6 +23,7 @@ import { useT } from "@/hooks/i18n/useT";
 import { useAgentesPublicados, useEtapas, useFunis } from "@/hooks/campanhas/useDestinoDaCampanha";
 import { ListaDeVariaveis } from "@/components/campanhas/ListaDeVariaveis";
 import { CamposDeRitmo } from "@/components/campanhas/CamposDeRitmo";
+import { FonteDoPublico } from "@/components/campanhas/FonteDoPublico";
 import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
 
 import {
@@ -51,17 +52,13 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
   const mudar = <K extends keyof ValoresDaCampanha>(campo: K, valor: ValoresDaCampanha[K]) =>
     setV((atual) => ({ ...atual, [campo]: valor }));
   const {
-    nome, canal, baseLegal, liaRef, comAlgumaTag, semTags, semInteracao, limite, texto,
+    nome, canal, baseLegal, liaRef, limite, texto,
     extras, funil, etapa, agente,
-    funilDoPublico, etapaDoPublico,
   } = v;
   const setNome = (x: string) => mudar("nome", x);
   const setCanal = (x: string) => mudar("canal", x);
   const setBaseLegal = (x: ValoresDaCampanha["baseLegal"]) => mudar("baseLegal", x);
   const setLiaRef = (x: string) => mudar("liaRef", x);
-  const setComAlgumaTag = (x: string) => mudar("comAlgumaTag", x);
-  const setSemTags = (x: string) => mudar("semTags", x);
-  const setSemInteracao = (x: string) => mudar("semInteracao", x);
   const setLimite = (x: string) => mudar("limite", x);
   const setTexto = (x: string | ((atual: string) => string)) =>
     setV((atual) => ({ ...atual, texto: typeof x === "function" ? x(atual.texto) : x }));
@@ -69,11 +66,8 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
   const setFunil = (x: string) => mudar("funil", x);
   const setEtapa = (x: string) => mudar("etapa", x);
   const setAgente = (x: string) => mudar("agente", x);
-  const setFunilDoPublico = (x: string) => mudar("funilDoPublico", x);
-  const setEtapaDoPublico = (x: string) => mudar("etapaDoPublico", x);
 
   const funis = useFunis();
-  const etapasDoPublico = useEtapas(funilDoPublico || null);
   const agentes = useAgentesPublicados();
   // Os fluxos da organização (Fluxos), para o modo "Iniciar um fluxo".
   const { itens: fluxos } = useListaRemota<{ id: string; name: string; status: string }>(
@@ -212,73 +206,10 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
       <Card className="space-y-4 p-4">
         <h2 className="font-medium">{t("Público")}</h2>
         <p className="text-sm text-muted-foreground">
-          {t("Escolha pelo menos um critério — uma lista sem recorte ninguém confere antes de apertar.")}
+          {t("Escolha de onde vem o público e pelo menos um critério — uma lista sem recorte ninguém confere antes de apertar.")}
         </p>
+        <FonteDoPublico v={v} setV={setV} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="com-tags">{t("Com alguma destas etiquetas")}</Label>
-            <Input
-              id="com-tags"
-              value={comAlgumaTag}
-              onChange={(e) => setComAlgumaTag(e.target.value)}
-              placeholder={t("separe por vírgula")}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="sem-tags">{t("Sem nenhuma destas etiquetas")}</Label>
-            <Input
-              id="sem-tags"
-              value={semTags}
-              onChange={(e) => setSemTags(e.target.value)}
-              placeholder={t("separe por vírgula")}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="silencio">{t("Sem falar com a gente há (dias)")}</Label>
-            <Input
-              id="silencio"
-              type="number"
-              min={1}
-              value={semInteracao}
-              onChange={(e) => setSemInteracao(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="pub-funil">{t("Com negócio no funil")}</Label>
-            <select
-              id="pub-funil"
-              className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
-              value={funilDoPublico}
-              onChange={(e) => {
-                setFunilDoPublico(e.target.value);
-                setEtapaDoPublico("");
-              }}
-            >
-              <option value="">{t("Qualquer um")}</option>
-              {(funis.data ?? []).map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="pub-etapa">{t("Na etapa")}</Label>
-            <select
-              id="pub-etapa"
-              className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
-              value={etapaDoPublico}
-              onChange={(e) => setEtapaDoPublico(e.target.value)}
-              disabled={!funilDoPublico}
-            >
-              <option value="">{t("Qualquer etapa")}</option>
-              {(etapasDoPublico.data ?? []).map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="space-y-2">
             <Label htmlFor="limite">{t("Máximo de contatos nesta campanha")}</Label>
             <Input
