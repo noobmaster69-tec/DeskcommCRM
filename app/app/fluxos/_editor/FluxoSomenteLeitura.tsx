@@ -7,6 +7,7 @@ import {
   Background,
   Controls,
   MiniMap,
+  useNodesState,
   type EdgeTypes,
   type NodeTypes,
 } from "@xyflow/react";
@@ -47,7 +48,7 @@ const LEITURA: CanvasDoFluxo = {
  */
 export function FluxoSomenteLeitura({ grafo }: { grafo: FlowGraph }) {
   const t = useT();
-  const { nodes, edges } = useMemo(() => {
+  const { nodes: iniciais, edges } = useMemo(() => {
     const rf = toReactFlow(grafo);
     const porId = new Map(rf.nodes.map((n) => [n.id, n]));
     return {
@@ -59,6 +60,10 @@ export function FluxoSomenteLeitura({ grafo }: { grafo: FlowGraph }) {
       }),
     };
   }, [grafo, t]);
+  // Estado de nós de verdade, mesmo sem edição: o React Flow grava o tamanho
+  // MEDIDO de cada cartão por `onNodesChange`. Com os nós fixos numa prop, o
+  // tamanho nunca chegava a eles e o mini-mapa ficava vazio (prova de 5 out).
+  const [nodes, , onNodesChange] = useNodesState(iniciais);
 
   return (
     <ReactFlowProvider>
@@ -69,6 +74,7 @@ export function FluxoSomenteLeitura({ grafo }: { grafo: FlowGraph }) {
             edges={edges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
+            onNodesChange={onNodesChange}
             nodesDraggable={false}
             nodesConnectable={false}
             elementsSelectable={false}

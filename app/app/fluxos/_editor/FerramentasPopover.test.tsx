@@ -92,7 +92,12 @@ describe("posição do bloco novo", () => {
   });
 
   it("não empilha em cima de um bloco que já está ali", () => {
-    expect(posicaoNoCentro({ x: 500, y: 300 }, [{ x: 380, y: 250 }])).toEqual({ x: 410, y: 280 });
+    expect(posicaoNoCentro({ x: 500, y: 300 }, [{ x: 380, y: 250 }])).toEqual({ x: 380, y: 410 });
+  });
+
+  it("não nasce por cima de um cartão vizinho, mesmo deslocado (prova de 5 out)", () => {
+    // Um cartão 30px ao lado ainda cobriria o novo: desce até sair da caixa dele.
+    expect(posicaoNoCentro({ x: 500, y: 300 }, [{ x: 410, y: 280 }, { x: 380, y: 410 }])).toEqual({ x: 380, y: 570 });
   });
 });
 
