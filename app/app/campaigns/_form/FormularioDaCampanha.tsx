@@ -179,6 +179,13 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
             />
             {t("Consentimento — estas pessoas pediram para receber")}
           </label>
+          {baseLegal === "consent" && (
+            <p className="pl-6 text-xs text-muted-foreground" data-testid="hint-consentimento">
+              {t(
+                "Esta opção impede o envio para contatos sem consentimento registrado no perfil. A prévia mostra quantos ficam de fora por isso.",
+              )}
+            </p>
+          )}
           <label className="flex items-center gap-2 text-sm">
             <input
               type="radio"
@@ -291,7 +298,11 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
             variant="outline"
             disabled={!temCriterio || previa.isPending}
             onClick={() =>
-              previa.mutate({ audience_filter: filtro, message_body: texto })
+              previa.mutate({
+                audience_filter: filtro,
+                message_body: v.modo === "flow" ? "" : texto,
+                base_legal: baseLegal,
+              })
             }
           >
             {previa.isPending ? t("Contando…") : t("Ver quantas pessoas")}

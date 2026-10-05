@@ -15,7 +15,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { CAMPANHAS_VIVAS, limiteDeSilencio, usaNegocio, type FiltroDeAudiencia } from "./audiencia";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
-import { recusouMarketing, type CandidatoDaAudiencia } from "./elegibilidade";
+import { consentiuMarketing, recusouMarketing, type CandidatoDaAudiencia } from "./elegibilidade";
 
 /** Teto de ids que um filtro de negócio devolve antes de virar `in (...)`. */
 const TETO_DE_IDS_DE_NEGOCIO = 20_000;
@@ -130,6 +130,7 @@ export async function buscarCandidatos(
     bloqueado: l.is_blocked,
     anonimizado: l.is_anonymized,
     recusouMarketing: recusouMarketing(l.consent),
+    consentiu: consentiuMarketing(l.consent),
     email: l.email ?? null,
     campos: (l.custom_fields ?? {}) as Record<string, unknown>,
   }));

@@ -70,6 +70,8 @@ export async function preverAudiencia(
     agora: Date;
     /** Campanha a ignorar na conta de "já em campanha" (a que está sendo editada). */
     campanhaId?: string;
+    /** Item 6: base legal consentimento. */
+    exigeConsentimento?: boolean;
   },
 ): Promise<ResumoDoSnapshot & { amostra: Array<{ nome: string | null; motivo: MotivoDeExclusao | null }> }> {
   const linhas = await classificar(admin, entrada);
@@ -93,6 +95,7 @@ async function classificar(
     corpo: string;
     agora: Date;
     campanhaId?: string;
+    exigeConsentimento?: boolean;
   },
 ) {
   const candidatos = await buscarCandidatos(admin, {
@@ -111,6 +114,7 @@ async function classificar(
   const variaveis = paraRenderizar(await lerVariaveisDaOrganizacao(admin, entrada.organizationId));
   return classificarAudiencia(candidatos, {
     excluidosAMao: new Set(entrada.filtro.excluir_contatos),
+    exigeConsentimento: entrada.exigeConsentimento,
     jaEmCampanha,
     suprimidos,
     hashDoEndereco,
@@ -142,6 +146,8 @@ export async function prepararCampanha(
     corpo: string;
     contentVersion: number;
     agora: Date;
+    /** Item 6: base legal consentimento. */
+    exigeConsentimento?: boolean;
   },
 ): Promise<ResumoDoSnapshot> {
   const filtro = filtroDeAudienciaSchema.safeParse(entrada.filtro);
@@ -155,6 +161,7 @@ export async function prepararCampanha(
     corpo: entrada.corpo,
     agora: entrada.agora,
     campanhaId: entrada.campanhaId,
+    exigeConsentimento: entrada.exigeConsentimento,
   });
 
   // Reconstrução limpa: a rota só chega aqui quando nada saiu, então apagar a

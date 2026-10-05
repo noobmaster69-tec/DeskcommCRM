@@ -34,6 +34,11 @@ export interface ContatoParaDecidir {
   anonimizado: boolean;
   /** `consent.marketing.declined_at` — recusa REGISTRADA, diferente de ausência. */
   recusouMarketing: boolean;
+  /**
+   * Item 6: `consent.marketing.granted_at` sem recusa depois — consentimento
+   * REGISTRADO. Só pesa quando a base legal da campanha é consentimento.
+   */
+  consentiu?: boolean;
 }
 
 /** O telefone que o canal aceita: E.164 com `+`, o mesmo CHECK de `contacts.phone_number`. */
@@ -47,10 +52,16 @@ const E164 = /^\+\d{8,15}$/;
  * alguém que pediu para parar, e trocar isso na tela seria mentir sobre o
  * motivo de não ter recebido.
  */
-export function motivoParaExcluir(c: ContatoParaDecidir): MotivoDeExclusao | null {
+export function motivoParaExcluir(
+  c: ContatoParaDecidir,
+  opcoes: { exigeConsentimento?: boolean } = {},
+): MotivoDeExclusao | null {
   if (c.bloqueado) return "opt_out";
   if (c.anonimizado) return "anonimizado";
   if (c.recusouMarketing) return "recusou_marketing";
+  // Item 6: base legal CONSENTIMENTO só fala com quem consentiu — ausência de
+  // registro não é consentimento.
+  if (opcoes.exigeConsentimento && !c.consentiu) return "sem_consentimento";
   const telefone = c.telefone?.trim() ?? "";
   if (telefone === "") return "sem_telefone";
   if (!E164.test(telefone)) return "telefone_invalido";
@@ -85,6 +96,8 @@ export interface ContextoDaClassificacao {
   suprimidos: ReadonlySet<string>;
   /** O hash de um endereço — injetado para esta função continuar pura. */
   hashDoEndereco: (endereco: string) => string;
+  /** Item 6: a base legal é consentimento — quem não consentiu fica de fora. */
+  exigeConsentimento?: boolean;
   /** Renderiza o texto e diz o que faltou. Injetado para esta função ficar pura. */
   renderizar: (c: CandidatoDaAudiencia) => { texto: string; faltando: string[] };
 }
@@ -125,7 +138,7 @@ export function classificarAudiencia(
       excluir("excluido_manualmente");
       continue;
     }
-    const pessoal = motivoParaExcluir(candidato);
+    const pessoal = motivoParaExcluir(candidato, { exigeConsentimento: ctx.exigeConsentimento });
     if (pessoal) {
       excluir(pessoal);
       continue;
@@ -165,6 +178,21 @@ export function contarExclusoes(
     if (linha.motivo) conta[linha.motivo] = (conta[linha.motivo] ?? 0) + 1;
   }
   return conta;
+}
+
+/**
+ * Item 6: há consentimento de marketing REGISTRADO (`granted_at`) e ele não foi
+ * revogado depois (`declined_at` mais recente que ele).
+ */
+export function consentiuMarketing(consent: unknown): boolean {
+  if (!consent || typeof consent !== "object") return false;
+  const m = (consent as Record<string, unknown>).marketing;
+  if (!m || typeof m !== "object") return false;
+  const dado = (m as Record<string, unknown>).granted_at;
+  const recusa = (m as Record<string, unknown>).declined_at;
+  if (typeof dado !== "string" || dado === "") return false;
+  if (typeof recusa === "string" && recusa !== "" && recusa >= dado) return false;
+  return true;
 }
 
 /** Lê `contacts.consent` sem confiar no shape — é jsonb livre. */

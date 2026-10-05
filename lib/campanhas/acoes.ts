@@ -21,7 +21,7 @@ import type { ApiErrorCode } from "@/lib/api/errors";
 import { sendMessageHandler } from "@/app/api/v1/messages/_handler";
 import { beginServiceAtOrigin } from "@/lib/atendimento/origem";
 
-import { baseLegalValida, motivoParaExcluir, recusouMarketing } from "./elegibilidade";
+import { baseLegalValida, consentiuMarketing, motivoParaExcluir, recusouMarketing } from "./elegibilidade";
 import { ehStatusDaCampanha, podeTransitar } from "./maquina-de-estados";
 import { prepararCampanha } from "./preparacao";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
@@ -204,6 +204,7 @@ export async function prepararAcao(
       // Modo fluxo não tem texto: o corpo vazio não exige variável nenhuma.
       corpo: c.mode === "flow" ? "" : (c.message_body ?? ""),
       contentVersion: c.content_version,
+      exigeConsentimento: c.base_legal === "consent",
       agora,
     });
     if (resumo.total === 0) {
@@ -459,7 +460,8 @@ export async function testarAcao(
     bloqueado: linha.is_blocked,
     anonimizado: linha.is_anonymized,
     recusouMarketing: recusouMarketing(linha.consent),
-  });
+    consentiu: consentiuMarketing(linha.consent),
+  }, { exigeConsentimento: c.base_legal === "consent" });
   if (motivo) {
     return {
       ok: false,

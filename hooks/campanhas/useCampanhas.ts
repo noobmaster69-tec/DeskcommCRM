@@ -192,6 +192,8 @@ export function usePreviaDaAudiencia() {
       audience_filter: Record<string, unknown>;
       message_body: string;
       campaign_id?: string;
+      /** Item 6: com consentimento, a prévia já conta quem não consentiu. */
+      base_legal?: "consent" | "legitimate_interest";
     }) => (await apiClient.post<{ data: PreviaDaAudiencia }>("/api/v1/campaigns/preview", corpo)).data,
     onError: (err) => showApiError(err),
   });

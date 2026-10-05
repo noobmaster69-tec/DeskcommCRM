@@ -55,6 +55,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       corpo: parsed.data.message_body,
       agora: new Date(),
       campanhaId: parsed.data.campaign_id,
+      exigeConsentimento: parsed.data.base_legal === "consent",
     });
     return ok(
       {

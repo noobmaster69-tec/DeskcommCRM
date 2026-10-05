@@ -116,6 +116,8 @@ export const previaSchema = z.object({
   audience_filter: filtroDeAudienciaSchema,
   message_body: z.string().max(4096).default(""),
   campaign_id: z.string().uuid().optional(),
+  /** Item 6: com consentimento, a prévia já conta quem não consentiu como fora. */
+  base_legal: z.enum(["consent", "legitimate_interest"]).optional(),
 });
 
 export const criarTemplateSchema = z.object({

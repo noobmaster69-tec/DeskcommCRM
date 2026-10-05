@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useContact } from "@/hooks/contacts/useContact";
+import { ConsentimentoDeCampanhas, VariaveisDoPerfil } from "@/components/contacts/ConsentimentoEVariaveis";
 import { useUnblockContact } from "@/hooks/contacts/useUnblockContact";
 import { useHierarquiaDoAnuncio } from "@/hooks/contacts/useHierarquiaDoAnuncio";
 import { useAuth } from "@/hooks/auth/AuthProvider";
@@ -351,6 +352,14 @@ export function ContactDetailClient({ contactId }: Props) {
               </div>
             </dl>
           </Card>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <ConsentimentoDeCampanhas
+              contactId={contact.id}
+              consent={contact.consent}
+              podeEditar={!contact.is_anonymized}
+            />
+            <VariaveisDoPerfil campos={contact.custom_fields} />
+          </div>
           <div className="mt-4">
             <RoteirosDoContato contactId={contactId} />
           </div>

@@ -14250,6 +14250,17 @@ export const DICIONARIO: Traducoes = {
   "O intervalo mínimo é de pelo menos 10 segundos.": { es: "El intervalo mínimo es de al menos 10 segundos." },
   "O intervalo máximo não pode ser menor que o mínimo.": { es: "El intervalo máximo no puede ser menor que el mínimo." },
   "Fuso horário desconhecido.": { es: "Zona horaria desconocida." },
+  // Campanhas › item 6 (fork jhoow): base legal consentimento.
+  "Sem consentimento registrado no perfil (a base legal é consentimento)": { es: "Sin consentimiento registrado en el perfil (la base legal es consentimiento)" },
+  "Esta opção impede o envio para contatos sem consentimento registrado no perfil. A prévia mostra quantos ficam de fora por isso.": { es: "Esta opción impide el envío a contactos sin consentimiento registrado en el perfil. La vista previa muestra cuántos quedan fuera por eso." },
+  "Consentimento para campanhas": { es: "Consentimiento para campañas" },
+  "Consentiu em": { es: "Consintió el" },
+  "Sem consentimento registrado — campanhas com base legal “consentimento” não falam com este contato.": { es: "Sin consentimiento registrado — las campañas con base legal “consentimiento” no hablan con este contacto." },
+  "Registrar consentimento": { es: "Registrar consentimiento" },
+  "Retirar consentimento": { es: "Retirar consentimiento" },
+  "Consentimento registrado.": { es: "Consentimiento registrado." },
+  "Consentimento retirado.": { es: "Consentimiento retirado." },
+  "Não foi possível registrar o consentimento.": { es: "No se pudo registrar el consentimiento." },
 };
 
 /**

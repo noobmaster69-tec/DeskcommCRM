@@ -44,7 +44,7 @@ import { beginServiceAtOrigin } from "@/lib/atendimento/origem";
 import { inscreverNoFluxo } from "@/lib/fluxos/disparar";
 import { logger } from "@/lib/logger";
 
-import { motivoParaExcluir, recusouMarketing } from "./elegibilidade";
+import { consentiuMarketing, motivoParaExcluir, recusouMarketing } from "./elegibilidade";
 import { hashDoEndereco } from "./exclusoes";
 import { renderizar } from "./renderizador";
 import { escolherNumero, poolDaCampanha, type NumeroDisponivel } from "./rodizio";
@@ -84,6 +84,8 @@ interface CampanhaRow {
   name: string;
   message_body: string | null;
   content_version: number;
+  /** Item 6: consentimento exige `consent.marketing.granted_at` — revalidado no envio. */
+  base_legal?: string;
   intervalo_segundos: number | null;
   janela_inicio_hora: number | null;
   janela_fim_hora: number | null;
@@ -100,7 +102,7 @@ interface CampanhaRow {
 }
 
 const COLUNAS_DA_CAMPANHA =
-  "id, organization_id, channel_session_id, name, message_body, content_version, " +
+  "id, organization_id, channel_session_id, name, message_body, content_version, base_legal, " +
   "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
   "min_interval_seconds, max_interval_seconds, next_send_at, timezone";
 
@@ -262,7 +264,8 @@ async function rodarUmaCampanha(
     bloqueado: !!contato?.is_blocked,
     anonimizado: !!contato?.is_anonymized,
     recusouMarketing: recusouMarketing(contato?.consent),
-  });
+    consentiu: consentiuMarketing(contato?.consent),
+  }, { exigeConsentimento: campanha.base_legal === "consent" });
   if (motivo) {
     await admin
       .from("campaign_recipients")
