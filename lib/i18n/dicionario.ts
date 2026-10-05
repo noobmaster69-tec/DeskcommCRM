@@ -14026,6 +14026,12 @@ export const DICIONARIO: Traducoes = {
   "Opções de": { es: "Opciones de" },
   // Fluxos › canvas no modelo Leona, item 6 (fork jhoow): a linha sem painel de condição.
   "Excluir ligação": { es: "Eliminar conexión" },
+  // Fluxos › canvas no modelo Leona, item 4 (fork jhoow): botão Ferramentas e Simular.
+  "Buscar blocos...": { es: "Buscar bloques..." },
+  "Nenhum bloco encontrado.": { es: "Ningún bloque encontrado." },
+  "Simular": { es: "Simular" },
+  "Simulador de fluxo": { es: "Simulador de flujo" },
+  "Em breve: teste o fluxo numa conversa simulada, sem enviar nada a um contato de verdade.": { es: "Próximamente: prueba el flujo en una conversación simulada, sin enviar nada a un contacto real." },
 };
 
 /**

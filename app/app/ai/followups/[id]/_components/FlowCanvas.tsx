@@ -67,6 +67,9 @@ import { SkillNode } from "./nodes/SkillNode";
 import { BlocoDoFluxoNode } from "@/app/app/fluxos/_blocos/BlocoDoFluxoNode";
 import { ArestaDoFluxo, ArestaDoFluxoContext } from "@/app/app/fluxos/_editor/ArestaDoFluxo";
 import { rotuloDaArestaDoFluxo } from "@/app/app/fluxos/_editor/aresta-do-fluxo";
+import { FerramentasPopover } from "@/app/app/fluxos/_editor/FerramentasPopover";
+import { SimularDialog } from "@/app/app/fluxos/_editor/SimularDialog";
+import { posicaoNoCentro } from "@/app/app/fluxos/_editor/posicao-no-centro";
 
 const EMPTY_GRAPH: FlowGraph = { nodes: [], edges: [] };
 const DND_MIME = "application/x-followup-node-type";
@@ -145,6 +148,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [arestaEmFoco, setArestaEmFoco] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const liveGraph = useMemo(() => {
     const base = fromReactFlow(nodes, edges);
@@ -297,6 +301,19 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
     [nodes.length, addNodeAt],
   );
 
+  // Fluxos (item 4): o bloco clicado em Ferramentas nasce no CENTRO da área
+  // visível do canvas — não num canto calculado pela contagem de nós, que com
+  // o canvas rolado nascia fora da vista.
+  const onFerramentaAdd = useCallback(
+    (type: NodeType) => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return onPaletteAdd(type);
+      const centro = screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+      addNodeAt(type, posicaoNoCentro(centro, nodes.map((n) => n.position)));
+    },
+    [screenToFlowPosition, addNodeAt, onPaletteAdd, nodes],
+  );
+
   const deleteNode = useCallback(
     (id: string) => {
       setNodes((nds) => semNo(nds, id));
@@ -382,9 +399,12 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
         />
       )}
       <div className="flex flex-1 overflow-hidden">
-        <NodePalette onAdd={onPaletteAdd} surface={surface} />
+        {/* Fluxos (item 4): sem paleta fixa — o botão Ferramentas no canto do
+            canvas a substitui e o canvas fica com a largura toda. */}
+        {!isFluxo && <NodePalette onAdd={onPaletteAdd} surface={surface} />}
         {/* Abaixo de `lg` a paleta fixa de 224px não cabe do lado do canvas —
             vira um drawer, disparado por este botão flutuante. */}
+        {!isFluxo && (
         <Sheet open={paletteOpen} onOpenChange={setPaletteOpen}>
           <SheetContent side="left" className="w-72 max-w-[85vw] gap-0 p-0 lg:hidden">
             <SheetTitle className="sr-only">{t("Ferramentas")}</SheetTitle>
@@ -398,8 +418,21 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             />
           </SheetContent>
         </Sheet>
+        )}
 
-        <div className="relative h-full flex-1" data-testid="flow-canvas" onDragOver={onDragOver} onDrop={onDrop}>
+        <div
+          ref={canvasRef}
+          className="relative h-full flex-1"
+          data-testid="flow-canvas"
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+        >
+          {isFluxo && (
+            <div className="absolute left-3 top-3 z-10 flex items-center gap-2" data-testid="ferramentas-barra">
+              <FerramentasPopover onAdd={onFerramentaAdd} />
+              <SimularDialog />
+            </div>
+          )}
           <ArestaDoFluxoContext.Provider value={contextoDaAresta}>
           <ReactFlow
             nodes={nodes}
@@ -451,6 +484,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             )}
           </ReactFlow>
           </ArestaDoFluxoContext.Provider>
+          {!isFluxo && (
           <Button
             type="button"
             variant="secondary"
@@ -460,6 +494,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
           >
             <Plus size={14} aria-hidden /> {t("Ferramentas")}
           </Button>
+          )}
         </div>
 
         {/*

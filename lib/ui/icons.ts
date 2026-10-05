@@ -161,4 +161,6 @@ export {
   FolderSimple,
   FolderPlus,
   ArrowLeft,
+  // Fork jhoow — canvas de Fluxos no modelo Leona (botão Ferramentas)
+  SquaresFour,
 } from "@phosphor-icons/react/dist/ssr";
