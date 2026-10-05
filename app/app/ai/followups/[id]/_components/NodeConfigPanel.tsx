@@ -50,6 +50,12 @@ interface Props {
   /** Configurações do GRAFO, editadas no Início do roteiro. */
   settings?: FlowGraph["settings"];
   onSettingsChange?: (settings: FlowGraph["settings"]) => void;
+  /**
+   * Dentro do modal de bloco de Fluxos (item 7): o modal já tem o cabeçalho
+   * com ícone e título, e o rodapé Cancelar/Salvar — o painel some com os
+   * dele. Excluir fica no 🗑️ do cartão.
+   */
+  naModal?: boolean;
 }
 
 /**
@@ -70,6 +76,7 @@ export function NodeConfigPanel({
   flowId,
   settings,
   onSettingsChange,
+  naModal = false,
 }: Props) {
   const t = useT();
   const type = node.type as FlowNode["type"];
@@ -90,6 +97,7 @@ export function NodeConfigPanel({
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto" data-testid="node-config-panel">
+      {!naModal && (
       <div className="space-y-1">
         <h2 className="flex items-center gap-2 text-base font-semibold text-text">
           <span className={`flex h-6 w-6 items-center justify-center rounded-full ${visual.chipClassName}`}>
@@ -101,6 +109,7 @@ export function NodeConfigPanel({
           {t("Alterações aplicam no rascunho ao digitar — salve na barra de publicação.")}
         </p>
       </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="node-label">{t("Rótulo")}</Label>
@@ -228,6 +237,7 @@ export function NodeConfigPanel({
         )}
       </div>
 
+      {!naModal && (
       <div className="mt-auto border-t border-border pt-4">
         <Button
           type="button"
@@ -241,6 +251,7 @@ export function NodeConfigPanel({
           {t("Excluir nó")}
         </Button>
       </div>
+      )}
     </div>
   );
 }

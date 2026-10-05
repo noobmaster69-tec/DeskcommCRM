@@ -14055,6 +14055,8 @@ export const DICIONARIO: Traducoes = {
   "e volta quando ele terminar": { es: "y vuelve cuando termine" },
   "Sem prompt": { es: "Sin prompt" },
   "Adicionar etiquetas ao cliente": { es: "Agregar etiquetas al cliente" },
+  // Fluxos › canvas no modelo Leona, item 7 (fork jhoow): modal do bloco.
+  "Configure o bloco e salve.": { es: "Configura el bloque y guarda." },
 };
 
 /**

@@ -74,6 +74,7 @@ import { FerramentasPopover } from "@/app/app/fluxos/_editor/FerramentasPopover"
 import { SimularDialog } from "@/app/app/fluxos/_editor/SimularDialog";
 import { posicaoNoCentro } from "@/app/app/fluxos/_editor/posicao-no-centro";
 import { corDoBloco } from "@/app/app/fluxos/_editor/cores-dos-blocos";
+import { BlocoDoFluxoModal } from "@/app/app/fluxos/_editor/BlocoDoFluxoModal";
 
 const EMPTY_GRAPH: FlowGraph = { nodes: [], edges: [] };
 const DND_MIME = "application/x-followup-node-type";
@@ -577,7 +578,34 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
           bottom sheet (`fixed`, ancorado embaixo, com teto de altura e X pra
           fechar) só nesse intervalo de tela.
         */}
-        {selectedNode && (
+        {/* Fluxos (item 7): o bloco abre num modal centralizado, não no painel. */}
+        {selectedNode && isFluxo && (
+          <BlocoDoFluxoModal
+            key={selectedNode.id}
+            node={selectedNode}
+            settings={settings}
+            onSalvar={() => setSelectedNodeId(null)}
+            onCancelar={(original, settingsOriginais) => {
+              updateNodeData(selectedNode.id, original);
+              setSettings(settingsOriginais);
+              setSelectedNodeId(null);
+            }}
+          >
+            <NodeConfigPanel
+              naModal
+              node={selectedNode}
+              onChange={(patch) => updateNodeData(selectedNode.id, patch)}
+              onDelete={() => deleteNode(selectedNode.id)}
+              ramosLigados={ramosLigadosDoSelecionado}
+              surface={surface}
+              flowId={flowId}
+              settings={settings}
+              onSettingsChange={setSettings}
+            />
+          </BlocoDoFluxoModal>
+        )}
+
+        {selectedNode && !isFluxo && (
           <aside
             className="fixed inset-x-0 bottom-0 z-40 flex max-h-[75vh] flex-col overflow-hidden rounded-t-lg border-t border-border bg-surface shadow-lg lg:static lg:z-auto lg:h-full lg:w-96 lg:max-h-none lg:shrink-0 lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none"
             data-testid="node-config-sheet"
