@@ -118,3 +118,25 @@ describe("9016 — etapa de quem recebe", () => {
     expect(sql(`select recipients_pipeline_id from public.campaigns where id = '${CAMP}'`)).toBe(funilA);
   });
 });
+
+describe("9018 — janela em minutos e motivo da espera", () => {
+  it("janela em minutos: os dois juntos, fim depois do início, dentro do dia", () => {
+    sql(`update public.campaigns set janela_inicio_minuto = 570, janela_fim_minuto = 1095 where id = '${CAMP}'`);
+    expect(sqlstate(`update public.campaigns set janela_inicio_minuto = 570, janela_fim_minuto = null where id = '${CAMP}'`)).toBe("23514");
+    expect(sqlstate(`update public.campaigns set janela_inicio_minuto = 600, janela_fim_minuto = 600 where id = '${CAMP}'`)).toBe("23514");
+    expect(sqlstate(`update public.campaigns set janela_inicio_minuto = 0, janela_fim_minuto = 1441 where id = '${CAMP}'`)).toBe("23514");
+    sql(`update public.campaigns set janela_inicio_minuto = 0, janela_fim_minuto = 1440 where id = '${CAMP}'`);
+  });
+
+  it("motivo da espera só do vocabulário", () => {
+    sql(`update public.campaigns set wait_reason = 'fora_da_janela', wait_until = now() where id = '${CAMP}'`);
+    expect(sqlstate(`update public.campaigns set wait_reason = 'qualquer' where id = '${CAMP}'`)).toBe("23514");
+  });
+
+  it("reaplicar o bloco não muda nada", () => {
+    const r = "-- ---- janela diária em minutos da campanha (migration 9018) ----";
+    sql(blocoDoBaseline(r));
+    sql(blocoDoBaseline(r));
+    expect(sql(`select janela_fim_minuto from public.campaigns where id = '${CAMP}'`)).toBe("1440");
+  });
+});

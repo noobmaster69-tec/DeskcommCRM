@@ -54,8 +54,12 @@ describe("formulário único de campanha", () => {
     });
     expect(corpo).toMatchObject({
       intervalo_segundos: 120,
-      janela_inicio_hora: 9,
-      janela_fim_hora: 18,
+      // 9018: a janela volta em minutos (09:00–18:00) e a de horas é zerada.
+      janela_inicio_minuto: 540,
+      janela_fim_minuto: 1080,
+      janela_inicio_hora: null,
+      janela_fim_hora: null,
+      scheduled_at: null,
       teto_diario: 50,
       teto_horario: null,
       channel_session_ids: ["c2"],

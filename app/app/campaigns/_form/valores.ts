@@ -1,5 +1,5 @@
 import type { CampanhaDetalhada } from "@/hooks/campanhas/useCampanhas";
-import { errosDoRitmo } from "@/components/campanhas/CamposDeRitmo";
+import { corpoDaJanela, errosDoRitmo, instanteAgendado, programacaoDaCampanha } from "@/components/campanhas/CamposDeRitmo";
 import type { ResumoDaLista } from "@/components/campanhas/ImportarLista";
 
 /** Item 1: de onde vem o público. A consulta avançada ficou de fora (RESUMO.md). */
@@ -57,8 +57,13 @@ export interface ValoresDaCampanha {
   minIntervalo: string;
   maxIntervalo: string;
   fuso: string;
+  /** Janela diária "HH:mm" (9018). */
   janelaInicio: string;
   janelaFim: string;
+  /** Início: agora ou agendado (data/hora no fuso da campanha). */
+  inicioModo: "agora" | "agendar";
+  inicioData: string;
+  inicioHora: string;
   tetoDiario: string;
   tetoHorario: string;
 }
@@ -120,8 +125,14 @@ export function valoresDaCampanha(c?: CampanhaDetalhada | null): ValoresDaCampan
     minIntervalo: String(c?.min_interval_seconds ?? 60),
     maxIntervalo: String(c?.max_interval_seconds ?? 180),
     fuso: c?.timezone ?? "",
-    janelaInicio: num(c?.janela_inicio_hora),
-    janelaFim: num(c?.janela_fim_hora),
+    ...programacaoDaCampanha({
+      janela_inicio_hora: c?.janela_inicio_hora,
+      janela_fim_hora: c?.janela_fim_hora,
+      janela_inicio_minuto: c?.janela_inicio_minuto,
+      janela_fim_minuto: c?.janela_fim_minuto,
+      scheduled_at: c?.status === "draft" || !c ? c?.scheduled_at : null,
+      timezone: c?.timezone,
+    }) as { janelaInicio: string; janelaFim: string; inicioModo: "agora" | "agendar"; inicioData: string; inicioHora: string },
     tetoDiario: num(c?.teto_diario),
     tetoHorario: num(c?.teto_horario),
   };
@@ -193,8 +204,8 @@ export function corpoDaCampanha(v: ValoresDaCampanha): Record<string, unknown> {
     lia_ref: v.liaRef.trim() || null,
     audience_filter: filtroDoFormulario(v),
     intervalo_segundos: ouNulo(v.intervalo),
-    janela_inicio_hora: ouNulo(v.janelaInicio),
-    janela_fim_hora: ouNulo(v.janelaFim),
+    ...corpoDaJanela(v),
+    scheduled_at: instanteAgendado(v),
     teto_diario: ouNulo(v.tetoDiario),
     teto_horario: ouNulo(v.tetoHorario),
     min_interval_seconds: Number(v.minIntervalo) || 60,

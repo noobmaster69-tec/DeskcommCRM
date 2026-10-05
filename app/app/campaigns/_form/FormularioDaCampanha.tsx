@@ -361,13 +361,23 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
       </Card>
 
       <Card className="space-y-4 p-4">
-        <h2 className="font-medium">{t("Ritmo desta campanha")}</h2>
+        <h2 className="font-medium">{t("Ritmo e Programação")}</h2>
         <p className="text-sm text-muted-foreground">
           {t(
             "Em branco, vale o ritmo do número (Conexões › Proteção de envio). O que você puser aqui só pode deixar mais devagar.",
           )}
         </p>
-        <CamposDeRitmo v={v} onChange={(campo, valor) => mudar(campo, valor)} prefixo="ritmo" />
+        <CamposDeRitmo
+          v={v}
+          onChange={(campo, valor) => setV((a) => ({ ...a, [campo]: valor }) as ValoresDaCampanha)}
+          prefixo="ritmo"
+          comInicio
+        />
+        {v.inicioModo === "agendar" && (
+          <p className="text-xs text-muted-foreground">
+            {t("O agendamento é confirmado depois de preparar a lista, no botão Agendar da campanha. Até lá, nada é enviado.")}
+          </p>
+        )}
       </Card>
 
       <div className="flex items-center justify-end gap-2">

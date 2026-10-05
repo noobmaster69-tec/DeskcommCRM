@@ -16,12 +16,24 @@ import { fusoValido } from "./fuso";
  * operador, não default de comportamento (os números de pacing são fonte única
  * em `lib/agent-engine/pacing/defaults.ts`).
  */
+/** 9018: os dois minutos juntos (ou nenhum), e o fim depois do início — o mesmo CHECK do banco. */
+function janelaEmMinutosCoerente(c: { janela_inicio_minuto?: number | null; janela_fim_minuto?: number | null }): boolean {
+  const i = c.janela_inicio_minuto;
+  const f = c.janela_fim_minuto;
+  if (i === undefined && f === undefined) return true;
+  if (i == null && f == null) return true;
+  return i != null && f != null && f > i;
+}
+
 export const ritmoSchema = z.object({
   intervalo_segundos: z.number().int().min(1).max(86_400).nullable().optional(),
   janela_inicio_hora: z.number().int().min(0).max(23).nullable().optional(),
   janela_fim_hora: z.number().int().min(1).max(24).nullable().optional(),
   teto_diario: z.number().int().min(1).max(10_000).nullable().optional(),
   teto_horario: z.number().int().min(1).max(10_000).nullable().optional(),
+  /** 9018: janela diária em minutos do dia (HH:mm). Manda sobre a de horas. */
+  janela_inicio_minuto: z.number().int().min(0).max(1439).nullable().optional(),
+  janela_fim_minuto: z.number().int().min(1).max(1440).nullable().optional(),
   /** Item 7: intervalo SORTEADO entre min e max (segundos). */
   min_interval_seconds: z.number().int().min(10).max(86_400).optional(),
   max_interval_seconds: z.number().int().min(10).max(86_400).optional(),
@@ -62,6 +74,12 @@ const baseDaCampanha = {
   /** Item 3 (9016): ao enviar, o card vai para esta etapa ("Quem recebe"). */
   recipients_pipeline_id: z.string().uuid().nullable().optional(),
   recipients_stage_id: z.string().uuid().nullable().optional(),
+  /**
+   * "Ritmo e Programação": o início PLANEJADO no rascunho (UTC). A campanha só
+   * vira `scheduled` pela ação Agendar, depois de preparada; a rota recusa
+   * horário passado e exige o fuso.
+   */
+  scheduled_at: z.string().datetime().nullable().optional(),
 };
 
 export const criarCampanhaSchema = z
@@ -98,7 +116,11 @@ export const criarCampanhaSchema = z
       c.janela_fim_hora == null ||
       c.janela_fim_hora > c.janela_inicio_hora,
     { message: "A janela precisa terminar depois de começar.", path: ["janela_fim_hora"] },
-  );
+  )
+  .refine((c) => janelaEmMinutosCoerente(c), {
+    message: "A janela precisa de início e fim, e terminar depois de começar.",
+    path: ["janela_fim_minuto"],
+  });
 
 /** Edição de rascunho: tudo opcional, e a mesma checagem de base legal na rota. */
 export const editarCampanhaSchema = z
@@ -118,8 +140,13 @@ export const editarCampanhaSchema = z
     flow_id: baseDaCampanha.flow_id,
     recipients_pipeline_id: baseDaCampanha.recipients_pipeline_id,
     recipients_stage_id: baseDaCampanha.recipients_stage_id,
+    scheduled_at: baseDaCampanha.scheduled_at,
   })
-  .merge(ritmoSchema);
+  .merge(ritmoSchema)
+  .refine((c) => janelaEmMinutosCoerente(c), {
+    message: "A janela precisa de início e fim, e terminar depois de começar.",
+    path: ["janela_fim_minuto"],
+  });
 
 export const previaSchema = z.object({
   audience_filter: filtroDeAudienciaSchema,
@@ -150,7 +177,16 @@ export const criarExclusaoSchema = z.object({
   contact_id: z.string().uuid().nullable().optional(),
 });
 
-export const agendarSchema = z.object({ scheduled_at: z.string().datetime() });
+export const agendarSchema = z.object({
+  scheduled_at: z.string().datetime(),
+  /** O fuso em que o operador escolheu a data (gravado junto, para a tela mostrar igual). */
+  timezone: z
+    .string()
+    .trim()
+    .max(64)
+    .refine((f) => fusoValido(f), "fuso horário desconhecido")
+    .optional(),
+});
 export const testarSchema = z.object({ contact_id: z.string().uuid() });
 
 export const listarCampanhasSchema = z.object({
@@ -182,4 +218,21 @@ export function decodificarCursor(bruto: string): { created_at: string; id: stri
   } catch {
     return null;
   }
+}
+
+/**
+ * O início planejado é coerente? Recusa horário passado e agendamento sem fuso
+ * (a data foi escolhida NUM fuso; sem ele, o servidor não saberia mostrar a
+ * mesma data de volta). `null` = ok; senão, a frase do erro.
+ */
+export function problemaDoInicioPlanejado(
+  scheduledAt: string | null | undefined,
+  fuso: string | null | undefined,
+  agora: Date,
+): string | null {
+  if (!scheduledAt) return null;
+  if (!fusoValido(fuso)) return "Para agendar, escolha o fuso horário da campanha.";
+  if (new Date(scheduledAt).getTime() <= agora.getTime())
+    return "O horário agendado já passou. Escolha uma data e hora no futuro.";
+  return null;
 }

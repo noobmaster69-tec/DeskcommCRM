@@ -103,12 +103,17 @@ interface CampanhaRow {
   max_interval_seconds?: number;
   next_send_at?: string | null;
   timezone?: string | null;
+  /** 9018: janela em minutos do dia e o motivo da última espera. */
+  janela_inicio_minuto?: number | null;
+  janela_fim_minuto?: number | null;
+  wait_reason?: string | null;
 }
 
 const COLUNAS_DA_CAMPANHA =
   "id, organization_id, channel_session_id, name, message_body, content_version, base_legal, " +
   "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
-  "min_interval_seconds, max_interval_seconds, next_send_at, timezone, recipients_pipeline_id, recipients_stage_id";
+  "min_interval_seconds, max_interval_seconds, next_send_at, timezone, recipients_pipeline_id, recipients_stage_id, " +
+  "janela_inicio_minuto, janela_fim_minuto, wait_reason";
 
 export async function rodarUmaRodadaDeCampanha(
   admin: SupabaseClient,
@@ -172,6 +177,28 @@ export async function rodarUmaRodadaDeCampanha(
 
   total.detalhe = detalhes.join(" ") || "nada_a_fazer";
   return total;
+}
+
+/**
+ * O MOTIVO REAL da espera (9018), para a tela dizer "não enviou porque…". Só
+ * escreve quando muda: a rodada passa por aqui a cada tique. Falha é silêncio —
+ * é informação de tela, não pode derrubar a rodada.
+ */
+async function registrarEspera(
+  admin: SupabaseClient,
+  campanha: CampanhaRow,
+  motivo: string,
+  ate: Date | null,
+): Promise<void> {
+  if (campanha.wait_reason === motivo) return;
+  await admin
+    .from("campaigns")
+    .update({ wait_reason: motivo, wait_until: ate ? ate.toISOString() : null })
+    .eq("id", campanha.id)
+    .then(
+      () => undefined,
+      () => undefined,
+    );
 }
 
 /** `scheduled` cuja hora chegou vira `running`. */
@@ -319,6 +346,8 @@ async function rodarUmaCampanha(
     intervaloSegundos: campanha.intervalo_segundos,
     janelaInicioHora: campanha.janela_inicio_hora,
     janelaFimHora: campanha.janela_fim_hora,
+    janelaInicioMinuto: campanha.janela_inicio_minuto ?? null,
+    janelaFimMinuto: campanha.janela_fim_minuto ?? null,
     tetoDiario: campanha.teto_diario,
     tetoHorario: campanha.teto_horario,
   };
@@ -347,6 +376,7 @@ async function rodarUmaCampanha(
       .update({ next_attempt_at: campanha.next_send_at })
       .eq("id", alvo.id)
       .eq("status", "pending");
+    await registrarEspera(admin, campanha, "intervalo_aleatorio", new Date(campanha.next_send_at));
     return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "ritmo:intervalo_aleatorio" };
   }
   const estado = await estadoDeEnvio(admin, campanha.id, agora, fusoDaCampanha);
@@ -362,6 +392,7 @@ async function rodarUmaCampanha(
         .eq("id", alvo.id)
         .eq("status", "pending");
     }
+    await registrarEspera(admin, campanha, doRitmo.motivo, proxima);
     return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: `ritmo:${doRitmo.motivo}` };
   }
 
@@ -412,6 +443,7 @@ async function rodarUmaCampanha(
   if (!escolha) {
     // Nenhum número pode agora. Não é falha do destinatário: é o ritmo dos
     // números. Volta para a fila e tenta no próximo tique.
+    await registrarEspera(admin, campanha, "sem_numero_livre", null);
     return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "canal:sem_numero_livre" };
   }
   const sessionEscolhida = escolha.sessionId;
@@ -584,7 +616,10 @@ async function cardDeQuemRecebe(admin: SupabaseClient, campanha: CampanhaRow, al
 
 async function agendarProximoEnvio(admin: SupabaseClient, campanha: CampanhaRow, agora: Date): Promise<void> {
   const proximo = proximoEnvioAleatorio(agora, campanha.min_interval_seconds ?? 60, campanha.max_interval_seconds ?? 180);
-  const { error } = await admin.from("campaigns").update({ next_send_at: proximo.toISOString() }).eq("id", campanha.id);
+  const { error } = await admin
+    .from("campaigns")
+    .update({ next_send_at: proximo.toISOString(), wait_reason: null, wait_until: null })
+    .eq("id", campanha.id);
   if (error) logger.warn("[campanha] não gravou o próximo envio", { campanha: campanha.id, motivo: error.message });
 }
 

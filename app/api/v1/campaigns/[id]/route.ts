@@ -17,7 +17,7 @@ import { carregarCampanha } from "@/lib/campanhas/acoes";
 import { vincularListaACampanha } from "@/lib/campanhas/importar-audiencia";
 import { ehEditavel, ehTerminal } from "@/lib/campanhas/maquina-de-estados";
 import { gravarPool, lerPoolExtra } from "@/lib/campanhas/pool-de-numeros";
-import { editarCampanhaSchema } from "@/lib/campanhas/schemas";
+import { editarCampanhaSchema, problemaDoInicioPlanejado } from "@/lib/campanhas/schemas";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -32,6 +32,7 @@ const COLUNAS =
   "cancelled_at, failure_code, intervalo_segundos, janela_inicio_hora, janela_fim_hora, " +
   "teto_diario, teto_horario, pipeline_id, stage_id, agent_id, mode, flow_id, " +
   "min_interval_seconds, max_interval_seconds, timezone, next_send_at, " +
+  "janela_inicio_minuto, janela_fim_minuto, wait_reason, wait_until, " +
   "recipients_pipeline_id, recipients_stage_id, created_at, created_by";
 
 export async function GET(
@@ -106,8 +107,15 @@ export async function PATCH(
     "intervalo_segundos",
     "janela_inicio_hora",
     "janela_fim_hora",
+    "janela_inicio_minuto",
+    "janela_fim_minuto",
     "teto_diario",
     "teto_horario",
+    // Item 7: o ritmo sorteado e o fuso também são ritmo — sem eles na lista,
+    // "Salvar ritmo" numa campanha viva voltava 409.
+    "min_interval_seconds",
+    "max_interval_seconds",
+    "timezone",
   ] as const;
   const mexeEmConteudo = Object.entries(entrada).some(
     ([campo, valor]) =>
@@ -142,6 +150,13 @@ export async function PATCH(
     );
   }
 
+  // "Ritmo e Programação": o início planejado (só rascunho) no futuro e com fuso.
+  if (entrada.scheduled_at) {
+    const fuso = entrada.timezone === undefined ? (campanha as { timezone?: string | null }).timezone : entrada.timezone;
+    const doInicio = problemaDoInicioPlanejado(entrada.scheduled_at, fuso, new Date());
+    if (doInicio) return fail("campanha_agenda_invalida", t(doInicio), 422, { requestId });
+  }
+
   // Item 7: min ≤ max também contra o que JÁ está gravado (o PATCH pode mandar só um).
   {
     const atual = campanha as { min_interval_seconds?: number; max_interval_seconds?: number };
@@ -172,6 +187,9 @@ export async function PATCH(
     "timezone",
     "recipients_pipeline_id",
     "recipients_stage_id",
+    "janela_inicio_minuto",
+    "janela_fim_minuto",
+    "scheduled_at",
   ] as const) {
     if (entrada[campo] !== undefined) mudanca[campo] = entrada[campo];
   }

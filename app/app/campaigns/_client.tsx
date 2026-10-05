@@ -19,6 +19,9 @@ import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import { useT } from "@/hooks/i18n/useT";
 import { Megaphone, Plus } from "@/lib/ui/icons";
 import { STATUS_DA_CAMPANHA } from "@/lib/campanhas/tipos";
+import { textoDoInstante } from "@/lib/campanhas/agendamento";
+import { fusoValido } from "@/lib/campanhas/fuso";
+import { lugarDoFuso } from "@/components/campanhas/CamposDeRitmo";
 
 export function ListaDeCampanhas() {
   const t = useT();
@@ -154,13 +157,21 @@ function rotulo(status: string): string {
 
 /** A data que importa depende do estado — mostrar "criada em" numa campanha que já terminou é ruído. */
 function quando(
-  c: { status: string; scheduled_at: string | null; started_at: string | null; completed_at: string | null; created_at: string },
+  c: { status: string; scheduled_at: string | null; started_at: string | null; completed_at: string | null; created_at: string; timezone?: string | null },
   t: (s: string) => string,
   idioma: string,
 ): string {
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString(idioma, { dateStyle: "short", timeStyle: "short" });
-  if (c.status === "scheduled" && c.scheduled_at) return `${t("começa")} ${fmt(c.scheduled_at)}`;
+  // O agendamento aparece NO FUSO DA CAMPANHA (o mesmo em que foi escolhido),
+  // não no do navegador de quem olha a lista.
+  if (c.status === "scheduled" && c.scheduled_at) {
+    if (c.timezone && fusoValido(c.timezone)) {
+      const x = textoDoInstante(new Date(c.scheduled_at), c.timezone);
+      return `${t("começa")} ${x.data} ${x.hora} (${lugarDoFuso(c.timezone)})`;
+    }
+    return `${t("começa")} ${fmt(c.scheduled_at)}`;
+  }
   if (c.completed_at) return `${t("terminou")} ${fmt(c.completed_at)}`;
   if (c.started_at) return `${t("começou")} ${fmt(c.started_at)}`;
   return `${t("criada")} ${fmt(c.created_at)}`;

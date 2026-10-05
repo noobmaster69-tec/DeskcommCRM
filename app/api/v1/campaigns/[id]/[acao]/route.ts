@@ -108,9 +108,9 @@ export async function POST(
       if (!parsed.success) {
         return fail("validation_failed", t("Informe a data do agendamento."), 422, { requestId });
       }
-      desfecho = await agendarAcao(admin, campanha, new Date(parsed.data.scheduled_at), agora);
+      desfecho = await agendarAcao(admin, campanha, new Date(parsed.data.scheduled_at), agora, parsed.data.timezone);
       acaoAuditada = "campaign.scheduled";
-      extra = { scheduled_at: parsed.data.scheduled_at };
+      extra = { scheduled_at: parsed.data.scheduled_at, timezone: parsed.data.timezone ?? campanha.timezone ?? null };
       break;
     }
     case "pausar": {

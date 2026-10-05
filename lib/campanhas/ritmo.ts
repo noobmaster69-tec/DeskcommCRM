@@ -22,11 +22,15 @@
  */
 
 import { horaNoFuso } from "./relogio";
+import { horarioDosMinutos, minutoDoDia, proximaAbertura } from "./agendamento";
 
 export interface RitmoDaCampanha {
   intervaloSegundos: number | null;
   janelaInicioHora: number | null;
   janelaFimHora: number | null;
+  /** 9018: a janela em minutos do dia (HH:mm). Quando presente, manda sobre a de horas. */
+  janelaInicioMinuto?: number | null;
+  janelaFimMinuto?: number | null;
   tetoDiario: number | null;
   tetoHorario: number | null;
 }
@@ -44,7 +48,16 @@ export type MotivoDeEspera = "intervalo" | "fora_da_janela" | "teto_diario" | "t
 
 export type VetoDeRitmo =
   | { pode: true }
-  | { pode: false; motivo: MotivoDeEspera; detalhe: string };
+  | { pode: false; motivo: MotivoDeEspera; detalhe: string; ate?: Date };
+
+/** A janela efetiva em minutos do dia — a de minutos (9018) ou a de horas (0375). */
+export function janelaEmMinutos(ritmo: RitmoDaCampanha): { inicio: number; fim: number } | null {
+  if (ritmo.janelaInicioMinuto != null && ritmo.janelaFimMinuto != null)
+    return { inicio: ritmo.janelaInicioMinuto, fim: ritmo.janelaFimMinuto };
+  if (ritmo.janelaInicioHora !== null && ritmo.janelaFimHora !== null)
+    return { inicio: ritmo.janelaInicioHora * 60, fim: ritmo.janelaFimHora * 60 };
+  return null;
+}
 
 /** A hora local (0-23) do instante, no fuso dado. Reexportada por conveniência. */
 export { horaNoFuso as horaLocal };
@@ -82,13 +95,17 @@ export function podeMandarAgora(
     };
   }
 
-  if (ritmo.janelaInicioHora !== null && ritmo.janelaFimHora !== null) {
-    const hora = horaNoFuso(agora, fuso);
-    if (hora < ritmo.janelaInicioHora || hora >= ritmo.janelaFimHora) {
+  const janela = janelaEmMinutos(ritmo);
+  if (janela) {
+    const minuto = minutoDoDia(agora, fuso);
+    if (minuto < janela.inicio || minuto >= janela.fim) {
       return {
         pode: false,
         motivo: "fora_da_janela",
-        detalhe: `Fora do horário da campanha (${ritmo.janelaInicioHora}h-${ritmo.janelaFimHora}h).`,
+        detalhe: `Fora do horário da campanha (${horarioDosMinutos(janela.inicio)}-${horarioDosMinutos(janela.fim)}).`,
+        // A reabertura EXATA: tentar de 30 em 30 min atrasava o primeiro envio
+        // de uma janela que abre às 21:00 para até 21:29.
+        ate: proximaAbertura(agora, fuso, janela),
       };
     }
   }
@@ -122,6 +139,8 @@ export function proximaTentativa(veto: VetoDeRitmo, agora: Date): Date | null {
     case "teto_horario":
       return new Date(ms + 10 * 60_000);
     case "fora_da_janela":
+      if (veto.ate && veto.ate.getTime() > ms) return veto.ate;
+      return new Date(ms + 30 * 60_000);
     case "teto_diario":
       return new Date(ms + 30 * 60_000);
   }

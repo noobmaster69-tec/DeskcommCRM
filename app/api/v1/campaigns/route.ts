@@ -24,6 +24,7 @@ import {
   criarCampanhaSchema,
   decodificarCursor,
   listarCampanhasSchema,
+  problemaDoInicioPlanejado,
 } from "@/lib/campanhas/schemas";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { requireSupportWrite } from "@/lib/impersonate/support";
@@ -35,7 +36,7 @@ export const dynamic = "force-dynamic";
 const COLUNAS_DA_LISTA =
   "id, name, status, channel_session_id, snapshot_total, snapshot_eligible, snapshot_excluded, " +
   "scheduled_at, started_at, completed_at, cancelled_at, created_at, created_by, " +
-  "pipeline_id, stage_id, agent_id, mode, flow_id, recipients_pipeline_id, recipients_stage_id";
+  "pipeline_id, stage_id, agent_id, mode, flow_id, recipients_pipeline_id, recipients_stage_id, timezone";
 
 export async function GET(req: NextRequest): Promise<Response> {
   const requestId = randomUUID();
@@ -104,6 +105,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
   }
   const entrada = parsed.data;
+  const doInicio = problemaDoInicioPlanejado(entrada.scheduled_at, entrada.timezone, new Date());
+  if (doInicio) return fail("campanha_agenda_invalida", t(doInicio), 422, { requestId });
 
   // Client ADMIN na escrita, e não o da sessão: a migration 0375 concede ao
   // papel `authenticated` apenas SELECT (a tela lê; só o servidor escreve), e o
@@ -165,6 +168,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       min_interval_seconds: entrada.min_interval_seconds ?? 60,
       max_interval_seconds: entrada.max_interval_seconds ?? 180,
       timezone: entrada.timezone ?? null,
+      janela_inicio_minuto: entrada.janela_inicio_minuto ?? null,
+      janela_fim_minuto: entrada.janela_fim_minuto ?? null,
+      scheduled_at: entrada.scheduled_at ?? null,
       recipients_pipeline_id: entrada.recipients_pipeline_id ?? null,
       recipients_stage_id: entrada.recipients_stage_id ?? null,
       flow_id: entrada.flow_id ?? null,

@@ -50,6 +50,17 @@ export interface CampanhaCarregada {
   /** Item 4 (9014): `flow` inscreve cada contato no fluxo `flow_id` em vez de mandar o texto. */
   mode: "text" | "flow";
   flow_id: string | null;
+  /** Item 7 / 9018 / 3: o resto do que uma cópia tem de herdar. */
+  timezone?: string | null;
+  min_interval_seconds?: number | null;
+  max_interval_seconds?: number | null;
+  janela_inicio_minuto?: number | null;
+  janela_fim_minuto?: number | null;
+  pipeline_id?: string | null;
+  stage_id?: string | null;
+  agent_id?: string | null;
+  recipients_pipeline_id?: string | null;
+  recipients_stage_id?: string | null;
 }
 
 export type Recusa = { ok: false; codigo: ApiErrorCode; mensagem: string; status: number };
@@ -58,7 +69,9 @@ export type Desfecho<T = unknown> = ({ ok: true } & T) | Recusa;
 const COLUNAS =
   "id, organization_id, name, status, channel_session_id, message_body, base_legal, lia_ref, " +
   "audience_filter, audience_version, content_version, scheduled_at, description, " +
-  "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id";
+  "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
+  "timezone, min_interval_seconds, max_interval_seconds, janela_inicio_minuto, janela_fim_minuto, " +
+  "pipeline_id, stage_id, agent_id, recipients_pipeline_id, recipients_stage_id";
 
 export async function carregarCampanha(
   admin: SupabaseClient,
@@ -305,6 +318,7 @@ export async function agendarAcao(
   c: CampanhaCarregada,
   quando: Date,
   agora: Date,
+  fuso?: string,
 ): Promise<Desfecho> {
   const recusa = recusaDeTransicao(c.status, "scheduled") ?? faltaParaEnviar(c);
   if (recusa) return recusa;
@@ -318,7 +332,14 @@ export async function agendarAcao(
   }
   const { data } = await admin
     .from("campaigns")
-    .update({ status: "scheduled", scheduled_at: quando.toISOString(), paused_at: null })
+    .update({
+      status: "scheduled",
+      scheduled_at: quando.toISOString(),
+      paused_at: null,
+      // O fuso em que a data foi escolhida — a tela mostra "03/12/2026 12:00 em
+      // Portugal" igual ao que foi digitado. O instante é o UTC, sempre.
+      ...(fuso ? { timezone: fuso } : {}),
+    })
     .eq("id", c.id)
     .eq("status", c.status)
     .select("id");
@@ -392,6 +413,21 @@ export async function duplicarAcao(
       janela_fim_hora: c.janela_fim_hora,
       teto_diario: c.teto_diario,
       teto_horario: c.teto_horario,
+      // A cópia herda TUDO o que é configuração (modo, fluxo, ritmo sorteado,
+      // fuso, janela em minutos, funil/etapa e agente) — antes perdia os itens
+      // 3, 4 e 7 e voltava ao texto simples de 60–180s sem funil.
+      mode: c.mode ?? "text",
+      flow_id: c.flow_id ?? null,
+      timezone: c.timezone ?? null,
+      min_interval_seconds: c.min_interval_seconds ?? 60,
+      max_interval_seconds: c.max_interval_seconds ?? 180,
+      janela_inicio_minuto: c.janela_inicio_minuto ?? null,
+      janela_fim_minuto: c.janela_fim_minuto ?? null,
+      pipeline_id: c.pipeline_id ?? null,
+      stage_id: c.stage_id ?? null,
+      agent_id: c.agent_id ?? null,
+      recipients_pipeline_id: c.recipients_pipeline_id ?? null,
+      recipients_stage_id: c.recipients_stage_id ?? null,
       created_by: autorId,
       // Nada de destinatário, resultado, agenda ou carimbo de execução: a cópia
       // é uma INTENÇÃO nova, e herdar números faria a tela mostrar entrega de

@@ -22,6 +22,8 @@ export interface CampanhaDaLista {
   snapshot_eligible: number;
   snapshot_excluded: number;
   scheduled_at: string | null;
+  /** Fuso da campanha (9015) — o agendamento aparece nele. */
+  timezone?: string | null;
   started_at: string | null;
   completed_at: string | null;
   cancelled_at: string | null;
@@ -61,6 +63,11 @@ export interface CampanhaDetalhada extends CampanhaDaLista {
   /** Item 3 (9016): etapa onde o card entra no envio. A de resposta é stage_id. */
   recipients_pipeline_id?: string | null;
   recipients_stage_id?: string | null;
+  /** 9018: janela em minutos do dia e o motivo real da última espera da rodada. */
+  janela_inicio_minuto?: number | null;
+  janela_fim_minuto?: number | null;
+  wait_reason?: string | null;
+  wait_until?: string | null;
 }
 
 export interface Destinatario {

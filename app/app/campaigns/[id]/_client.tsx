@@ -39,7 +39,21 @@ import { ArrowBendUpLeft } from "@/lib/ui/icons";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { TEXTO_DA_EXCLUSAO } from "@/lib/campanhas/tipos";
 import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
-import { CamposDeRitmo, errosDoRitmo, type ValoresDeRitmo } from "@/components/campanhas/CamposDeRitmo";
+import {
+  CamposDeInicio,
+  CamposDeRitmo,
+  FraseDoInicio,
+  corpoDaJanela,
+  errosDoRitmo,
+  instanteAgendado,
+  janelaDosValores,
+  lugarDoFuso,
+  programacaoDaCampanha,
+  useAgora,
+  type ValoresDeRitmo,
+} from "@/components/campanhas/CamposDeRitmo";
+import { camposDoInstante, resumoDoInicio, textoDoInstante } from "@/lib/campanhas/agendamento";
+import { fusoValido } from "@/lib/campanhas/fuso";
 import { ProgressoDaCampanha } from "@/components/campanhas/ProgressoDaCampanha";
 
 export function DetalheDaCampanha({ id }: { id: string }) {
@@ -239,6 +253,7 @@ export function DetalheDaCampanha({ id }: { id: string }) {
 
       <NumerosDaCampanha campanha={c} />
 
+      <InicioDaCampanha campanha={c} />
       <RitmoDaCampanha campanha={c} />
 
       <Card className="space-y-2 p-4">
@@ -445,13 +460,14 @@ function NumerosDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
 function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
   const t = useT();
   const editar = useEditarCampanha(campanha.id);
+  const prog = programacaoDaCampanha(campanha);
   const [v, setV] = useState<ValoresDeRitmo>({
     minIntervalo: String(campanha.min_interval_seconds ?? 60),
     maxIntervalo: String(campanha.max_interval_seconds ?? 180),
     tetoDiario: texto(campanha.teto_diario),
     tetoHorario: texto(campanha.teto_horario),
-    janelaInicio: texto(campanha.janela_inicio_hora),
-    janelaFim: texto(campanha.janela_fim_hora),
+    janelaInicio: prog.janelaInicio,
+    janelaFim: prog.janelaFim,
     fuso: campanha.timezone ?? "",
   });
 
@@ -461,7 +477,7 @@ function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
   return (
     <Card className="space-y-4 p-4">
       <div>
-        <h2 className="font-medium">{t("Ritmo desta campanha")}</h2>
+        <h2 className="font-medium">{t("Ritmo e Programação")}</h2>
         <p className="text-sm text-muted-foreground">
           {t(
             "Em branco, vale o ritmo do número (Conexões › Proteção de envio). O que você puser aqui só pode deixar mais devagar.",
@@ -480,8 +496,7 @@ function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
               timezone: v.fuso || null,
               teto_diario: numero(v.tetoDiario),
               teto_horario: numero(v.tetoHorario),
-              janela_inicio_hora: numero(v.janelaInicio),
-              janela_fim_hora: numero(v.janelaFim),
+              ...corpoDaJanela(v),
             })
           }
         >
@@ -494,6 +509,149 @@ function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
     </Card>
   );
 }
+
+/** O motivo real da espera (9018) — tabela constante para o t(). */
+const TEXTO_DA_ESPERA: Record<string, string> = {
+  fora_da_janela: "Fora da janela diária de envio.",
+  teto_diario: "Chegou ao máximo por dia desta campanha.",
+  teto_horario: "Chegou ao máximo por hora desta campanha.",
+  intervalo: "Aguardando o intervalo entre envios.",
+  intervalo_aleatorio: "Aguardando o intervalo sorteado entre envios.",
+  sem_numero_livre: "Nenhum número pode enviar agora (proteção de envio da conexão, limite do número ou número fora do ar).",
+};
+
+/**
+ * O INÍCIO da campanha ("Ritmo e Programação"), conforme o estado: planejado
+ * no rascunho, agendável depois de preparada, agendamento confirmado (com a
+ * contagem regressiva), em execução (com o motivo REAL de não estar enviando).
+ */
+function InicioDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
+  const t = useT();
+  const agora = useAgora();
+  const acao = useAcaoDeCampanha(campanha.id);
+  const fusoSalvo = fusoValido(campanha.timezone) ? campanha.timezone! : null;
+  const planejado =
+    campanha.scheduled_at && fusoSalvo ? camposDoInstante(new Date(campanha.scheduled_at), fusoSalvo) : null;
+  const [v, setV] = useState({
+    fuso: fusoSalvo ?? "",
+    inicioModo: (planejado ? "agendar" : "agora") as "agora" | "agendar",
+    inicioData: planejado?.data ?? "",
+    inicioHora: planejado?.hora ?? "",
+  });
+  const janela = janelaDosValores(programacaoDaCampanha(campanha));
+  const st = campanha.status;
+
+  if (st === "completed" || st === "cancelled") return null;
+
+  if (st === "draft") {
+    if (!planejado || !fusoSalvo) return null;
+    const r = resumoDoInicio({ agora, fuso: fusoSalvo, modo: "agendar", data: planejado.data, hora: planejado.hora, janela });
+    return (
+      <Card className="space-y-2 p-4" data-testid="inicio-da-campanha">
+        <h2 className="font-medium">{t("Início da campanha")}</h2>
+        {r.tipo === "passado" ? (
+          <p className="text-sm text-error-fg">{t("O horário planejado já passou. Edite a campanha e escolha outro.")}</p>
+        ) : (
+          <FraseDoInicio resumo={r} fuso={fusoSalvo} estado="planejada" testid="inicio-resumo" />
+        )}
+      </Card>
+    );
+  }
+
+  if (st === "ready") {
+    const valores = { ...v, minIntervalo: "60", maxIntervalo: "180", tetoDiario: "", tetoHorario: "", janelaInicio: "", janelaFim: "" };
+    const erros = errosDoRitmo(valores, agora).filter((e) => e.startsWith("agenda"));
+    const fuso = fusoValido(v.fuso) ? v.fuso : null;
+    const r = resumoDoInicio({ agora, fuso, modo: v.inicioModo, data: v.inicioData, hora: v.inicioHora, janela });
+    const quando = instanteAgendado(valores);
+    return (
+      <Card className="space-y-4 p-4" data-testid="inicio-da-campanha">
+        <h2 className="font-medium">{t("Início da campanha")}</h2>
+        <CamposDeInicio v={v} onChange={(campo, valor) => setV((a) => ({ ...a, [campo]: valor }))} prefixo="inicio" />
+        <FraseDoInicio resumo={r} fuso={fuso} estado="previa" testid="inicio-resumo" />
+        {v.inicioModo === "agendar" && erros.length > 0 && (
+          <ul className="space-y-1 text-sm text-error-fg" role="alert">
+            {erros.map((e) => (
+              <li key={e}>{t(TEXTO_DO_ERRO_DO_INICIO[e] ?? e)}</li>
+            ))}
+          </ul>
+        )}
+        {v.inicioModo === "agendar" ? (
+          <Button
+            disabled={acao.isPending || erros.length > 0 || !quando}
+            onClick={() => acao.mutate({ acao: "agendar", corpo: { scheduled_at: quando, timezone: v.fuso } })}
+            data-testid="confirmar-agendamento"
+          >
+            {t("Confirmar agendamento")}
+          </Button>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("Para começar já, use “Iniciar envio” no topo da página.")}</p>
+        )}
+      </Card>
+    );
+  }
+
+  if (st === "scheduled" && campanha.scheduled_at) {
+    const fuso = fusoSalvo ?? "UTC";
+    const c = camposDoInstante(new Date(campanha.scheduled_at), fuso);
+    const r = resumoDoInicio({ agora, fuso, modo: "agendar", data: c.data, hora: c.hora, janela });
+    return (
+      <Card className="space-y-2 p-4" data-testid="inicio-da-campanha">
+        <h2 className="font-medium">{t("Início da campanha")}</h2>
+        {r.tipo === "passado" ? (
+          <p className="text-sm" data-testid="inicio-resumo">
+            {t("O horário agendado chegou — o agendador inicia a campanha no próximo ciclo (em até 1 minuto).")}
+          </p>
+        ) : (
+          <FraseDoInicio resumo={r} fuso={fuso} estado="agendada" testid="inicio-resumo" />
+        )}
+        <p className="text-xs text-muted-foreground">
+          {t("O início roda no servidor: vale com o navegador fechado. Para mudar o horário, pause e agende de novo.")}
+        </p>
+      </Card>
+    );
+  }
+
+  if (st === "running") {
+    const fuso = fusoSalvo ?? "UTC";
+    const ate = campanha.wait_until ? textoDoInstante(new Date(campanha.wait_until), fuso) : null;
+    const espera = campanha.wait_reason ? TEXTO_DA_ESPERA[campanha.wait_reason] : null;
+    return (
+      <Card className="space-y-2 p-4" data-testid="inicio-da-campanha">
+        <h2 className="font-medium">{t("Em execução")}</h2>
+        {campanha.started_at && (
+          <p className="text-sm">
+            {t("Começou em")} {textoDoInstante(new Date(campanha.started_at), fuso).data}{" "}
+            {t("às")} {textoDoInstante(new Date(campanha.started_at), fuso).hora}
+            {fusoSalvo ? ` (${lugarDoFuso(fusoSalvo)})` : " (UTC)"}.
+          </p>
+        )}
+        {espera && (
+          <p className="text-sm text-warning-fg" data-testid="motivo-da-espera">
+            {t("Não está enviando agora:")} {t(espera)}
+            {ate ? ` ${t("Volta a tentar em")} ${ate.data} ${t("às")} ${ate.hora}.` : ""}
+          </p>
+        )}
+      </Card>
+    );
+  }
+
+  if (st === "paused") {
+    return (
+      <Card className="space-y-2 p-4" data-testid="inicio-da-campanha">
+        <h2 className="font-medium">{t("Início da campanha")}</h2>
+        <p className="text-sm text-warning-fg">{t("Pausada — não envia nada até ser retomada.")}</p>
+      </Card>
+    );
+  }
+  return null;
+}
+
+const TEXTO_DO_ERRO_DO_INICIO: Record<string, string> = {
+  agenda_sem_fuso: "Para agendar, escolha o fuso horário da campanha.",
+  agenda_invalida: "Escolha uma data e um horário válidos — esse horário não existe nesse dia no fuso escolhido (mudança de horário de verão).",
+  agenda_passado: "O horário agendado já passou. Escolha uma data e hora no futuro.",
+};
 
 
 /** `null` vira campo vazio — e campo vazio volta a ser `null`, que é "herda o número". */
