@@ -1,3 +1,6 @@
+import { chaveCanonica, VARIAVEIS_DO_SISTEMA } from "@/lib/variables/sistema";
+import { resolverVariavel } from "@/lib/variables/resolve";
+
 /**
  * Variáveis do texto dos blocos de FLUXO (fork jhoow): `{nome}`, `{campo}`…
  *
@@ -29,6 +32,17 @@ function emTexto(v: unknown): string {
 
 export function valorDaVariavel(nomeDaVariavel: string, ctx: ContextoDeVariaveis): string {
   const chave = nomeDaVariavel.trim();
+  // Variáveis do SISTEMA (Configurações › Variáveis, item 2) — as mesmas das
+  // Campanhas. As de tempo usam o fuso de Brasília: o fluxo ainda não tem o
+  // fuso do contato (o item 7 só cobre a campanha).
+  if (chave !== "nome" && chave !== "primeiro_nome" && chave !== "telefone" && chaveCanonica(chave)) {
+    return resolverVariavel(chave, {
+      nome: ctx.nome,
+      telefone: ctx.telefone,
+      campos: ctx.campos,
+      quando: { agora: new Date(), fuso: "America/Sao_Paulo" },
+    });
+  }
   switch (chave) {
     case "nome":
       return (ctx.nome ?? "").trim();
@@ -62,7 +76,8 @@ export function interpolar(texto: string, ctx: ContextoDeVariaveis): string {
     .replace(/ ([,.!?])/g, "$1");
 }
 
-/** As variáveis que o editor sugere ao digitar `{`. */
+/** As variáveis que o editor sugere ao digitar `{`: as do sistema, a última mensagem e as da organização. */
 export function variaveisSugeridas(camposDaOrganizacao: readonly string[]): string[] {
-  return ["nome", "primeiro_nome", "telefone", "ultima_mensagem", ...camposDaOrganizacao];
+  const todas = ["nome", "primeiro_nome", "telefone", ...VARIAVEIS_DO_SISTEMA.map((v) => v.chave), "ultima_mensagem", ...camposDaOrganizacao];
+  return [...new Set(todas)];
 }

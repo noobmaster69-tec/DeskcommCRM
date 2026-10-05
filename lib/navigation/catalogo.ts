@@ -918,6 +918,16 @@ export const NAV_CATALOG = [
     minRole: "manager",
   },
   {
+    // Fork jhoow (Campanhas › item 2): as variáveis {chave} das mensagens.
+    href: "/app/settings/variaveis",
+    label: "Variáveis",
+    description: "As variáveis {chave} das mensagens: as do sistema e as que a sua empresa cria.",
+    icon: "Tag",
+    group: "organizacao",
+    section: "Sua empresa",
+    minRole: "agent",
+  },
+  {
     // A porta que faltava para o vocabulário de etiquetas (issue #852). Até
     // aqui a etiqueta só ENTRAva no vocabulário — cada agente escrevia a que
     // quisesse em `add_tag` — e não havia por onde corrigir, juntar as duas

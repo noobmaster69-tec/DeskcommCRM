@@ -28,6 +28,8 @@ interface LinhaDeContato {
   is_blocked: boolean;
   is_anonymized: boolean;
   consent: unknown;
+  email?: string | null;
+  custom_fields?: Record<string, unknown> | null;
 }
 
 export async function buscarCandidatos(
@@ -64,7 +66,7 @@ export async function buscarCandidatos(
 
   let consulta = admin
     .from("contacts")
-    .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent")
+    .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields")
     .eq("organization_id", organizationId)
     // Placeholder de GRUPO não recebe campanha: campanha é 1:1 por doutrina, e
     // o grupo não tem opt-in individual nenhum por trás desse registro técnico.
@@ -113,7 +115,7 @@ export async function buscarCandidatos(
   if (faltam.length > 0) {
     const { data: extras, error: erroExtras } = await admin
       .from("contacts")
-      .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent")
+      .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields")
       .eq("organization_id", organizationId)
       .eq("kind", "person")
       .in("id", faltam);
@@ -128,6 +130,8 @@ export async function buscarCandidatos(
     bloqueado: l.is_blocked,
     anonimizado: l.is_anonymized,
     recusouMarketing: recusouMarketing(l.consent),
+    email: l.email ?? null,
+    campos: (l.custom_fields ?? {}) as Record<string, unknown>,
   }));
 }
 

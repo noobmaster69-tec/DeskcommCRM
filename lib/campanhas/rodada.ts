@@ -192,6 +192,8 @@ interface DestinatarioRow {
     is_blocked: boolean;
     is_anonymized: boolean;
     consent: unknown;
+    email?: string | null;
+    custom_fields?: Record<string, unknown> | null;
   } | null;
 }
 
@@ -204,7 +206,7 @@ async function rodarUmaCampanha(
     .from("campaign_recipients")
     .select(
       "id, contact_id, recipient_address, rendered_body, " +
-        "contacts(id, name, display_name, phone_number, is_blocked, is_anonymized, consent)",
+        "contacts(id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields)",
     )
     .eq("campaign_id", campanha.id)
     .eq("status", "pending")
@@ -400,9 +402,15 @@ async function rodarUmaCampanha(
   // preparação produziria "bom dia" numa mensagem enviada à tarde — foi o
   // defeito do primeiro piloto.
   const congelado = alvo.rendered_body ?? campanha.message_body ?? "";
+  // As variáveis do contato (item 2) — as de TEMPO resolvem aqui, no envio.
   const corpo = renderizar(
     congelado,
-    { nome: nomeDoContato(contato) },
+    {
+      nome: nomeDoContato(contato),
+      telefone: contato?.phone_number ?? alvo.recipient_address,
+      email: contato?.email ?? null,
+      campos: (contato?.custom_fields ?? {}) as Record<string, unknown>,
+    },
     { agora, fuso: knobs.timezone },
   ).texto;
 

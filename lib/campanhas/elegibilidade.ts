@@ -60,6 +60,9 @@ export function motivoParaExcluir(c: ContatoParaDecidir): MotivoDeExclusao | nul
 /** Um candidato do recorte, já lido do banco. */
 export interface CandidatoDaAudiencia extends ContatoParaDecidir {
   nome: string | null;
+  /** Para as variáveis (item 2): e-mail e `contacts.custom_fields`. */
+  email?: string | null;
+  campos?: Record<string, unknown>;
 }
 
 export interface LinhaClassificada {

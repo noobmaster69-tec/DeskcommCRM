@@ -1041,6 +1041,10 @@ export const AUDIT_ACTIONS = [
   "fluxo.disparos_salvos",
   // Fork jhoow: CRM excluído DE VEZ (sem negócio nenhum; migration 9012).
   "crm.deleted",
+  // Fork jhoow (Campanhas › item 2): Configurações › Variáveis.
+  "variavel.criada",
+  "variavel.editada",
+  "variavel.excluida",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

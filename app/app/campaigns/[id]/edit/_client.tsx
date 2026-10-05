@@ -30,7 +30,7 @@ import { useCampanha, useEditarCampanha, usePreviaDaAudiencia } from "@/hooks/ca
 import { channelLabel, useChannelSessions } from "@/hooks/channels/useChannelSessions";
 import { useT } from "@/hooks/i18n/useT";
 import { useAgentesPublicados, useEtapas, useFunis } from "@/hooks/campanhas/useDestinoDaCampanha";
-import { DESCRICAO_DA_VARIAVEL, VARIAVEIS_DA_CAMPANHA } from "@/lib/campanhas/renderizador";
+import { ListaDeVariaveis } from "@/components/campanhas/ListaDeVariaveis";
 
 export function EditarCampanha({ id }: { id: string }) {
   const t = useT();
@@ -332,20 +332,7 @@ export function EditarCampanha({ id }: { id: string }) {
           onChange={(e) => setTexto(e.target.value)}
           aria-label={t("Texto da mensagem")}
         />
-        <ul className="space-y-1 text-sm text-muted-foreground">
-          {VARIAVEIS_DA_CAMPANHA.map((v) => (
-            <li key={v}>
-              <button
-                type="button"
-                className="rounded-md bg-surface-elevated px-1 font-mono text-xs"
-                onClick={() => setTexto((atual) => `${atual}{{${v}}}`)}
-              >
-                {`{{${v}}}`}
-              </button>{" "}
-              — {t(DESCRICAO_DA_VARIAVEL[v])}
-            </li>
-          ))}
-        </ul>
+        <ListaDeVariaveis onInserir={(token) => setTexto((atual) => `${atual}${token}`)} />
       </Card>
 
       <div className="flex items-center justify-end gap-2">

@@ -42,6 +42,7 @@ import {
   type CandidatoDaAudiencia,
 } from "./elegibilidade";
 import { renderizar } from "./renderizador";
+import { lerVariaveisDaOrganizacao, paraRenderizar } from "@/lib/variables/definicoes";
 import type { MotivoDeExclusao } from "./tipos";
 
 export interface ResumoDoSnapshot {
@@ -105,6 +106,9 @@ async function classificar(
     entrada.campanhaId,
   );
   const suprimidos = await hashesExcluidos(admin, entrada.organizationId);
+  // As variáveis personalizadas da organização (item 2): definida e sem valor
+  // = falta (a mensagem não sai com buraco); com padrão, o padrão entra.
+  const variaveis = paraRenderizar(await lerVariaveisDaOrganizacao(admin, entrada.organizationId));
   return classificarAudiencia(candidatos, {
     excluidosAMao: new Set(entrada.filtro.excluir_contatos),
     jaEmCampanha,
@@ -113,7 +117,13 @@ async function classificar(
     // A saudação NÃO é resolvida aqui: ela é da hora do envio. O token fica no
     // corpo congelado e o despacho o troca — ver `rodada.ts`.
     renderizar: (c: CandidatoDaAudiencia) => {
-      const r = renderizar(entrada.corpo, { nome: c.nome });
+      const r = renderizar(entrada.corpo, {
+        nome: c.nome,
+        telefone: c.telefone,
+        email: c.email ?? null,
+        campos: c.campos ?? {},
+        ...variaveis,
+      });
       return { texto: r.texto, faltando: r.faltando };
     },
   });

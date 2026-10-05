@@ -31,7 +31,7 @@ import {
   useEtapas,
   useFunis,
 } from "@/hooks/campanhas/useDestinoDaCampanha";
-import { VARIAVEIS_DA_CAMPANHA, DESCRICAO_DA_VARIAVEL } from "@/lib/campanhas/renderizador";
+import { ListaDeVariaveis } from "@/components/campanhas/ListaDeVariaveis";
 
 export function NovaCampanha() {
   const t = useT();
@@ -351,28 +351,7 @@ export function NovaCampanha() {
           placeholder={t("Escreva como você falaria com uma pessoa só.")}
           aria-label={t("Texto da mensagem")}
         />
-        <div className="space-y-1 text-sm text-muted-foreground">
-          <p>{t("Você pode usar:")}</p>
-          <ul className="space-y-1">
-            {VARIAVEIS_DA_CAMPANHA.map((v) => (
-              <li key={v}>
-                <button
-                  type="button"
-                  className="rounded-md bg-surface-elevated px-1 font-mono text-xs"
-                  onClick={() => setTexto((atual) => `${atual}{{${v}}}`)}
-                >
-                  {`{{${v}}}`}
-                </button>{" "}
-                — {t(DESCRICAO_DA_VARIAVEL[v])}
-              </li>
-            ))}
-          </ul>
-          <p>
-            {t(
-              "Quem não tiver o dado que a mensagem usa fica de fora, com o motivo na lista — mensagem com buraco não sai.",
-            )}
-          </p>
-        </div>
+        <ListaDeVariaveis onInserir={(token) => setTexto((atual) => `${atual}${token}`)} />
       </Card>
 
       <Card className="space-y-4 p-4">

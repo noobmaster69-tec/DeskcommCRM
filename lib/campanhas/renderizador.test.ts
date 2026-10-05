@@ -78,3 +78,28 @@ describe("renderizador da campanha", () => {
     expect(r.texto).toBe("{{constructor.name}} {{__proto__}}");
   });
 });
+
+describe("renderizador + variáveis da organização (Campanhas › item 2)", () => {
+  it("aceita {chave} além de {{chave}} e resolve as do sistema", () => {
+    const r = renderizar("Oi {primeiro_nome}, da {nome_empresa}!", {
+      nome: "Ana Souza",
+      campos: { nome_empresa: "Ateliê Ana" },
+    });
+    expect(r.texto).toBe("Oi Ana, da Ateliê Ana!");
+    expect(r.faltando).toEqual([]);
+  });
+
+  it("personalizada DEFINIDA sem valor é falta; com padrão, usa o padrão", () => {
+    expect(renderizar("Plano {plano}", { nome: "Ana", personalizadas: ["plano"] }).faltando).toEqual(["plano"]);
+    expect(renderizar("Plano {plano}", { nome: "Ana", personalizadas: ["plano"], padroes: { plano: "Básico" } }).texto).toBe(
+      "Plano Básico",
+    );
+  });
+
+  it("dia e data, como a saudação, só resolvem no envio", () => {
+    expect(renderizar("{dia_semana}", { nome: null }).texto).toBe("{dia_semana}");
+    expect(renderizar("{dia_semana}", { nome: null }, { agora: new Date("2026-10-05T15:00:00Z"), fuso: "America/Sao_Paulo" }).texto).toBe(
+      "segunda-feira",
+    );
+  });
+});

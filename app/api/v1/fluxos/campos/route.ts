@@ -31,5 +31,12 @@ export async function GET(): Promise<Response> {
     const campos = linha.custom_fields as Record<string, unknown> | null;
     if (campos && typeof campos === "object") for (const k of Object.keys(campos)) if (/^[a-z][a-z0-9_.]*$/.test(k)) chaves.add(k);
   }
+  // As variáveis DEFINIDAS em Configurações › Variáveis (9013) entram mesmo sem
+  // nenhum contato ter valor ainda — é o que o editor precisa para sugerir.
+  const { data: definidas } = await db
+    .from("contact_custom_fields")
+    .select("key")
+    .eq("organization_id", authz.org.orgId);
+  for (const d of (definidas ?? []) as Array<{ key: string }>) chaves.add(d.key);
   return ok([...chaves].sort(), { requestId });
 }

@@ -28,98 +28,108 @@
  */
 
 import { horaNoFuso } from "./relogio";
+import { chaveCanonica, VARIAVEIS_DO_SISTEMA } from "@/lib/variables/sistema";
+import { resolverVariavel, TOKEN_DE_VARIAVEL, valorDoCampo, VARIAVEIS_DE_TEMPO } from "@/lib/variables/resolve";
 
 /** As variáveis que existem. Oferecer uma que não resolve é prometer dado que não há. */
-export const VARIAVEIS_DA_CAMPANHA = ["nome", "primeiro_nome", "saudacao"] as const;
+/**
+ * As variáveis que a tela de campanha oferece: as do SISTEMA (lib/variables) —
+ * os nomes antigos `nome`, `primeiro_nome` e `saudacao` continuam valendo
+ * (aliases). As personalizadas da organização entram por `personalizadas`.
+ */
+export const VARIAVEIS_DA_CAMPANHA = VARIAVEIS_DO_SISTEMA.map((v) => v.chave);
 
-export type VariavelDaCampanha = (typeof VARIAVEIS_DA_CAMPANHA)[number];
+export type VariavelDaCampanha = string;
 
-/** O que a tela mostra ao lado de cada variável. */
-export const DESCRICAO_DA_VARIAVEL: Record<VariavelDaCampanha, string> = {
-  nome: "Nome do contato, como está no cadastro",
-  primeiro_nome: "Só a primeira palavra do nome",
-  saudacao: "Bom dia / Boa tarde / Boa noite, na hora do envio",
-};
+export const DESCRICAO_DA_VARIAVEL: Record<string, string> = Object.fromEntries(
+  VARIAVEIS_DO_SISTEMA.map((v) => [v.chave, v.descricao]),
+);
 
-/** Os valores congelados no snapshot. `saudacao` não entra: ela é da hora do envio. */
 export interface ValoresDoDestinatario {
   nome: string | null;
+  telefone?: string | null;
+  email?: string | null;
+  /** `contacts.custom_fields` do destinatário (dados importados e variáveis personalizadas). */
+  campos?: Record<string, unknown>;
+  /** Chaves das variáveis personalizadas DEFINIDAS na organização (9013) — sem valor vira "faltando". */
+  personalizadas?: readonly string[];
+  /** Valores padrão das personalizadas (chave → valor). */
+  padroes?: Record<string, string>;
 }
-
-const TOKEN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
 
 export interface TextoRenderizado {
   texto: string;
   /** Variáveis usadas no texto que não tinham valor. Vazio = pode enviar. */
-  faltando: VariavelDaCampanha[];
+  faltando: string[];
   /** Tokens que não são variáveis conhecidas — ficam literais, como no Inbox. */
   desconhecidas: string[];
 }
 
+/**
+ * Monta o texto da campanha. Aceita `{{chave}}` e `{chave}`.
+ *
+ * - Variável de TEMPO (saudação, dia, data) sem instante (prévia/preparação)
+ *   fica literal e não é falta: quem resolve é o envio, no relógio do contato.
+ * - Variável conhecida sem valor fica literal e entra em `faltando` — a
+ *   campanha não manda mensagem com buraco.
+ * - Token desconhecido fica literal e entra em `desconhecidas`.
+ */
 export function renderizar(
   template: string,
   valores: ValoresDoDestinatario,
-  quando?: { agora: Date; fuso: string },
+  quando?: { agora: Date; fuso: string; idioma?: string },
 ): TextoRenderizado {
-  const nome = (valores.nome ?? "").trim();
-  const faltando = new Set<VariavelDaCampanha>();
+  const faltando = new Set<string>();
   const desconhecidas = new Set<string>();
+  const campos = valores.campos ?? {};
+  const personalizadas = new Set(valores.personalizadas ?? []);
+  const ctx = {
+    nome: valores.nome,
+    telefone: valores.telefone ?? null,
+    email: valores.email ?? null,
+    campos,
+    padroes: valores.padroes,
+    quando,
+  };
 
-  const texto = template.replace(TOKEN, (literal, bruto: string) => {
-    const chave = bruto.toLowerCase();
-    switch (chave) {
-      case "nome": {
-        if (nome === "") return marcarFalta(faltando, "nome", literal);
-        return nome;
-      }
-      case "primeiro_nome": {
-        const primeiro = nome.split(/\s+/)[0] ?? "";
-        if (primeiro === "") return marcarFalta(faltando, "primeiro_nome", literal);
-        return primeiro;
-      }
-      case "saudacao": {
-        // Sem instante, a saudação fica literal: quem renderiza a PRÉVIA não
-        // sabe a hora do envio, e cravar uma ali ensinaria o operador a esperar
-        // aquela. A prévia mostra `{{saudacao}}`; o envio resolve.
-        if (!quando) return literal;
-        return saudacaoDaHora(quando.agora, quando.fuso);
-      }
-      default:
-        desconhecidas.add(bruto);
+  const texto = template.replace(TOKEN_DE_VARIAVEL, (literal, duplo: string | undefined, simples: string | undefined) => {
+    const bruto = (duplo ?? simples ?? "").trim();
+    const sistema = chaveCanonica(bruto);
+    if (sistema) {
+      if (VARIAVEIS_DE_TEMPO.has(sistema) && !quando) return literal;
+      const v = resolverVariavel(bruto, ctx);
+      if (v === "") {
+        faltando.add(bruto.toLowerCase());
         return literal;
+      }
+      return v;
     }
+    const definida = personalizadas.has(bruto) || Object.prototype.hasOwnProperty.call(campos, bruto);
+    if (!definida) {
+      desconhecidas.add(bruto);
+      return literal;
+    }
+    const v = valorDoCampo(ctx, bruto);
+    if (v === "") {
+      faltando.add(bruto);
+      return literal;
+    }
+    return v;
   });
 
   return { texto, faltando: [...faltando], desconhecidas: [...desconhecidas] };
 }
 
-function marcarFalta(
-  destino: Set<VariavelDaCampanha>,
-  variavel: VariavelDaCampanha,
-  literal: string,
-): string {
-  destino.add(variavel);
-  return literal;
-}
-
-/** Quais variáveis um texto usa — para a tela avisar antes, não depois. */
-export function variaveisUsadas(template: string): VariavelDaCampanha[] {
-  const achadas = new Set<VariavelDaCampanha>();
-  for (const [, bruto] of template.matchAll(TOKEN)) {
-    const chave = (bruto ?? "").toLowerCase();
-    if ((VARIAVEIS_DA_CAMPANHA as readonly string[]).includes(chave)) {
-      achadas.add(chave as VariavelDaCampanha);
-    }
+/** As variáveis do SISTEMA que o texto usa (como escritas), sem repetir. */
+export function variaveisUsadas(template: string): string[] {
+  const achadas = new Set<string>();
+  for (const m of template.matchAll(TOKEN_DE_VARIAVEL)) {
+    const chave = (m[1] ?? m[2] ?? "").trim().toLowerCase();
+    if (chaveCanonica(chave)) achadas.add(chave);
   }
   return [...achadas];
 }
 
-/**
- * "Bom dia" / "Boa tarde" / "Boa noite" — no fuso do canal, nunca no do servidor.
- *
- * Os cortes são os do português falado, não os do relógio: tarde começa ao
- * meio-dia e noite às 18h.
- */
 export function saudacaoDaHora(agora: Date, fuso: string): string {
   const hora = horaNoFuso(agora, fuso);
   if (hora < 12) return "Bom dia";

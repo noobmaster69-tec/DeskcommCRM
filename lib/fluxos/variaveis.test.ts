@@ -29,6 +29,13 @@ describe("variáveis dos fluxos", () => {
   });
 
   it("sugestões trazem as fixas e os campos da organização", () => {
-    expect(variaveisSugeridas(["cidade"])).toEqual(["nome", "primeiro_nome", "telefone", "ultima_mensagem", "cidade"]);
+    const s = variaveisSugeridas(["cidade"]);
+    // As fixas de sempre, as do SISTEMA (Configurações › Variáveis) e a da org, sem repetir.
+    expect(s.slice(0, 3)).toEqual(["nome", "primeiro_nome", "telefone"]);
+    expect(s).toContain("saudacao_horario");
+    expect(s).toContain("nome_empresa");
+    expect(s).toContain("ultima_mensagem");
+    expect(s[s.length - 1]).toBe("cidade");
+    expect(new Set(s).size).toBe(s.length);
   });
 });
