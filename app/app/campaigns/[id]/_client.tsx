@@ -40,6 +40,7 @@ import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { TEXTO_DA_EXCLUSAO } from "@/lib/campanhas/tipos";
 import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
 import { CamposDeRitmo, errosDoRitmo, type ValoresDeRitmo } from "@/components/campanhas/CamposDeRitmo";
+import { ProgressoDaCampanha } from "@/components/campanhas/ProgressoDaCampanha";
 
 export function DetalheDaCampanha({ id }: { id: string }) {
   const t = useT();
@@ -218,6 +219,21 @@ export function DetalheDaCampanha({ id }: { id: string }) {
           )}
         </Card>
       )}
+
+      <ProgressoDaCampanha
+        recebe={{ funil: c.recipients_pipeline_id, etapa: c.recipients_stage_id }}
+        responde={{ funil: c.pipeline_id, etapa: c.stage_id }}
+        numeros={
+          m
+            ? {
+                elegiveis: m.contagem.elegiveis,
+                enviados: m.contagem.enviados,
+                pendentes: m.contagem.pendentes,
+                responderam: m.contagem.responderam,
+              }
+            : null
+        }
+      />
 
       <DestinoDaCampanha campanha={c} />
 

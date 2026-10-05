@@ -25,6 +25,9 @@ export interface ValoresDaCampanha {
   fluxo: string;
   funil: string;
   etapa: string;
+  /** Item 3: funil/etapa onde o contato entra ao RECEBER. */
+  funilDeQuemRecebe: string;
+  etapaDeQuemRecebe: string;
   agente: string;
   intervalo: string;
   /** Item 7: intervalo sorteado entre mínimo e máximo, e o fuso da janela ("" = o do número). */
@@ -69,6 +72,8 @@ export function valoresDaCampanha(c?: CampanhaDetalhada | null): ValoresDaCampan
     funil: c?.pipeline_id ?? "",
     etapa: c?.stage_id ?? "",
     agente: c?.agent_id ?? "",
+    funilDeQuemRecebe: c?.recipients_pipeline_id ?? "",
+    etapaDeQuemRecebe: c?.recipients_stage_id ?? "",
     intervalo: num(c?.intervalo_segundos),
     minIntervalo: String(c?.min_interval_seconds ?? 60),
     maxIntervalo: String(c?.max_interval_seconds ?? 180),
@@ -139,5 +144,7 @@ export function corpoDaCampanha(v: ValoresDaCampanha): Record<string, unknown> {
     pipeline_id: v.funil || null,
     stage_id: v.etapa || null,
     agent_id: v.agente || null,
+    recipients_pipeline_id: v.funilDeQuemRecebe || null,
+    recipients_stage_id: v.funilDeQuemRecebe ? v.etapaDeQuemRecebe || null : null,
   };
 }

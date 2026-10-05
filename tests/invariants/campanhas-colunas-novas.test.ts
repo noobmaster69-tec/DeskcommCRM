@@ -8,6 +8,7 @@ import { beforeAll, describe, expect, it } from "vitest";
  * COLUNAS NOVAS DE CAMPANHA (fork jhoow — Campanhas, migrations 9014+).
  *  - 9014: mode (text/flow) e flow_id (FK mesma org, on delete set null).
  *  - 9015: intervalo sorteado (60/180, min ≤ max, ≥ 10s), timezone, next_send_at.
+ *  - 9016: etapa de quem recebe (FKs compostas mesma org, on delete set null).
  */
 
 const container = process.env.TEST_DB_CONTAINER;
@@ -34,17 +35,6 @@ function sqlstate(script: string): string | null {
   }
 }
 
-function como(userId: string, script: string): string {
-  return (
-    sql(`
-    set role authenticated;
-    select set_config('request.jwt.claims', '{"sub":"${userId}"}', false);
-    ${script}
-  `)
-      .split("\n")
-      .pop() ?? ""
-  );
-}
 
 function blocoDoBaseline(rotulo: string): string {
   const baseline = readFileSync(join(__dirname, "..", "..", "supabase", "baseline.sql"), "utf8");
@@ -110,10 +100,21 @@ describe("9015 — intervalo sorteado e fuso", () => {
     for (const r of [
       "-- ---- campanha que dispara fluxo (migration 9014) ----",
       "-- ---- ritmo aleatório e fuso da campanha (migration 9015) ----",
+      "-- ---- etapa de quem recebe a campanha (migration 9016) ----",
     ]) {
       sql(blocoDoBaseline(r));
       sql(blocoDoBaseline(r));
     }
     expect(sql(`select count(*) from public.campaigns where id = '${CAMP}'`)).toBe("1");
+  });
+});
+
+describe("9016 — etapa de quem recebe", () => {
+  it("o funil/etapa de quem recebe é da MESMA organização", () => {
+    const funilB = sql(`select id from public.crm_pipelines where organization_id = '${ORG_B}' limit 1`);
+    const funilA = sql(`select id from public.crm_pipelines where organization_id = '${ORG_A}' limit 1`);
+    expect(sqlstate(`update public.campaigns set recipients_pipeline_id = '${funilB}' where id = '${CAMP}'`)).toBe("23503");
+    sql(`update public.campaigns set recipients_pipeline_id = '${funilA}' where id = '${CAMP}'`);
+    expect(sql(`select recipients_pipeline_id from public.campaigns where id = '${CAMP}'`)).toBe(funilA);
   });
 });

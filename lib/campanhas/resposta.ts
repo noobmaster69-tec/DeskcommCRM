@@ -50,6 +50,8 @@ const PROMOVIVEIS = new Set(["sent", "delivered", "read"]);
 
 export interface DestinatarioCandidato {
   id: string;
+  /** Item 3: a campanha do destinatário — para mover o card para a etapa de resposta. */
+  campaign_id?: string;
   status: string;
   sent_at: string | null;
   replied_at: string | null;
@@ -96,6 +98,8 @@ export interface ResumoDaResposta {
   atribuiu: boolean;
   /** Quantos destinatários pendentes foram fechados por opt-out. */
   optOut: number;
+  /** Item 3: a campanha cuja resposta foi carimbada (para o card ir à etapa de resposta). */
+  campanhaId?: string | null;
 }
 
 /**
@@ -125,7 +129,7 @@ export async function aplicarRespostaNaCampanha(
 
   const { data, error } = await admin
     .from("campaign_recipients")
-    .select("id, status, sent_at, replied_at")
+    .select("id, campaign_id, status, sent_at, replied_at")
     .eq("organization_id", organizationId)
     .eq("contact_id", contactId)
     .is("replied_at", null)
@@ -153,7 +157,7 @@ export async function aplicarRespostaNaCampanha(
   }
 
   const optOut = await fecharPorOptOut(admin, organizationId, contactId, recebidoEm);
-  return { atribuiu, optOut };
+  return { atribuiu, optOut, campanhaId: atribuiu ? (alvo?.campaign_id ?? null) : null };
 }
 
 /**

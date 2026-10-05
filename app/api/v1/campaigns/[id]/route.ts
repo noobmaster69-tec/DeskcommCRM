@@ -30,7 +30,8 @@ const COLUNAS =
   "snapshot_excluded, scheduled_at, prepared_at, started_at, paused_at, completed_at, " +
   "cancelled_at, failure_code, intervalo_segundos, janela_inicio_hora, janela_fim_hora, " +
   "teto_diario, teto_horario, pipeline_id, stage_id, agent_id, mode, flow_id, " +
-  "min_interval_seconds, max_interval_seconds, timezone, next_send_at, created_at, created_by";
+  "min_interval_seconds, max_interval_seconds, timezone, next_send_at, " +
+  "recipients_pipeline_id, recipients_stage_id, created_at, created_by";
 
 export async function GET(
   _req: NextRequest,
@@ -168,6 +169,8 @@ export async function PATCH(
     "min_interval_seconds",
     "max_interval_seconds",
     "timezone",
+    "recipients_pipeline_id",
+    "recipients_stage_id",
   ] as const) {
     if (entrada[campo] !== undefined) mudanca[campo] = entrada[campo];
   }

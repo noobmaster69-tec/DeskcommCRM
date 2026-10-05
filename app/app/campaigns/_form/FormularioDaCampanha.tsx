@@ -73,7 +73,6 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
   const setEtapaDoPublico = (x: string) => mudar("etapaDoPublico", x);
 
   const funis = useFunis();
-  const etapas = useEtapas(funil || null);
   const etapasDoPublico = useEtapas(funilDoPublico || null);
   const agentes = useAgentesPublicados();
   // Os fluxos da organização (Fluxos), para o modo "Iniciar um fluxo".
@@ -380,49 +379,34 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
       </Card>
 
       <Card className="space-y-4 p-4">
-        <h2 className="font-medium">{t("Quem responder")}</h2>
-        <p className="text-sm text-muted-foreground">
-          {t("Em branco, tudo segue como hoje: o card nasce no funil do número e quem atende é o agente publicado nele.")}
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="funil">{t("Vira card no funil")}</Label>
-            <select
-              id="funil"
-              className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
-              value={funil}
-              onChange={(e) => {
-                setFunil(e.target.value);
-                setEtapa("");
-              }}
-            >
-              <option value="">{t("Funil do número (padrão)")}</option>
-              {(funis.data ?? []).map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
+        <h2 className="font-medium">{t("Progresso no funil")}</h2>
+        <div className="grid items-stretch gap-3 md:grid-cols-[1fr_auto_1fr]">
+          <EtapaDoProgresso
+            titulo={t("Quem recebe")}
+            dica={t("Opcional — ao receber a campanha, o contato entra nesta etapa.")}
+            prefixo="recebe"
+            funis={funis.data ?? []}
+            funil={v.funilDeQuemRecebe}
+            etapa={v.etapaDeQuemRecebe}
+            onFunil={(x) => setV((a) => ({ ...a, funilDeQuemRecebe: x, etapaDeQuemRecebe: "" }))}
+            onEtapa={(x) => mudar("etapaDeQuemRecebe", x)}
+          />
+          <div className="flex items-center justify-center text-2xl text-muted-foreground" aria-hidden>
+            →
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="etapa">{t("Na etapa")}</Label>
-            <select
-              id="etapa"
-              className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
-              value={etapa}
-              onChange={(e) => setEtapa(e.target.value)}
-              disabled={!funil}
-            >
-              <option value="">{t("Primeira etapa do funil")}</option>
-              {(etapas.data ?? [])
-                .filter((e) => !e.is_won && !e.is_lost)
-                .map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
-            </select>
-          </div>
+          <EtapaDoProgresso
+            titulo={t("Quem responde")}
+            dica={t("Opcional — se definido, o contato é movido para esta etapa automaticamente ao responder.")}
+            prefixo="responde"
+            funis={funis.data ?? []}
+            funil={funil}
+            etapa={etapa}
+            onFunil={(x) => {
+              setFunil(x);
+              setEtapa("");
+            }}
+            onEtapa={setEtapa}
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="agente">{t("Quem atende a resposta")}</Label>
@@ -467,3 +451,70 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
   );
 }
 
+
+/** Um lado do "Progresso no funil" (item 3): funil + etapa, ambos opcionais. */
+function EtapaDoProgresso({
+  titulo,
+  dica,
+  prefixo,
+  funis,
+  funil,
+  etapa,
+  onFunil,
+  onEtapa,
+}: {
+  titulo: string;
+  dica: string;
+  prefixo: string;
+  funis: Array<{ id: string; name: string }>;
+  funil: string;
+  etapa: string;
+  onFunil: (v: string) => void;
+  onEtapa: (v: string) => void;
+}) {
+  const t = useT();
+  const etapas = useEtapas(funil || null);
+  return (
+    <div className="space-y-3 rounded-lg border border-border p-3" data-testid={`progresso-${prefixo}`}>
+      <p className="flex items-center gap-1.5 text-sm font-semibold">
+        <span aria-hidden>↗</span> {titulo}
+      </p>
+      <div className="space-y-1">
+        <Label htmlFor={`${prefixo}-funil`}>{t("Funil")}</Label>
+        <select
+          id={`${prefixo}-funil`}
+          className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
+          value={funil}
+          onChange={(e) => onFunil(e.target.value)}
+        >
+          <option value="">{t("Nenhum (opcional)")}</option>
+          {funis.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${prefixo}-etapa`}>{t("Etapa")}</Label>
+        <select
+          id={`${prefixo}-etapa`}
+          className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
+          value={etapa}
+          onChange={(e) => onEtapa(e.target.value)}
+          disabled={!funil}
+        >
+          <option value="">{t("Primeira etapa do funil")}</option>
+          {(etapas.data ?? [])
+            .filter((e) => !e.is_won && !e.is_lost)
+            .map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+        </select>
+      </div>
+      <p className="text-xs text-muted-foreground">{dica}</p>
+    </div>
+  );
+}

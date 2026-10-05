@@ -50,6 +50,7 @@ import { renderizar } from "./renderizador";
 import { escolherNumero, poolDaCampanha, type NumeroDisponivel } from "./rodizio";
 import { podeMandarAgora, proximaTentativa, type RitmoDaCampanha } from "./ritmo";
 import { fusoDoContato, fusoValido, proximoEnvioAleatorio } from "./fuso";
+import { garantirCardNaEtapa } from "./card-da-campanha";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { TEXTO_DA_EXCLUSAO } from "./tipos";
 
@@ -86,6 +87,9 @@ interface CampanhaRow {
   content_version: number;
   /** Item 6: consentimento exige `consent.marketing.granted_at` — revalidado no envio. */
   base_legal?: string;
+  /** Item 3 (9016): ao enviar, o card vai para esta etapa. */
+  recipients_pipeline_id?: string | null;
+  recipients_stage_id?: string | null;
   intervalo_segundos: number | null;
   janela_inicio_hora: number | null;
   janela_fim_hora: number | null;
@@ -104,7 +108,7 @@ interface CampanhaRow {
 const COLUNAS_DA_CAMPANHA =
   "id, organization_id, channel_session_id, name, message_body, content_version, base_legal, " +
   "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
-  "min_interval_seconds, max_interval_seconds, next_send_at, timezone";
+  "min_interval_seconds, max_interval_seconds, next_send_at, timezone, recipients_pipeline_id, recipients_stage_id";
 
 export async function rodarUmaRodadaDeCampanha(
   admin: SupabaseClient,
@@ -464,7 +468,10 @@ async function rodarUmaCampanha(
     // por ele logo em seguida.
     if (campanha.mode === "flow") {
       const r = await iniciarFluxoDoDestinatario(admin, pool, campanha, alvo, boundary.conversation_id, sessionEscolhida, agora);
-      if (r.enviadas > 0) await agendarProximoEnvio(admin, campanha, agora);
+      if (r.enviadas > 0) {
+        await agendarProximoEnvio(admin, campanha, agora);
+        await cardDeQuemRecebe(admin, campanha, alvo);
+      }
       return r;
     }
 
@@ -516,6 +523,7 @@ async function rodarUmaCampanha(
       .eq("id", alvo.id)
       .eq("status", "sending");
 
+    if (!falhou) await cardDeQuemRecebe(admin, campanha, alvo);
     return {
       enviadas: falhou ? 0 : 1,
       pulados: 0,
@@ -543,6 +551,37 @@ async function rodarUmaCampanha(
  * intervalo mínimo e o máximo. Com o cron de 1 minuto, 60–180s vira "a cada 1
  * a 3 minutos, nunca no mesmo compasso". Falha aqui não desfaz o envio feito.
  */
+/** Item 3 — "Quem recebe": depois de um envio que SAIU, o card vai para a etapa de entrada da campanha. */
+async function cardDeQuemRecebe(admin: SupabaseClient, campanha: CampanhaRow, alvo: DestinatarioRow): Promise<void> {
+  if (!campanha.recipients_pipeline_id) return;
+  // Sem etapa escolhida = a ETAPA DE ENTRADA do funil (a primeira aberta).
+  let etapa = campanha.recipients_stage_id ?? null;
+  if (!etapa) {
+    const { data } = await admin
+      .from("crm_stages")
+      .select("id")
+      .eq("organization_id", campanha.organization_id)
+      .eq("pipeline_id", campanha.recipients_pipeline_id)
+      .eq("is_archived", false)
+      .eq("is_won", false)
+      .eq("is_lost", false)
+      .order("is_entry", { ascending: false })
+      .order("position", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    etapa = (data as { id: string } | null)?.id ?? null;
+  }
+  if (!etapa) return;
+  await garantirCardNaEtapa(admin, {
+    organizationId: campanha.organization_id,
+    contactId: alvo.contact_id,
+    pipelineId: campanha.recipients_pipeline_id,
+    stageId: etapa,
+    campanhaId: campanha.id,
+    titulo: nomeDoContato(alvo.contacts) || "Contato da campanha",
+  });
+}
+
 async function agendarProximoEnvio(admin: SupabaseClient, campanha: CampanhaRow, agora: Date): Promise<void> {
   const proximo = proximoEnvioAleatorio(agora, campanha.min_interval_seconds ?? 60, campanha.max_interval_seconds ?? 180);
   const { error } = await admin.from("campaigns").update({ next_send_at: proximo.toISOString() }).eq("id", campanha.id);

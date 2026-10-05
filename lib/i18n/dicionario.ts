@@ -14261,6 +14261,19 @@ export const DICIONARIO: Traducoes = {
   "Consentimento registrado.": { es: "Consentimiento registrado." },
   "Consentimento retirado.": { es: "Consentimiento retirado." },
   "Não foi possível registrar o consentimento.": { es: "No se pudo registrar el consentimiento." },
+  // Campanhas › item 3 (fork jhoow): progresso no funil.
+  "Progresso no funil": { es: "Progreso en el embudo" },
+  "Quem responde": { es: "Quién responde" },
+  "Opcional — ao receber a campanha, o contato entra nesta etapa.": { es: "Opcional — al recibir la campaña, el contacto entra en esta etapa." },
+  "Opcional — se definido, o contato é movido para esta etapa automaticamente ao responder.": { es: "Opcional — si se define, el contacto pasa a esta etapa automáticamente al responder." },
+  "Nenhum (opcional)": { es: "Ninguno (opcional)" },
+  "Sem etapa definida": { es: "Sin etapa definida" },
+  "Etapa de entrada": { es: "Etapa de entrada" },
+  "contatos receberam": { es: "contactos recibieron" },
+  "pendentes": { es: "pendientes" },
+  "responderam": { es: "respondieron" },
+  "enviadas": { es: "enviadas" },
+  "respondidas": { es: "respondidas" },
 };
 
 /**

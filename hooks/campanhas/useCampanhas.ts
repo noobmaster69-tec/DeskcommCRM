@@ -58,6 +58,9 @@ export interface CampanhaDetalhada extends CampanhaDaLista {
   max_interval_seconds?: number;
   timezone?: string | null;
   next_send_at?: string | null;
+  /** Item 3 (9016): etapa onde o card entra no envio. A de resposta é stage_id. */
+  recipients_pipeline_id?: string | null;
+  recipients_stage_id?: string | null;
 }
 
 export interface Destinatario {

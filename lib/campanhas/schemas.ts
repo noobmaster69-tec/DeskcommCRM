@@ -59,6 +59,9 @@ const baseDaCampanha = {
   /** Item 4: `text` manda a mensagem; `flow` inscreve cada contato no fluxo `flow_id`. */
   mode: z.enum(["text", "flow"]).optional(),
   flow_id: z.string().uuid().nullable().optional(),
+  /** Item 3 (9016): ao enviar, o card vai para esta etapa ("Quem recebe"). */
+  recipients_pipeline_id: z.string().uuid().nullable().optional(),
+  recipients_stage_id: z.string().uuid().nullable().optional(),
 };
 
 export const criarCampanhaSchema = z
@@ -80,6 +83,10 @@ export const criarCampanhaSchema = z
   .refine((c) => c.mode !== "flow" || c.flow_id != null, {
     message: "Escolha o fluxo que a campanha vai iniciar.",
     path: ["flow_id"],
+  })
+  .refine((c) => c.recipients_stage_id == null || c.recipients_pipeline_id != null, {
+    message: "Escolha o funil de quem recebe antes da etapa.",
+    path: ["recipients_stage_id"],
   })
   .refine((c) => c.stage_id == null || c.pipeline_id != null, {
     message: "Escolha o funil antes da etapa — etapa sem funil seria um card sem coluna.",
@@ -109,6 +116,8 @@ export const editarCampanhaSchema = z
     agent_id: baseDaCampanha.agent_id,
     mode: baseDaCampanha.mode,
     flow_id: baseDaCampanha.flow_id,
+    recipients_pipeline_id: baseDaCampanha.recipients_pipeline_id,
+    recipients_stage_id: baseDaCampanha.recipients_stage_id,
   })
   .merge(ritmoSchema);
 

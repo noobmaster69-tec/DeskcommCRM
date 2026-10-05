@@ -11,6 +11,8 @@
  * perde numa falha é a métrica, não a conversa.
  */
 import { aplicarRespostaNaCampanha } from "@/lib/campanhas/resposta";
+import { garantirCardNaEtapa } from "@/lib/campanhas/card-da-campanha";
+import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import type { EventHandler, HandlerResult } from "@/lib/event-log/dispatcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -30,7 +32,8 @@ export const campanhaRespostaHandler: EventHandler = {
     }
 
     try {
-      const resumo = await aplicarRespostaNaCampanha(createAdminClient(), {
+      const admin = createAdminClient();
+      const resumo = await aplicarRespostaNaCampanha(admin, {
         organizationId: row.organization_id,
         contactId,
         // A hora da MENSAGEM, não a do consumo: o drain pode rodar minutos
@@ -38,6 +41,10 @@ export const campanhaRespostaHandler: EventHandler = {
         // cair fora por causa do atraso da fila.
         recebidoEm: momentoDoEvento(row),
       });
+      // Item 3 — "Quem responde": a etapa de resposta da campanha (pipeline_id /
+      // stage_id, 0378). Além de o card NASCER ali (nascimento do lead), o card
+      // que já existia — o de "Quem recebe", por exemplo — é MOVIDO para lá.
+      if (resumo.campanhaId) await moverParaEtapaDeResposta(admin, row.organization_id, resumo.campanhaId, contactId);
       return {
         consumer_key: CAMPANHA_RESPOSTA_HANDLER_KEY,
         // `skipped` quando não havia campanha a fechar — que é o caso comum de
@@ -57,6 +64,36 @@ export const campanhaRespostaHandler: EventHandler = {
 };
 
 /** Quando a mensagem chegou, com o `created_at` do evento como piso. */
+async function moverParaEtapaDeResposta(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+  campanhaId: string,
+  contactId: string,
+): Promise<void> {
+  const { data } = await admin
+    .from("campaigns")
+    .select("pipeline_id, stage_id")
+    .eq("organization_id", organizationId)
+    .eq("id", campanhaId)
+    .maybeSingle();
+  const c = data as { pipeline_id: string | null; stage_id: string | null } | null;
+  if (!c?.pipeline_id || !c.stage_id) return;
+  const { data: contato } = await admin
+    .from("contacts")
+    .select("name, display_name")
+    .eq("organization_id", organizationId)
+    .eq("id", contactId)
+    .maybeSingle();
+  await garantirCardNaEtapa(admin, {
+    organizationId,
+    contactId,
+    pipelineId: c.pipeline_id,
+    stageId: c.stage_id,
+    campanhaId,
+    titulo: nomeDoContato((contato ?? { name: null, display_name: null }) as { name: string | null; display_name: string | null }) || "Contato da campanha",
+  });
+}
+
 function momentoDoEvento(row: { created_at?: string | Date | null }): Date {
   if (row.created_at) {
     const d = new Date(row.created_at);
