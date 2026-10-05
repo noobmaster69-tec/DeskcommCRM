@@ -31,7 +31,7 @@ import {
   type AcaoDeCampanha,
   type CampanhaDetalhada,
 } from "@/hooks/campanhas/useCampanhas";
-import { useAgentesPublicados, useFunis } from "@/hooks/campanhas/useDestinoDaCampanha";
+import { useAgentesPublicados } from "@/hooks/campanhas/useDestinoDaCampanha";
 import { channelLabel, useChannelSessions } from "@/hooks/channels/useChannelSessions";
 import { useContactList } from "@/hooks/contacts/useContactList";
 import { useT } from "@/hooks/i18n/useT";
@@ -381,21 +381,16 @@ function TesteDaCampanha({
  */
 function DestinoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
   const t = useT();
-  const funis = useFunis();
   const agentes = useAgentesPublicados();
-  if (!campanha.pipeline_id && !campanha.agent_id) return null;
+  // Item 5: tudo aqui é opcional. O funil/etapa de resposta aparece no
+  // "Progresso" (item 3); este cartão só existe quando há um agente escolhido.
+  if (!campanha.agent_id) return null;
 
-  const funil = (funis.data ?? []).find((f) => f.id === campanha.pipeline_id);
   const agente = (agentes.data ?? []).find((a) => a.id === campanha.agent_id);
 
   return (
     <Card className="space-y-2 p-4">
-      <h2 className="font-medium">{t("Quem responder")}</h2>
-      {campanha.pipeline_id && (
-        <p className="text-sm">
-          {t("Vira card no funil")}: <strong>{funil?.name ?? t("funil removido")}</strong>
-        </p>
-      )}
+      <h2 className="font-medium">{t("Quem atende a resposta")}</h2>
       {campanha.agent_id && (
         <p className="text-sm">
           {t("Quem atende a resposta")}: <strong>{agente?.name ?? t("agente indisponível")}</strong>

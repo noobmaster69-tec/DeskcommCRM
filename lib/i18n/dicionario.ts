@@ -14274,6 +14274,8 @@ export const DICIONARIO: Traducoes = {
   "responderam": { es: "respondieron" },
   "enviadas": { es: "enviadas" },
   "respondidas": { es: "respondidas" },
+  // Campanhas › item 5 (fork jhoow): quem responder opcional.
+  "Quem atende a resposta (opcional)": { es: "Quién atiende la respuesta (opcional)" },
 };
 
 /**

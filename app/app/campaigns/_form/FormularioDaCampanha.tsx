@@ -409,7 +409,7 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="agente">{t("Quem atende a resposta")}</Label>
+          <Label htmlFor="agente">{t("Quem atende a resposta (opcional)")}</Label>
           <select
             id="agente"
             className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
