@@ -1,3 +1,63 @@
+# Campos do contato + Ritmo e Programação (6 out)
+
+Branch `jhoow/main`. Imagem `e03f43d` no ar no staging. Produção (`/opt/deskcommcrm`) **não foi tocada**.
+O rastreamento e a atribuição de anúncios saíram do escopo, como pedido; nada disso tinha sido implementado.
+
+| Parte | Commit | Migration |
+|---|---|---|
+| Ritmo e Programação: início agendado (data, HH:mm, fuso IANA), janela em HH:mm, resumo dinâmico, motivo real da espera | `f7f59af` | **9018** |
+| Campos por contato, resolução única de variáveis, idioma da conversa, importação mapeada | `e03f43d` | **9019** |
+
+**Banco do staging:** a 9018 e a 9019 foram aplicadas com psql, com snapshot antes em `/root/backups/staging-antes-9018-9019-*`. Na produção, as migrations 9010–9019 precisam entrar ANTES da imagem.
+
+## Prova pela tela e no banco
+
+Só com contato de teste e um número STOPPED: nenhuma mensagem saiu.
+
+**Agendamento (resumo dinâmico):**
+- 03/12/2026 12:00 Europe/Lisbon. O resumo diz "Início programado para 03/12/2026 às 12:00, no fuso de Portugal — faltam 58 dias, 12 horas e 19 minutos." No banco, `2026-12-03 12:00 UTC` (inverno = UTC+0).
+- Mesmo dia: "Agora em Portugal são 00:41 — início programado para hoje às 02:11, em 1 hora e 30 minutos."
+- Horário passado mostra erro e não deixa salvar.
+- A janela 09:00–18:00 avisa que desloca o início das 21:00 para 04/12 às 09:00.
+- Recarregar a edição mantém data, hora e fuso. A tela distingue prévia não salva, planejado, agendamento confirmado e em execução. 390px sem rolagem.
+
+**Worker, com o scheduler reiniciado ANTES do horário:**
+- A campanha agendada para 00:51 de Lisboa (23:51 UTC) foi iniciada às 23:51:00.672 UTC: sem antecipar, sem duplicar.
+- Como o número estava parado, a rodada gravou `sem_numero_livre` e a tela mostra "Não está enviando agora: Nenhum número pode enviar agora…". 0 mensagens.
+
+**Ficha de campos (página do contato e Inbox):**
+- Nome curto "Ana Paula" + tratamento "Dra." confirmado resultam em "Dra. Ana Paula" no {nome_saudacao}, e o valor fica salvo depois de recarregar.
+
+**Prévia por contato:** "{saudacao_horario}, {nome_saudacao}, tudo bem? Vi que é {profissao_singular} em {cidade|Portugal}." vira "Boa noite, Dra. Ana Paula, tudo bem? Vi que é dentista em Lisboa."
+
+**Importação mapeada em Contatos:**
+- 1 contato criado e 1 atualizado.
+- A cidade foi atualizada; a célula vazia de "Tratamento" NÃO apagou o "Dra.".
+
+Os testes de unidade, guardas e invariantes do escopo estão verdes. Os dados de teste foram apagados; claude-prints voltou a agent.
+
+## Como usar
+
+- **Editar campos:**
+  - no Inbox: painel do contato › "Campos personalizados" › Editar no grupo;
+  - ou na página do contato.
+- **Criar ou configurar um campo:** em Configurações › Variáveis. Uma variável com a MESMA chave de um campo padrão (ex.: `idioma_conversa`, tipo seleção) dá a ele as opções.
+- **Programar uma campanha:**
+  1. No formulário, "Ritmo e Programação" › Agendar › data, hora, minuto e fuso.
+  2. Salvar.
+  3. Preparar lista.
+  4. Confirmar agendamento.
+  - O servidor inicia sozinho, mesmo com o navegador fechado.
+
+## Pendências e decisões
+
+- **Os 5 idiomas configurados:** não foram encontrados no código, no banco do staging nem na conta Leona, e não foram inventados. Basta configurar `idioma_conversa` como seleção em Configurações › Variáveis.
+- **"Iniciar agora" vs "Agendar":** o rascunho guarda só a intenção. O agendamento é confirmado depois de preparar a lista, porque é a preparação que diz quem recebe.
+- **Profissão no idioma da conversa:** é texto da ficha. Não há tradução automática, e as afirmações fixas da copy não são alteradas.
+- **Arquivo da importação de teste:** ficou no bucket privado `campaign-audiences/<org>/contatos/`. Só a API de storage o remove.
+
+---
+
 # Campanhas: aprimoramento grande (7 itens), 5 out
 
 Branch `jhoow/main`. Imagem `3289d4f` no ar no staging. Produção (`/opt/deskcommcrm`) **não foi tocada**.
