@@ -22,7 +22,7 @@ type Config = ConfigOf<"condicional">;
 type TipoDoCampo = CondicaoDoFluxo["campo"]["tipo"];
 type Operador = (typeof OPERADORES_DA_CONDICAO)[number];
 
-const ROTULO_DO_CAMPO: Record<TipoDoCampo, string> = {
+export const ROTULO_DO_CAMPO: Record<TipoDoCampo, string> = {
   etiqueta: "Etiqueta",
   dia_semana: "Dia da semana",
   hora: "Hora",
@@ -35,7 +35,7 @@ const ROTULO_DO_CAMPO: Record<TipoDoCampo, string> = {
   email: "E-mail",
   campo_custom: "Campo da ficha",
 };
-const ROTULO_DO_OPERADOR: Record<Operador, string> = {
+export const ROTULO_DO_OPERADOR: Record<Operador, string> = {
   igual: "é igual a",
   diferente: "é diferente de",
   contem: "contém",

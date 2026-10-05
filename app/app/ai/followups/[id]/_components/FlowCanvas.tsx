@@ -64,7 +64,10 @@ import { EndNode } from "./nodes/EndNode";
 import { CollectNode } from "./nodes/CollectNode";
 import { InternalTaskNode } from "./nodes/InternalTaskNode";
 import { SkillNode } from "./nodes/SkillNode";
-import { BlocoDoFluxoNode } from "@/app/app/fluxos/_blocos/BlocoDoFluxoNode";
+import { BlocoDoFluxoNode, FimDoFluxoNode, InicioDoFluxoNode } from "@/app/app/fluxos/_blocos/BlocoDoFluxoNode";
+import { CanvasDoFluxoContext, type CanvasDoFluxo } from "@/app/app/fluxos/_editor/canvas-do-fluxo";
+import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
+import { useDistribuicoes } from "@/hooks/fluxos/useDistribuicoes";
 import { ArestaDoFluxo, ArestaDoFluxoContext } from "@/app/app/fluxos/_editor/ArestaDoFluxo";
 import { rotuloDaArestaDoFluxo } from "@/app/app/fluxos/_editor/aresta-do-fluxo";
 import { FerramentasPopover } from "@/app/app/fluxos/_editor/FerramentasPopover";
@@ -109,6 +112,9 @@ const nodeTypes: NodeTypes = {
   bloco_ia: BlocoDoFluxoNode,
   kanban: BlocoDoFluxoNode,
 };
+
+// Fluxos (fork jhoow, item 5): Início e Fim também no cartão do Leona.
+const nodeTypesDoFluxo: NodeTypes = { ...nodeTypes, trigger: InicioDoFluxoNode, end: FimDoFluxoNode };
 
 // Fluxos (fork jhoow, item 6): a linha sem painel de condição — selecionar,
 // apagar com Delete ou com o X do hover. Follow-up segue com a aresta padrão.
@@ -339,6 +345,46 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
   const onEdgeMouseEnter = useCallback<EdgeMouseHandler<RFEdge>>((_, edge) => setArestaEmFoco(edge.id), []);
   const onEdgeMouseLeave = useCallback<EdgeMouseHandler<RFEdge>>(() => setArestaEmFoco(null), []);
 
+  // Fluxos (item 5): 📋 do cartão — cópia ao lado, com id novo e sem erros.
+  const duplicarNo = useCallback(
+    (id: string) => {
+      setNodes((nds) => {
+        const original = nds.find((n) => n.id === id);
+        if (!original) return nds;
+        const copia: RFNode = {
+          ...original,
+          id: `${original.type}-${nextId.current++}`,
+          position: { x: original.position.x + 40, y: original.position.y + 40 },
+          selected: false,
+          data: { ...original.data, config: structuredClone(original.data.config), errors: undefined },
+        };
+        return nds.concat(copia);
+      });
+    },
+    [setNodes],
+  );
+
+  const temDistribuidor = isFluxo && nodes.some((n) => n.type === "distribuidor");
+  const { data: distribuicoes } = useDistribuicoes(flowId, temDistribuidor);
+  const { itens: funis } = useListaRemota<{ id: string; name: string }>(isFluxo ? "/api/v1/pipelines" : null);
+  const { itens: fluxos } = useListaRemota<{ id: string; name: string }>(
+    isFluxo ? "/api/v1/ai/followup-flows?surface=fluxo" : null,
+  );
+  const canvasDoFluxo = useMemo<CanvasDoFluxo>(
+    () => ({
+      editar: (id) => {
+        setSelectedNodeId(id);
+        setSelectedEdgeId(null);
+      },
+      duplicar: duplicarNo,
+      excluir: deleteNode,
+      distribuicoes: distribuicoes ?? {},
+      nomeDoFunil: (id) => funis.find((f) => f.id === id)?.name ?? null,
+      nomeDoFluxo: (id) => fluxos.find((f) => f.id === id)?.name ?? null,
+    }),
+    [duplicarNo, deleteNode, distribuicoes, funis, fluxos],
+  );
+
   const onDeleteSelection = useCallback(() => {
     if (selectedNodeId) deleteNode(selectedNodeId);
     else if (selectedEdgeId) deleteEdge(selectedEdgeId);
@@ -443,11 +489,12 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
               <SimularDialog />
             </div>
           )}
+          <CanvasDoFluxoContext.Provider value={canvasDoFluxo}>
           <ArestaDoFluxoContext.Provider value={contextoDaAresta}>
           <ReactFlow
             nodes={nodes}
             edges={edgesForRender}
-            nodeTypes={nodeTypes}
+            nodeTypes={isFluxo ? nodeTypesDoFluxo : nodeTypes}
             edgeTypes={isFluxo ? edgeTypes : undefined}
             onEdgeMouseEnter={isFluxo ? onEdgeMouseEnter : undefined}
             onEdgeMouseLeave={isFluxo ? onEdgeMouseLeave : undefined}
@@ -497,6 +544,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             )}
           </ReactFlow>
           </ArestaDoFluxoContext.Provider>
+          </CanvasDoFluxoContext.Provider>
           {isFluxo && (
             // O rótulo fica FORA do SVG do mapa (o MiniMap não aceita filho):
             // logo acima dele — 150px de mapa + 15px da margem da lib.

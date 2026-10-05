@@ -14034,6 +14034,27 @@ export const DICIONARIO: Traducoes = {
   "Em breve: teste o fluxo numa conversa simulada, sem enviar nada a um contato de verdade.": { es: "Próximamente: prueba el flujo en una conversación simulada, sin enviar nada a un contacto real." },
   // Fluxos › canvas no modelo Leona, item 9 (fork jhoow): mini-mapa.
   "Mini Map": { es: "Minimapa" },
+  // Fluxos › canvas no modelo Leona, item 5 (fork jhoow): prévia dos blocos.
+  "Editar bloco": { es: "Editar bloque" },
+  "Duplicar bloco": { es: "Duplicar bloque" },
+  "Excluir bloco": { es: "Eliminar bloque" },
+  "ver mais": { es: "ver más" },
+  "Delay": { es: "Retraso" },
+  "Adicionar card:": { es: "Agregar tarjeta:" },
+  "Mover card:": { es: "Mover tarjeta:" },
+  "Remover card:": { es: "Quitar tarjeta:" },
+  "SE todas": { es: "SI todas" },
+  "SE qualquer": { es: "SI cualquiera" },
+  "Aguardar pela resposta do cliente": { es: "Esperar la respuesta del cliente" },
+  "Sem limite de tempo": { es: "Sin límite de tiempo" },
+  "Após": { es: "Después de" },
+  "s": { es: "s" },
+  "h": { es: "h" },
+  "Ir para o fluxo:": { es: "Ir al flujo:" },
+  "Escolha o fluxo": { es: "Elige el flujo" },
+  "e volta quando ele terminar": { es: "y vuelve cuando termine" },
+  "Sem prompt": { es: "Sin prompt" },
+  "Adicionar etiquetas ao cliente": { es: "Agregar etiquetas al cliente" },
 };
 
 /**
