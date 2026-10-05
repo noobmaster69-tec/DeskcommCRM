@@ -14216,6 +14216,20 @@ export const DICIONARIO: Traducoes = {
   "Dia da semana, no fuso do contato": { es: "Día de la semana, en la zona horaria del contacto" },
   "Data de hoje (DD/MM/AAAA), no fuso do contato": { es: "Fecha de hoy (DD/MM/AAAA), en la zona horaria del contacto" },
   "Número de avaliações no Google Maps (se importado)": { es: "Número de reseñas en Google Maps (si se importó)" },
+  // Campanhas › item 4 (fork jhoow): campanha que inicia fluxo.
+  "O que enviar": { es: "Qué enviar" },
+  "Texto simples": { es: "Texto simple" },
+  "Iniciar um fluxo": { es: "Iniciar un flujo" },
+  "Cada contato entra no fluxo no Início, no ritmo da campanha. Daí em diante quem conduz é o fluxo — mensagens, esperas e decisões. Quem já está em outro fluxo fica de fora.": { es: "Cada contacto entra al flujo por el Inicio, al ritmo de la campaña. Desde ahí lo conduce el flujo — mensajes, esperas y decisiones. Quien ya está en otro flujo queda fuera." },
+  "Inicia um fluxo": { es: "Inicia un flujo" },
+  "Cada contato entra no fluxo": { es: "Cada contacto entra al flujo" },
+  "(fluxo apagado)": { es: "(flujo eliminado)" },
+  "Já está em outro fluxo; a campanha não o tira de lá": { es: "Ya está en otro flujo; la campaña no lo saca de allí" },
+  "Escolha o fluxo que a campanha vai iniciar.": { es: "Elige el flujo que iniciará la campaña." },
+  "O fluxo escolhido não está publicado e ativo. Publique-o em Fluxos antes.": { es: "El flujo elegido no está publicado y activo. Publícalo en Flujos antes." },
+  // Campanhas › item 4 (fork jhoow): métricas do fluxo.
+  "entraram no fluxo": { es: "entraron al flujo" },
+  "concluíram o fluxo": { es: "completaron el flujo" },
 };
 
 /**

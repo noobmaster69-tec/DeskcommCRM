@@ -34,7 +34,7 @@ export const dynamic = "force-dynamic";
 const COLUNAS_DA_LISTA =
   "id, name, status, channel_session_id, snapshot_total, snapshot_eligible, snapshot_excluded, " +
   "scheduled_at, started_at, completed_at, cancelled_at, created_at, created_by, " +
-  "pipeline_id, stage_id, agent_id";
+  "pipeline_id, stage_id, agent_id, mode, flow_id";
 
 export async function GET(req: NextRequest): Promise<Response> {
   const requestId = randomUUID();
@@ -128,6 +128,19 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
+  // Item 4: o fluxo é um FLUXO desta organização (a FK garante a org; a
+  // superfície é conferida aqui — follow-up não é disparável por campanha).
+  if (entrada.flow_id) {
+    const { data: fluxo } = await supabase
+      .from("followup_flow_pointers")
+      .select("id")
+      .eq("organization_id", org.orgId)
+      .eq("id", entrada.flow_id)
+      .eq("surface", "fluxo")
+      .maybeSingle();
+    if (!fluxo) return fail("not_found", t("Fluxo não encontrado."), 404, { requestId });
+  }
+
   const { data, error } = await supabase
     .from("campaigns")
     .insert({
@@ -147,6 +160,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       pipeline_id: entrada.pipeline_id ?? null,
       stage_id: entrada.stage_id ?? null,
       agent_id: entrada.agent_id ?? null,
+      mode: entrada.mode ?? "text",
+      flow_id: entrada.flow_id ?? null,
       created_by: user.id,
     })
     .select(COLUNAS_DA_LISTA)

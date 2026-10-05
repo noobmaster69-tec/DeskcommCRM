@@ -73,6 +73,8 @@ export const MOTIVOS_DE_EXCLUSAO = [
   "variavel_ausente",
   "ja_em_campanha",
   "suprimido",
+  // Item 4: campanha em modo fluxo — o contato já está noutro fluxo.
+  "ja_em_fluxo",
 ] as const;
 
 export type MotivoDeExclusao = (typeof MOTIVOS_DE_EXCLUSAO)[number];
@@ -89,4 +91,5 @@ export const TEXTO_DA_EXCLUSAO: Record<MotivoDeExclusao, string> = {
   variavel_ausente: "Falta um dado que a mensagem usa",
   ja_em_campanha: "Já está em outra campanha ainda não concluída",
   suprimido: "Está na lista de exclusão de campanhas",
+  ja_em_fluxo: "Já está em outro fluxo; a campanha não o tira de lá",
 };

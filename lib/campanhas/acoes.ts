@@ -12,6 +12,7 @@
  * a rota traduz para `fail()` sem interpretar exceção, e o motivo chega ao
  * operador com o texto real (Regra nº 1).
  */
+import { inscreverNoFluxo } from "@/lib/fluxos/disparar";
 import { randomUUID } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -46,6 +47,9 @@ export interface CampanhaCarregada {
   teto_diario: number | null;
   teto_horario: number | null;
   description: string | null;
+  /** Item 4 (9014): `flow` inscreve cada contato no fluxo `flow_id` em vez de mandar o texto. */
+  mode: "text" | "flow";
+  flow_id: string | null;
 }
 
 export type Recusa = { ok: false; codigo: ApiErrorCode; mensagem: string; status: number };
@@ -54,7 +58,7 @@ export type Desfecho<T = unknown> = ({ ok: true } & T) | Recusa;
 const COLUNAS =
   "id, organization_id, name, status, channel_session_id, message_body, base_legal, lia_ref, " +
   "audience_filter, audience_version, content_version, scheduled_at, description, " +
-  "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario";
+  "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id";
 
 export async function carregarCampanha(
   admin: SupabaseClient,
@@ -94,7 +98,16 @@ function recusaDeTransicao(de: StatusDaCampanha, para: StatusDaCampanha): Recusa
 
 /** O que toda campanha precisa ter antes de qualquer envio — inclusive o de teste. */
 function faltaParaEnviar(c: CampanhaCarregada): Recusa | null {
-  if ((c.message_body ?? "").trim() === "") {
+  if (c.mode === "flow") {
+    if (!c.flow_id) {
+      return {
+        ok: false,
+        codigo: "campanha_conteudo_invalido",
+        mensagem: "Escolha o fluxo que a campanha vai iniciar.",
+        status: 422,
+      };
+    }
+  } else if ((c.message_body ?? "").trim() === "") {
     return {
       ok: false,
       codigo: "campanha_conteudo_invalido",
@@ -109,6 +122,32 @@ function faltaParaEnviar(c: CampanhaCarregada): Recusa | null {
       mensagem:
         "Interesse legítimo exige a referência da avaliação (LIA). Sem ela não há como responder " +
         "a quem perguntar com base em quê recebeu a mensagem.",
+      status: 422,
+    };
+  }
+  return null;
+}
+
+/**
+ * Item 4: o fluxo da campanha está PUBLICADO e ativo? Conferido no preparar, no
+ * iniciar e no teste — o motor só roda versão publicada, e uma campanha que
+ * inscreve em fluxo pausado deixaria a lista inteira parada sem aviso.
+ */
+async function fluxoPronto(admin: SupabaseClient, c: CampanhaCarregada): Promise<Recusa | null> {
+  if (c.mode !== "flow" || !c.flow_id) return null;
+  const { data } = await admin
+    .from("followup_flow_pointers")
+    .select("status, active_version_id, archived_at")
+    .eq("organization_id", c.organization_id)
+    .eq("id", c.flow_id)
+    .eq("surface", "fluxo")
+    .maybeSingle();
+  const f = data as { status: string; active_version_id: string | null; archived_at: string | null } | null;
+  if (!f || f.status !== "active" || !f.active_version_id || f.archived_at) {
+    return {
+      ok: false,
+      codigo: "campanha_conteudo_invalido",
+      mensagem: "O fluxo escolhido não está publicado e ativo. Publique-o em Fluxos antes.",
       status: 422,
     };
   }
@@ -130,7 +169,7 @@ export async function prepararAcao(
   c: CampanhaCarregada,
   agora: Date,
 ): Promise<Desfecho<{ resumo: { total: number; elegiveis: number; excluidos: number } }>> {
-  const recusa = recusaDeTransicao(c.status, "preparing") ?? faltaParaEnviar(c);
+  const recusa = recusaDeTransicao(c.status, "preparing") ?? faltaParaEnviar(c) ?? (await fluxoPronto(admin, c));
   if (recusa) return recusa;
   if (await jaEnviou(admin, c.id)) {
     return {
@@ -162,7 +201,8 @@ export async function prepararAcao(
       campanhaId: c.id,
       organizationId: c.organization_id,
       filtro: c.audience_filter,
-      corpo: c.message_body ?? "",
+      // Modo fluxo não tem texto: o corpo vazio não exige variável nenhuma.
+      corpo: c.mode === "flow" ? "" : (c.message_body ?? ""),
       contentVersion: c.content_version,
       agora,
     });
@@ -226,7 +266,7 @@ export async function iniciarAcao(
   c: CampanhaCarregada,
   agora: Date,
 ): Promise<Desfecho<{ retomada: boolean }>> {
-  const recusa = recusaDeTransicao(c.status, "running") ?? faltaParaEnviar(c);
+  const recusa = recusaDeTransicao(c.status, "running") ?? faltaParaEnviar(c) ?? (await fluxoPronto(admin, c));
   if (recusa) return recusa;
 
   const { count } = await admin
@@ -384,7 +424,7 @@ export async function testarAcao(
   agora: Date,
   fuso: string,
 ): Promise<Desfecho<{ status: string }>> {
-  const recusa = faltaParaEnviar(c);
+  const recusa = faltaParaEnviar(c) ?? (await fluxoPronto(admin, c));
   if (recusa) return recusa;
 
   const { data: contato } = await admin
@@ -427,6 +467,30 @@ export async function testarAcao(
       mensagem: `Este contato não pode receber: ${motivo}.`,
       status: 422,
     };
+  }
+
+  // Item 4: o teste de campanha em modo fluxo inscreve ESTE contato no fluxo.
+  if (c.mode === "flow" && c.flow_id) {
+    const boundaryDoTeste = await beginServiceAtOrigin(admin, c.organization_id, linha.id, c.channel_session_id);
+    const r = await inscreverNoFluxo(admin, {
+      organizationId: c.organization_id,
+      fluxoId: c.flow_id,
+      contactId: linha.id,
+      conversationId: boundaryDoTeste.conversation_id,
+      origem: { origem: "campanha_teste", campaign_id: c.id },
+    });
+    if (!r.ok) {
+      return {
+        ok: false,
+        codigo: "campanha_conteudo_invalido",
+        mensagem:
+          r.codigo === "ja_em_outro_fluxo"
+            ? `Este contato já está num fluxo${r.detalhe ? ` («${r.detalhe}»)` : ""}. Escolha outro para o teste.`
+            : "Não foi possível colocar o contato de teste no fluxo.",
+        status: 422,
+      };
+    }
+    return { ok: true, status: "em_fluxo" };
   }
 
   const render = renderizar(

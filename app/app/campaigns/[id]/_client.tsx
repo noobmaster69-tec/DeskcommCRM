@@ -39,6 +39,7 @@ import { useT } from "@/hooks/i18n/useT";
 import { ArrowBendUpLeft } from "@/lib/ui/icons";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { TEXTO_DA_EXCLUSAO } from "@/lib/campanhas/tipos";
+import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
 
 export function DetalheDaCampanha({ id }: { id: string }) {
   const t = useT();
@@ -49,6 +50,11 @@ export function DetalheDaCampanha({ id }: { id: string }) {
   const acao = useAcaoDeCampanha(id);
   const [confirmando, setConfirmando] = useState<AcaoDeCampanha | null>(null);
   const [testando, setTestando] = useState(false);
+  // Item 4: o nome do fluxo que a campanha inicia (modo fluxo).
+  const { itens: fluxos } = useListaRemota<{ id: string; name: string }>(
+    campanha.data?.mode === "flow" ? "/api/v1/ai/followup-flows?surface=fluxo" : null,
+  );
+  const nomeDoFluxo = fluxos.find((f) => f.id === campanha.data?.flow_id)?.name ?? null;
 
   if (campanha.isLoading) {
     return (
@@ -205,6 +211,11 @@ export function DetalheDaCampanha({ id }: { id: string }) {
             {m.contagem.pendentes} {t("ainda não enviadas")} · {m.contagem.falharam} {t("falharam")} ·{" "}
             {m.contagem.optOut} {t("pediram para parar")}
           </p>
+          {m.fluxo && (
+            <p className="text-sm" data-testid="metricas-do-fluxo">
+              {m.fluxo.iniciados} {t("entraram no fluxo")} · {m.fluxo.concluiram} {t("concluíram o fluxo")}
+            </p>
+          )}
         </Card>
       )}
 
@@ -215,8 +226,17 @@ export function DetalheDaCampanha({ id }: { id: string }) {
       <RitmoDaCampanha campanha={c} />
 
       <Card className="space-y-2 p-4">
-        <h2 className="font-medium">{t("Mensagem")}</h2>
-        <p className="whitespace-pre-wrap text-sm">{c.message_body}</p>
+        <h2 className="font-medium">{c.mode === "flow" ? t("Inicia um fluxo") : t("Mensagem")}</h2>
+        {c.mode === "flow" ? (
+          <p className="text-sm" data-testid="campanha-fluxo">
+            {t("Cada contato entra no fluxo")}{" "}
+            <Link href={`/app/fluxos/${c.flow_id ?? ""}`} className="font-medium text-accent-text hover:underline">
+              {nomeDoFluxo ?? t("(fluxo apagado)")}
+            </Link>
+          </p>
+        ) : (
+          <p className="whitespace-pre-wrap text-sm">{c.message_body}</p>
+        )}
         <p className="text-xs text-muted-foreground">
           {t("Base legal")}: {c.base_legal === "consent" ? t("consentimento") : t("interesse legítimo")}
           {c.lia_ref ? ` (${c.lia_ref})` : ""}

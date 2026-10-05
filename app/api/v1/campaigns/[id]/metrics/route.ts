@@ -40,7 +40,7 @@ export async function GET(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("campaign_recipients")
-    .select("status, eligibility_status, sent_at, delivered_at, read_at, replied_at, opted_out_at")
+    .select("status, eligibility_status, sent_at, delivered_at, read_at, replied_at, opted_out_at, contact_id")
     .eq("organization_id", authz.org.orgId)
     .eq("campaign_id", id)
     .limit(TETO);
@@ -54,6 +54,7 @@ export async function GET(
     read_at: string | null;
     replied_at: string | null;
     opted_out_at: string | null;
+    contact_id: string;
   }>;
 
   if (linhas.length === 0) {
@@ -87,8 +88,36 @@ export async function GET(
     optOut: linhas.filter((l) => l.opted_out_at !== null).length,
   };
 
+  // Item 4: campanha em modo fluxo também mostra quantos CONCLUÍRAM o fluxo
+  // (inscrição terminada) entre os que a campanha colocou nele.
+  let fluxo: { iniciados: number; concluiram: number } | null = null;
+  const { data: campanha } = await supabase
+    .from("campaigns")
+    .select("mode, flow_id, started_at")
+    .eq("organization_id", authz.org.orgId)
+    .eq("id", id)
+    .maybeSingle();
+  const modo = campanha as { mode?: string; flow_id?: string | null; started_at?: string | null } | null;
+  if (modo?.mode === "flow" && modo.flow_id) {
+    const iniciados = linhas.filter((l) => l.sent_at !== null).map((l) => l.contact_id);
+    let concluiram = 0;
+    if (iniciados.length > 0) {
+      const { count } = await supabase
+        .from("followup_enrollments")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", authz.org.orgId)
+        .eq("pointer_id", modo.flow_id)
+        .eq("status", "completed")
+        .gte("created_at", modo.started_at ?? "1970-01-01")
+        .in("contact_id", iniciados.slice(0, 1000));
+      concluiram = count ?? 0;
+    }
+    fluxo = { iniciados: iniciados.length, concluiram };
+  }
+
   return ok(
     {
+      fluxo,
       contagem: c,
       taxas: taxasDaCampanha(c),
       progresso: progresso(c),

@@ -22,6 +22,7 @@ import { channelLabel, useChannelSessions } from "@/hooks/channels/useChannelSes
 import { useT } from "@/hooks/i18n/useT";
 import { useAgentesPublicados, useEtapas, useFunis } from "@/hooks/campanhas/useDestinoDaCampanha";
 import { ListaDeVariaveis } from "@/components/campanhas/ListaDeVariaveis";
+import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
 
 import {
   corpoDaCampanha,
@@ -79,6 +80,10 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
   const etapas = useEtapas(funil || null);
   const etapasDoPublico = useEtapas(funilDoPublico || null);
   const agentes = useAgentesPublicados();
+  // Os fluxos da organização (Fluxos), para o modo "Iniciar um fluxo".
+  const { itens: fluxos } = useListaRemota<{ id: string; name: string; status: string }>(
+    "/api/v1/ai/followup-flows?surface=fluxo",
+  );
 
   const filtro = filtroDoFormulario(v);
   const temCriterio = valoresComCriterio(v);
@@ -316,15 +321,55 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
       </Card>
 
       <Card className="space-y-4 p-4">
-        <h2 className="font-medium">{t("Mensagem")}</h2>
-        <Textarea
-          rows={6}
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          placeholder={t("Escreva como você falaria com uma pessoa só.")}
-          aria-label={t("Texto da mensagem")}
-        />
-        <ListaDeVariaveis onInserir={(token) => setTexto((atual) => `${atual}${token}`)} />
+        <h2 className="font-medium">{t("O que enviar")}</h2>
+        <fieldset className="flex flex-wrap gap-4" data-testid="modo-da-campanha">
+          <legend className="sr-only">{t("O que enviar")}</legend>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="radio" name="modo" checked={v.modo === "text"} onChange={() => mudar("modo", "text")} />
+            {t("Texto simples")}
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="radio" name="modo" checked={v.modo === "flow"} onChange={() => mudar("modo", "flow")} />
+            {t("Iniciar um fluxo")}
+          </label>
+        </fieldset>
+        {v.modo === "flow" ? (
+          <div className="space-y-2">
+            <Label htmlFor="fluxo">{t("Fluxo")}</Label>
+            <select
+              id="fluxo"
+              className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
+              value={v.fluxo}
+              onChange={(e) => mudar("fluxo", e.target.value)}
+              data-testid="fluxo-da-campanha"
+            >
+              <option value="">{t("Escolha um fluxo publicado")}</option>
+              {fluxos
+                .filter((f) => f.status === "active" || f.id === v.fluxo)
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.status === "active" ? f.name : `${f.name} (${t("não publicado")})`}
+                  </option>
+                ))}
+            </select>
+            <p className="text-sm text-muted-foreground">
+              {t(
+                "Cada contato entra no fluxo no Início, no ritmo da campanha. Daí em diante quem conduz é o fluxo — mensagens, esperas e decisões. Quem já está em outro fluxo fica de fora.",
+              )}
+            </p>
+          </div>
+        ) : (
+          <>
+            <Textarea
+              rows={6}
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder={t("Escreva como você falaria com uma pessoa só.")}
+              aria-label={t("Texto da mensagem")}
+            />
+            <ListaDeVariaveis onInserir={(token) => setTexto((atual) => `${atual}${token}`)} />
+          </>
+        )}
       </Card>
 
       <Card className="space-y-4 p-4">

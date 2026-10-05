@@ -44,6 +44,9 @@ const baseDaCampanha = {
   pipeline_id: z.string().uuid().nullable().optional(),
   stage_id: z.string().uuid().nullable().optional(),
   agent_id: z.string().uuid().nullable().optional(),
+  /** Item 4: `text` manda a mensagem; `flow` inscreve cada contato no fluxo `flow_id`. */
+  mode: z.enum(["text", "flow"]).optional(),
+  flow_id: z.string().uuid().nullable().optional(),
 };
 
 export const criarCampanhaSchema = z
@@ -58,6 +61,10 @@ export const criarCampanhaSchema = z
       path: ["lia_ref"],
     },
   )
+  .refine((c) => c.mode !== "flow" || c.flow_id != null, {
+    message: "Escolha o fluxo que a campanha vai iniciar.",
+    path: ["flow_id"],
+  })
   .refine((c) => c.stage_id == null || c.pipeline_id != null, {
     message: "Escolha o funil antes da etapa — etapa sem funil seria um card sem coluna.",
     path: ["stage_id"],
@@ -84,6 +91,8 @@ export const editarCampanhaSchema = z
     pipeline_id: baseDaCampanha.pipeline_id,
     stage_id: baseDaCampanha.stage_id,
     agent_id: baseDaCampanha.agent_id,
+    mode: baseDaCampanha.mode,
+    flow_id: baseDaCampanha.flow_id,
   })
   .merge(ritmoSchema);
 

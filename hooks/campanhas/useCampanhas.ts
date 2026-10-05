@@ -50,6 +50,9 @@ export interface CampanhaDetalhada extends CampanhaDaLista {
   janela_fim_hora: number | null;
   teto_diario: number | null;
   teto_horario: number | null;
+  /** Item 4 (9014): o que a campanha faz com cada contato. */
+  mode?: "text" | "flow";
+  flow_id?: string | null;
 }
 
 export interface Destinatario {
@@ -69,6 +72,8 @@ export interface Destinatario {
 }
 
 export interface Metricas {
+  /** Item 4: só em campanha que inicia fluxo. */
+  fluxo?: { iniciados: number; concluiram: number } | null;
   contagem: ContagemDaCampanha;
   taxas: TaxasDaCampanha;
   progresso: number;

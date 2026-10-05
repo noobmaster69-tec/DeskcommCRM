@@ -19,6 +19,9 @@ export interface ValoresDaCampanha {
   funilDoPublico: string;
   etapaDoPublico: string;
   texto: string;
+  /** Item 4: "text" manda a mensagem; "flow" inicia o fluxo `fluxo`. */
+  modo: "text" | "flow";
+  fluxo: string;
   funil: string;
   etapa: string;
   agente: string;
@@ -56,6 +59,8 @@ export function valoresDaCampanha(c?: CampanhaDetalhada | null): ValoresDaCampan
     funilDoPublico: primeiro(f.funis),
     etapaDoPublico: primeiro(f.etapas),
     texto: c?.message_body ?? "",
+    modo: c?.mode === "flow" ? "flow" : "text",
+    fluxo: c?.flow_id ?? "",
     funil: c?.pipeline_id ?? "",
     etapa: c?.stage_id ?? "",
     agente: c?.agent_id ?? "",
@@ -94,7 +99,7 @@ export function podeSalvar(v: ValoresDaCampanha): boolean {
   return (
     v.nome.trim() !== "" &&
     v.canal !== "" &&
-    v.texto.trim() !== "" &&
+    (v.modo === "flow" ? v.fluxo !== "" : v.texto.trim() !== "") &&
     temCriterio(v) &&
     (v.baseLegal !== "legitimate_interest" || v.liaRef.trim() !== "")
   );
@@ -107,7 +112,9 @@ export function corpoDaCampanha(v: ValoresDaCampanha): Record<string, unknown> {
   return {
     name: v.nome.trim(),
     channel_session_id: v.canal,
-    message_body: v.texto.trim(),
+    message_body: v.modo === "flow" ? v.texto.trim() || null : v.texto.trim(),
+    mode: v.modo,
+    flow_id: v.modo === "flow" ? v.fluxo || null : null,
     base_legal: v.baseLegal,
     lia_ref: v.liaRef.trim() || null,
     audience_filter: filtroDoFormulario(v),

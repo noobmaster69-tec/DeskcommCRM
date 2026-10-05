@@ -29,7 +29,7 @@ const COLUNAS =
   "audience_filter, audience_version, content_version, snapshot_total, snapshot_eligible, " +
   "snapshot_excluded, scheduled_at, prepared_at, started_at, paused_at, completed_at, " +
   "cancelled_at, failure_code, intervalo_segundos, janela_inicio_hora, janela_fim_hora, " +
-  "teto_diario, teto_horario, pipeline_id, stage_id, agent_id, created_at, created_by";
+  "teto_diario, teto_horario, pipeline_id, stage_id, agent_id, mode, flow_id, created_at, created_by";
 
 export async function GET(
   _req: NextRequest,
@@ -154,6 +154,8 @@ export async function PATCH(
     "pipeline_id",
     "stage_id",
     "agent_id",
+    "mode",
+    "flow_id",
   ] as const) {
     if (entrada[campo] !== undefined) mudanca[campo] = entrada[campo];
   }
@@ -161,8 +163,22 @@ export async function PATCH(
   if (entrada.lia_ref !== undefined) mudanca.lia_ref = entrada.lia_ref;
   // Mexer no TEXTO sobe a versão do conteúdo: é ela que o destinatário carrega,
   // e é por ela que se sabe se a mensagem preparada é a mensagem de hoje.
-  if (entrada.message_body !== undefined && entrada.message_body !== campanha.message_body) {
+  if (
+    (entrada.message_body !== undefined && entrada.message_body !== campanha.message_body) ||
+    (entrada.mode !== undefined && entrada.mode !== (campanha as { mode?: string }).mode) ||
+    (entrada.flow_id !== undefined && entrada.flow_id !== (campanha as { flow_id?: string | null }).flow_id)
+  ) {
     mudanca.content_version = campanha.content_version + 1;
+  }
+  if (entrada.flow_id) {
+    const { data: fluxo } = await supabase
+      .from("followup_flow_pointers")
+      .select("id")
+      .eq("organization_id", authz.org.orgId)
+      .eq("id", entrada.flow_id)
+      .eq("surface", "fluxo")
+      .maybeSingle();
+    if (!fluxo) return fail("not_found", t("Fluxo não encontrado."), 404, { requestId });
   }
 
   if (entrada.channel_session_id !== undefined) {

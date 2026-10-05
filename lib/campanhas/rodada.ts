@@ -41,6 +41,7 @@ import { getRequestPool } from "@/lib/agent-engine/db/request-pool";
 import { decidePacing, dayStartInTz } from "@/lib/agent-engine/pacing/engine";
 import { loadChannelKnobs, loadPacingState, recordSend } from "@/lib/agent-engine/pacing/store";
 import { beginServiceAtOrigin } from "@/lib/atendimento/origem";
+import { inscreverNoFluxo } from "@/lib/fluxos/disparar";
 import { logger } from "@/lib/logger";
 
 import { motivoParaExcluir, recusouMarketing } from "./elegibilidade";
@@ -87,11 +88,14 @@ interface CampanhaRow {
   janela_fim_hora: number | null;
   teto_diario: number | null;
   teto_horario: number | null;
+  /** Item 4 (9014): `flow` inscreve no fluxo em vez de mandar o texto. */
+  mode?: "text" | "flow";
+  flow_id?: string | null;
 }
 
 const COLUNAS_DA_CAMPANHA =
   "id, organization_id, channel_session_id, name, message_body, content_version, " +
-  "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario";
+  "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id";
 
 export async function rodarUmaRodadaDeCampanha(
   admin: SupabaseClient,
@@ -426,6 +430,15 @@ async function rodarUmaCampanha(
       .update({ conversation_id: boundary.conversation_id, channel_session_id: sessionEscolhida })
       .eq("id", alvo.id);
 
+    // ─── Item 4: a campanha INICIA UM FLUXO em vez de mandar o texto ───
+    // A campanha decide QUEM e QUANDO (público, ritmo, janela, rodízio); daqui
+    // em diante quem conduz é o fluxo (`inscreverNoFluxo`, o mesmo do Disparar
+    // do Inbox). O envio conta no ritmo do número: a 1ª mensagem do fluxo sai
+    // por ele logo em seguida.
+    if (campanha.mode === "flow") {
+      return await iniciarFluxoDoDestinatario(admin, pool, campanha, alvo, boundary.conversation_id, sessionEscolhida, agora);
+    }
+
     const mensagem = await sendMessageHandler(
       admin,
       {
@@ -493,6 +506,71 @@ async function rodarUmaCampanha(
       .eq("status", "sending");
     return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "falhou" };
   }
+}
+
+/** Os desfechos do `inscreverNoFluxo` que valem para a CAMPANHA inteira — parar é o certo. */
+const FALHAS_DA_CAMPANHA = new Set(["fluxo_inexistente", "fluxo_nao_publicado"]);
+
+/**
+ * Item 4: inscreve o destinatário no fluxo da campanha. Contato que já está em
+ * outro fluxo é PULADO (com o motivo) — sequestrá-lo cortaria a conversa em
+ * andamento. Fluxo despublicado/apagado PAUSA a campanha: tentar o próximo
+ * daria o mesmo erro.
+ */
+async function iniciarFluxoDoDestinatario(
+  admin: SupabaseClient,
+  pool: ReturnType<typeof getRequestPool>,
+  campanha: CampanhaRow,
+  alvo: DestinatarioRow,
+  conversationId: string,
+  sessao: string,
+  agora: Date,
+): Promise<{ enviadas: number; pulados: number; concluidas: number; detalhe: string }> {
+  const r = campanha.flow_id
+    ? await inscreverNoFluxo(admin, {
+        organizationId: campanha.organization_id,
+        fluxoId: campanha.flow_id,
+        contactId: alvo.contact_id,
+        conversationId,
+        origem: { origem: "campanha", campaign_id: campanha.id, campaign_recipient_id: alvo.id },
+      })
+    : ({ ok: false, codigo: "fluxo_inexistente" } as const);
+  if (r.ok) {
+    await recordSend(pool, campanha.organization_id, sessao, agora);
+    await admin
+      .from("campaign_recipients")
+      .update({ status: "sent", sent_at: agora.toISOString(), last_error_code: null })
+      .eq("id", alvo.id)
+      .eq("status", "sending");
+    return { enviadas: 1, pulados: 0, concluidas: 0, detalhe: "fluxo_iniciado" };
+  }
+  if (r.codigo === "ja_em_outro_fluxo") {
+    await admin
+      .from("campaign_recipients")
+      .update({ status: "skipped", eligibility_status: "excluded", exclusion_reason: "ja_em_fluxo" })
+      .eq("id", alvo.id)
+      .eq("status", "sending");
+    return { enviadas: 0, pulados: 1, concluidas: 0, detalhe: "pulado:ja_em_fluxo" };
+  }
+  await admin
+    .from("campaign_recipients")
+    .update({ status: "pending", sending_at: null, last_error_code: r.codigo })
+    .eq("id", alvo.id)
+    .eq("status", "sending");
+  if (FALHAS_DA_CAMPANHA.has(r.codigo)) {
+    await admin
+      .from("campaigns")
+      .update({
+        status: "paused",
+        paused_at: agora.toISOString(),
+        failure_code: r.codigo,
+        failure_detail: "O fluxo da campanha foi despublicado ou apagado. Publique-o e retome a campanha.",
+      })
+      .eq("id", campanha.id)
+      .eq("status", "running");
+    return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: `pausada:${r.codigo}` };
+  }
+  return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: `fluxo:${r.codigo}` };
 }
 
 /**
