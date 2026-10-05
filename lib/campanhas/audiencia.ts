@@ -72,6 +72,26 @@ export const filtroDeAudienciaSchema = z
 
     /** Teto do lote. A mesma régua do import de CSV para "quanta gente de uma vez". */
     limite: z.number().int().min(1).max(5000).default(500),
+
+    // ─── Item 1 (fork jhoow): Fonte do público ───
+    /** Só para a TELA lembrar qual modo o operador usou. Não muda o recorte. */
+    fonte: z.enum(["crm", "etiqueta", "importacao", "consulta"]).nullable().default(null),
+    /** Modo importação: a lista que a planilha virou (`campaign_audience_sources`). */
+    lista_importada: z.string().uuid().nullable().default(null),
+    /** Data de ENTRADA do negócio no funil (crm_leads.created_at), de / até (ISO). */
+    entrou_de: z.string().datetime().nullable().default(null),
+    entrou_ate: z.string().datetime().nullable().default(null),
+    /** Condições sobre as variáveis do contato (`contacts.custom_fields`). */
+    campos: z
+      .array(
+        z.strictObject({
+          chave: z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+          operador: z.enum(["igual", "contem", "preenchido", "vazio"]),
+          valor: z.string().max(200).default(""),
+        }),
+      )
+      .max(10)
+      .default([]),
   })
   .refine(
     (f) =>
@@ -87,7 +107,11 @@ export const filtroDeAudienciaSchema = z
       f.com_interacao_ha_dias !== null ||
       f.cadastrado_de !== null ||
       f.cadastrado_ate !== null ||
-      f.incluir_contatos.length > 0,
+      f.incluir_contatos.length > 0 ||
+      f.lista_importada !== null ||
+      f.entrou_de !== null ||
+      f.entrou_ate !== null ||
+      f.campos.length > 0,
     { message: "Escolha pelo menos um critério — audiência sem recorte não se confere." },
   );
 
@@ -110,6 +134,11 @@ export const FILTRO_VAZIO = {
   incluir_contatos: [],
   excluir_contatos: [],
   limite: 500,
+  fonte: null,
+  lista_importada: null,
+  entrou_de: null,
+  entrou_ate: null,
+  campos: [],
 } satisfies FiltroDeAudiencia;
 
 /** Precisa olhar `crm_leads`? Só então o join entra — join à toa custa em toda prévia. */
@@ -118,7 +147,9 @@ export function usaNegocio(filtro: FiltroDeAudiencia): boolean {
     filtro.funis.length > 0 ||
     filtro.etapas.length > 0 ||
     filtro.responsaveis.length > 0 ||
-    filtro.situacoes_do_negocio.length > 0
+    filtro.situacoes_do_negocio.length > 0 ||
+    filtro.entrou_de !== null ||
+    filtro.entrou_ate !== null
   );
 }
 

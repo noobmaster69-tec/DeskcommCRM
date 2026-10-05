@@ -56,12 +56,22 @@ export async function buscarCandidatos(
     if (filtro.situacoes_do_negocio.length > 0) {
       negocios = negocios.in("status", filtro.situacoes_do_negocio);
     }
+    // Item 1: data de ENTRADA do negócio no funil.
+    if (filtro.entrou_de) negocios = negocios.gte("created_at", filtro.entrou_de);
+    if (filtro.entrou_ate) negocios = negocios.lte("created_at", filtro.entrou_ate);
     const { data, error } = await negocios;
     if (error) throw new Error(`audiência: negócios — ${error.message}`);
     idsPorNegocio = [...new Set((data ?? []).map((l) => (l as { contact_id: string }).contact_id))];
     // Recorte de negócio que não achou ninguém é recorte vazio, não recorte
     // ausente: seguir sem o `in` devolveria a organização inteira.
     if (idsPorNegocio.length === 0) return [];
+  }
+
+  // ─── Item 1: modo IMPORTAÇÃO — a lista que a planilha virou ───
+  // A fonte é a lista, e só ela (mais as exclusões à mão e o teto). Lida em
+  // lotes de ids: 5 mil uuids num `in` só estourariam a URL do PostgREST.
+  if (filtro.lista_importada) {
+    return await candidatosDaLista(admin, organizationId, filtro);
   }
 
   let consulta = admin
@@ -102,6 +112,15 @@ export async function buscarCandidatos(
   if (filtro.excluir_contatos.length > 0) {
     consulta = consulta.not("id", "in", `(${filtro.excluir_contatos.join(",")})`);
   }
+  // Item 1: condições sobre as variáveis (custom_fields). A chave já passou
+  // pelo regex do schema — não há como injetar operador por ela.
+  for (const c of filtro.campos) {
+    const coluna = `custom_fields->>${c.chave}`;
+    if (c.operador === "igual") consulta = consulta.eq(coluna, c.valor);
+    else if (c.operador === "contem") consulta = consulta.ilike(coluna, `%${c.valor.replace(/[%_]/g, "")}%`);
+    else if (c.operador === "preenchido") consulta = consulta.not(coluna, "is", null).neq(coluna, "");
+    else consulta = consulta.or(`${coluna}.is.null,${coluna}.eq.`);
+  }
 
   const { data, error } = await consulta;
   if (error) throw new Error(`audiência: contatos — ${error.message}`);
@@ -136,6 +155,55 @@ export async function buscarCandidatos(
   }));
 }
 
+
+const LOTE_DE_IDS = 200;
+
+function paraCandidato(l: LinhaDeContato): CandidatoDaAudiencia {
+  return {
+    contactId: l.id,
+    nome: nomeDoContato(l),
+    telefone: l.phone_number,
+    bloqueado: l.is_blocked,
+    anonimizado: l.is_anonymized,
+    recusouMarketing: recusouMarketing(l.consent),
+    consentiu: consentiuMarketing(l.consent),
+    email: l.email ?? null,
+    campos: (l.custom_fields ?? {}) as Record<string, unknown>,
+  };
+}
+
+/** Item 1: os contatos de uma lista importada, em lotes, na ordem da planilha. */
+async function candidatosDaLista(
+  admin: SupabaseClient,
+  organizationId: string,
+  filtro: FiltroDeAudiencia,
+): Promise<CandidatoDaAudiencia[]> {
+  const { data: fonte, error } = await admin
+    .from("campaign_audience_sources")
+    .select("contact_ids")
+    .eq("organization_id", organizationId)
+    .eq("id", filtro.lista_importada!)
+    .maybeSingle();
+  if (error) throw new Error(`audiência: lista importada — ${error.message}`);
+  const excluidos = new Set(filtro.excluir_contatos);
+  const ids = (((fonte as { contact_ids?: string[] } | null)?.contact_ids ?? []) as string[])
+    .filter((id) => !excluidos.has(id))
+    .slice(0, filtro.limite);
+  const porId = new Map<string, LinhaDeContato>();
+  for (let i = 0; i < ids.length; i += LOTE_DE_IDS) {
+    const lote = ids.slice(i, i + LOTE_DE_IDS);
+    const { data, error: e2 } = await admin
+      .from("contacts")
+      .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields")
+      .eq("organization_id", organizationId)
+      .eq("kind", "person")
+      .is("is_merged_into", null)
+      .in("id", lote);
+    if (e2) throw new Error(`audiência: contatos da lista — ${e2.message}`);
+    for (const l of (data ?? []) as LinhaDeContato[]) porId.set(l.id, l);
+  }
+  return ids.flatMap((id) => (porId.has(id) ? [paraCandidato(porId.get(id)!)] : []));
+}
 
 /**
  * Quem já está em campanha VIVA desta organização.
