@@ -70,6 +70,7 @@ import { rotuloDaArestaDoFluxo } from "@/app/app/fluxos/_editor/aresta-do-fluxo"
 import { FerramentasPopover } from "@/app/app/fluxos/_editor/FerramentasPopover";
 import { SimularDialog } from "@/app/app/fluxos/_editor/SimularDialog";
 import { posicaoNoCentro } from "@/app/app/fluxos/_editor/posicao-no-centro";
+import { corDoBloco } from "@/app/app/fluxos/_editor/cores-dos-blocos";
 
 const EMPTY_GRAPH: FlowGraph = { nodes: [], edges: [] };
 const DND_MIME = "application/x-followup-node-type";
@@ -479,21 +480,33 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             <Background gap={surface === "fluxo" ? 20 : undefined} />
             <Controls />
             {surface === "fluxo" && (
-              // Cores dos tokens: o padrão do XYFlow é um retângulo branco, que
-              // no tema escuro (Onix) vira o elemento mais claro da tela.
+              // Item 9 (modelo Leona, imagens 11/12): cada bloco no mapa com a
+              // cor dele — a mesma do cartão e do popover (NODE_COLORS) —, fundo
+              // escuro fixo e máscara que escurece o que está fora da vista.
               <MiniMap
+                nodeColor={(node) => corDoBloco(node.type)}
+                nodeStrokeWidth={2}
+                maskColor="rgba(0,0,0,0.6)"
+                style={{ backgroundColor: "rgba(20,20,25,0.9)", border: "1px solid #333", borderRadius: 8 }}
+                position="bottom-right"
                 pannable
                 zoomable
-                position="bottom-right"
-                bgColor="var(--color-surface)"
-                maskColor="color-mix(in oklch, var(--color-bg) 70%, transparent)"
-                nodeColor="var(--color-surface-elevated)"
-                nodeStrokeColor="var(--color-border-strong)"
-                className="!rounded-md !border !border-border"
+                ariaLabel={t("Mini Map")}
+                data-testid="fluxo-minimapa"
               />
             )}
           </ReactFlow>
           </ArestaDoFluxoContext.Provider>
+          {isFluxo && (
+            // O rótulo fica FORA do SVG do mapa (o MiniMap não aceita filho):
+            // logo acima dele — 150px de mapa + 15px da margem da lib.
+            <span
+              className="pointer-events-none absolute bottom-[170px] right-[17px] z-10 text-[10px] font-medium uppercase tracking-wide text-text-muted"
+              data-testid="fluxo-minimapa-rotulo"
+            >
+              {t("Mini Map")}
+            </span>
+          )}
           {!isFluxo && (
           <Button
             type="button"

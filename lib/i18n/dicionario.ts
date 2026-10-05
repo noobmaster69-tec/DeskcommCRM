@@ -14032,6 +14032,8 @@ export const DICIONARIO: Traducoes = {
   "Simular": { es: "Simular" },
   "Simulador de fluxo": { es: "Simulador de flujo" },
   "Em breve: teste o fluxo numa conversa simulada, sem enviar nada a um contato de verdade.": { es: "Próximamente: prueba el flujo en una conversación simulada, sin enviar nada a un contacto real." },
+  // Fluxos › canvas no modelo Leona, item 9 (fork jhoow): mini-mapa.
+  "Mini Map": { es: "Minimapa" },
 };
 
 /**
