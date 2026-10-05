@@ -387,7 +387,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             vira um drawer, disparado por este botão flutuante. */}
         <Sheet open={paletteOpen} onOpenChange={setPaletteOpen}>
           <SheetContent side="left" className="w-72 max-w-[85vw] gap-0 p-0 lg:hidden">
-            <SheetTitle className="sr-only">{t("Adicionar nó")}</SheetTitle>
+            <SheetTitle className="sr-only">{t("Ferramentas")}</SheetTitle>
             <NodePalette
               variant="mobile"
               surface={surface}
@@ -458,7 +458,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             className="absolute bottom-4 left-4 z-10 shadow-md lg:hidden"
             onClick={() => setPaletteOpen(true)}
           >
-            <Plus size={14} aria-hidden /> {t("Adicionar nó")}
+            <Plus size={14} aria-hidden /> {t("Ferramentas")}
           </Button>
         </div>
 

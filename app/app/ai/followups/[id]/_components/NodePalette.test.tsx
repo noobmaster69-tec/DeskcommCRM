@@ -6,6 +6,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { traduzir } from "@/lib/i18n/dicionario";
+
 import { NodePalette } from "./NodePalette";
 
 const tipos = () =>
@@ -22,5 +24,17 @@ describe("NodePalette por superfície", () => {
     expect(tipos()).not.toContain("collect");
     expect(tipos()).not.toContain("skill");
     expect(tipos()).toContain("wait");
+  });
+});
+
+describe("o título da paleta é Ferramentas (fluxos, item 11)", () => {
+  it("diz Ferramentas, não mais Adicionar nó", () => {
+    render(<NodePalette onAdd={() => {}} surface="fluxo" />);
+    expect(screen.getByRole("heading", { name: "Ferramentas" })).toBeInTheDocument();
+    expect(screen.queryByText(/Adicionar nó/i)).toBeNull();
+  });
+
+  it("em espanhol vira Herramientas", () => {
+    expect(traduzir("Ferramentas", "es")).toBe("Herramientas");
   });
 });

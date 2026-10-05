@@ -36,7 +36,7 @@ export function NodePalette({ onAdd, variant = "desktop", surface = "followup" }
       data-testid="node-palette"
     >
       <h2 className="px-1 pb-1 text-xs font-medium uppercase tracking-wide text-text-muted">
-        {t("Adicionar nó")}
+        {t("Ferramentas")}
       </h2>
       {NOS_DA_SUPERFICIE[surface].map((tipo) => {
         const visual = NODE_VISUALS[tipo];

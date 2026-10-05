@@ -2494,7 +2494,7 @@ export const DICIONARIO: Traducoes = {
   pausar: { es: "pausar" },
   cancelar: { es: "cancelar" },
   permitir: { es: "permitir" },
-  "Adicionar nó": { es: "Agregar nodo" },
+  Ferramentas: { es: "Herramientas" },
   "Início do fluxo": { es: "Inicio del flujo" },
   min: { es: "min" },
   adaptativo: { es: "adaptativo" },
