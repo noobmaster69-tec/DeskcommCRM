@@ -71,3 +71,25 @@ git revert 7679587   # item 2 (menu ⋯)
 ```
 
 Migrations 9010/9011 são **aditivas** (colunas nulas, tabelas novas, uma função). Reverter o código não exige mexer no banco, porque o que sobra fica sem uso. Pela regra do projeto, nada é apagado do banco sem decisão explícita.
+
+---
+
+# 5 out 2026: composer do Inbox, card de CRM, marca ApexCRM
+
+| Tarefa | Status | Commit |
+|---|---|---|
+| Correção da prova: mini-mapa do link compartilhado + bloco novo sem sobrepor | ✅ | `ff1b273` |
+| 1. Composer compacto (pílulas, Responder ▼, campo que cresce até 4 linhas, Resumir) | ✅ | `91e3ac4` |
+| 2. Card de CRM (avatar colorido, botão Abrir CRM, menu ⋯, Ver funis e números, Excluir) | ✅ migration **9012** (já aplicada no staging) | `428f2ee` |
+| 3. Favicon + "ApexCRM" na aba | ✅ no staging (configuração da marca da instalação, não código) | `be9ec73` (arquivos do ícone) |
+
+**Bloqueio:** a imagem nova só sai pelo workflow `jhoow-main`, que precisa ser disparado pelo Jhoow. Por isso as tarefas 1 e 2 e a correção `ff1b273` ainda não estão na tela do staging. O nome e o favicon já estão, porque vêm do banco.
+
+**Produção:** em `/admin/marca`, subir `jhoow/marca/apex-icone.png` como Ícone e trocar o nome para ApexCRM. Não toquei na produção.
+
+**Decisões:**
+- **Resumir** não existia. Usa o modelo leve da empresa (IA › Credenciais) e não grava nada sozinho: a pessoa decide se salva o resumo como nota.
+- **Excluir CRM** é DE VEZ e só passa em CRM sem nenhum negócio e sem captura, automação ou conversão do Google Ads apontando para ele. Quem tem histórico deve ser arquivado.
+- O menu do card perdeu "Gerenciar funis" (pedido). Esse caminho agora é o botão "Gerenciar funis" do modal "Ver funis e números", que leva à página do CRM.
+
+Reverter: `git revert be9ec73 428f2ee 91e3ac4 ff1b273`. A migration 9012 só cria funções; reverter o código não exige mexer no banco. A marca volta ao padrão apagando a linha de `platform_branding` (ou trocando o nome e o ícone pela tela).
