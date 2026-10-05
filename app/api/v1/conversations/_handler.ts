@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { aoFecharConversa } from "@/lib/fluxos/entrada";
 /**
  * Core handlers para /api/v1/conversations.
  *
@@ -540,6 +541,16 @@ export async function patchConversationHandler(
       resourceId: conv.id,
       requestId: ctx.requestId,
       metadata: { ...a.metadataActor, status: input.status },
+    });
+  }
+  if (input.status === "closed") {
+    // Disparos (fork jhoow, item 12) — o mesmo gancho da rota /close. Sem
+    // lançar e fora do caminho da resposta.
+    aoFecharConversa({
+      organizationId: conv.organization_id,
+      contactId: conv.contact_id,
+      conversationId: conv.id,
+      comAtendente: Boolean(conv.assigned_to_user_id),
     });
   }
   if (input.tags !== undefined) {

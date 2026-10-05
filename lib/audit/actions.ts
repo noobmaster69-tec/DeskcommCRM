@@ -1037,6 +1037,8 @@ export const AUDIT_ACTIONS = [
   "fluxo.reativado",
   "fluxo.compartilhado",
   "fluxo.traduzido",
+  // Fork jhoow (item 12): a tela Disparos foi salva.
+  "fluxo.disparos_salvos",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

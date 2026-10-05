@@ -515,6 +515,17 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
+    // Fork jhoow (Fluxos no modelo Leona, item 12): logo abaixo de Fluxos — o
+    // que faz um fluxo começar (palavras-chave e gatilhos globais).
+    href: "/app/disparos",
+    label: "Disparos",
+    description: "O que faz um fluxo começar: palavras-chave, boas-vindas, resposta padrão e fim de atendimento.",
+    icon: "Signpost",
+    group: "operacoes",
+    minRole: "manager",
+    sidebar: true,
+  },
+  {
     href: "/app/ai/followups",
     label: "Follow-ups",
     description: "Como o agente retoma uma conversa que esfriou, para nenhuma morrer no silêncio.",

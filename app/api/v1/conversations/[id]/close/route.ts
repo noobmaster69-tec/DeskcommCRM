@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Conversation } from "@/lib/types/messaging";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { aoFecharConversa } from "@/lib/fluxos/entrada";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<Response> {
   const user = authz.user;
 
   const { data: visible, error: readError } = await supabase.from("conversations")
-    .select("id, organization_id, service_revision").eq("id", id)
+    .select("id, organization_id, service_revision, assigned_to_user_id").eq("id", id)
     .eq("organization_id", authz.org.orgId).maybeSingle();
   if (readError) return fail("internal_error", readError.message, 500, { requestId });
   if (!visible) return fail("not_found", t("Conversa não encontrada."), 404, { requestId });
@@ -62,6 +63,16 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<Response> {
     resourceType: "conversation",
     resourceId: conv.id,
     requestId,
+  });
+
+  // Disparos (fork jhoow, item 12): "atendimento finalizado" se havia um
+  // atendente humano na conversa, senão "conversa finalizada". Fora do caminho
+  // da resposta e sem lançar — fechar não espera nem falha por causa do fluxo.
+  aoFecharConversa({
+    organizationId: conv.organization_id,
+    contactId: conv.contact_id,
+    conversationId: conv.id,
+    comAtendente: Boolean((visible as { assigned_to_user_id?: string | null }).assigned_to_user_id),
   });
 
   return ok(conv, { requestId });

@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { flowSettingsSchema } from "@/lib/followup/graph-schema";
 import { decidirPreGoLiveDoCanalViaSupabase } from "@/lib/ai/elegibilidade/consulta-pre-go-live";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { inscreverNoFluxo } from "./disparar";
+import { escolherPalavraChave, lerDisparos, respostaPadraoRecente, type Disparos } from "./disparos";
 
 /**
  * ENTRADA AUTOMÁTICA dos fluxos (fork jhoow, Fase C): a mensagem que chega
@@ -102,9 +104,67 @@ export async function fluxosComEntrada(admin: SupabaseClient, org: string): Prom
   return fluxos;
 }
 
+export type PorqueDaEntrada =
+  | "disparo_palavra_chave"
+  | "palavra"
+  | "boas_vindas"
+  | "primeiro_contato"
+  | "resposta_padrao"
+  | "conversa_finalizada"
+  | "atendimento_finalizado";
+
 export type ResultadoDaEntrada =
-  | { iniciado: true; fluxoId: string; enrollmentId: string; porque: "palavra" | "primeiro_contato" }
+  | { iniciado: true; fluxoId: string; enrollmentId: string; porque: PorqueDaEntrada }
   | { iniciado: false; motivo: string };
+
+/**
+ * A ordem das portas (item 12 — Disparos): a configuração CENTRAL vem antes da
+ * de cada fluxo, e o específico antes do genérico.
+ *  1. palavra-chave da tela Disparos;
+ *  2. palavra-gatilho do Início de um fluxo;
+ *  3. boas-vindas (Disparos) — só na primeira mensagem do contato;
+ *  4. primeiro contato do Início de um fluxo;
+ *  5. resposta padrão (Disparos) — nada mais casou. O "uma vez a cada N horas"
+ *     é conferido por quem chama (precisa do banco).
+ * Puro.
+ */
+export function escolherEntrada(
+  disparos: Disparos,
+  fluxos: readonly FluxoComEntrada[],
+  texto: string,
+  primeiraMensagem: boolean,
+): { fluxoId: string; porque: PorqueDaEntrada } | null {
+  const chave = escolherPalavraChave(disparos.palavras, texto);
+  if (chave?.fluxo_id) return { fluxoId: chave.fluxo_id, porque: "disparo_palavra_chave" };
+  const doFluxo = escolherFluxoDeEntrada(fluxos, texto, false);
+  if (doFluxo) return { fluxoId: doFluxo.fluxo.id, porque: "palavra" };
+  if (primeiraMensagem && disparos.globais.welcome_fluxo_id)
+    return { fluxoId: disparos.globais.welcome_fluxo_id, porque: "boas_vindas" };
+  const primeiro = primeiraMensagem ? escolherFluxoDeEntrada(fluxos, "", true) : null;
+  if (primeiro) return { fluxoId: primeiro.fluxo.id, porque: "primeiro_contato" };
+  if (disparos.globais.default_response_fluxo_id)
+    return { fluxoId: disparos.globais.default_response_fluxo_id, porque: "resposta_padrao" };
+  return null;
+}
+
+/** Disparos tem alguma porta que a MENSAGEM que chega pode abrir? */
+function disparosComEntrada(d: Disparos): boolean {
+  return (
+    d.palavras.some((p) => p.active && p.fluxo_id) ||
+    Boolean(d.globais.welcome_fluxo_id) ||
+    Boolean(d.globais.default_response_fluxo_id)
+  );
+}
+
+const ORIGEM_DO_PORQUE: Record<PorqueDaEntrada, string> = {
+  disparo_palavra_chave: "disparo_palavra_chave",
+  palavra: "palavra_gatilho",
+  boas_vindas: "boas_vindas",
+  primeiro_contato: "primeiro_contato",
+  resposta_padrao: "resposta_padrao",
+  conversa_finalizada: "conversa_finalizada",
+  atendimento_finalizado: "atendimento_finalizado",
+};
 
 /**
  * Lê a mensagem que chegou, escolhe o fluxo e inscreve o contato. Nunca começa
@@ -116,8 +176,8 @@ export async function dispararFluxoPorEntrada(
   input: { organizationId: string; contactId: string; conversationId: string; channelSessionId: string; inboundMessageId: string },
 ): Promise<ResultadoDaEntrada> {
   const org = input.organizationId;
-  const fluxos = await fluxosComEntrada(admin, org);
-  if (fluxos.length === 0) return { iniciado: false, motivo: "sem_fluxo_com_entrada" };
+  const [fluxos, disparos] = await Promise.all([fluxosComEntrada(admin, org), lerDisparos(admin, org)]);
+  if (fluxos.length === 0 && !disparosComEntrada(disparos)) return { iniciado: false, motivo: "sem_fluxo_com_entrada" };
 
   // Conversa com uma PESSOA, ou com o automático pausado nela, não é tomada por
   // gatilho: o cliente que diz "preço" no meio do atendimento humano não pode
@@ -148,8 +208,13 @@ export async function dispararFluxoPorEntrada(
     admin.from("contacts").select("phone_number").eq("organization_id", org).eq("id", input.contactId).maybeSingle(),
   ]);
   const texto = ((msg?.body as string | null) ?? (msg?.media_derived_text as string | null) ?? "").trim();
-  const escolha = escolherFluxoDeEntrada(fluxos, texto, (entradas ?? 0) <= 1);
+  const escolha = escolherEntrada(disparos, fluxos, texto, (entradas ?? 0) <= 1);
   if (!escolha) return { iniciado: false, motivo: "nenhum_gatilho" };
+  if (
+    escolha.porque === "resposta_padrao" &&
+    (await respostaPadraoRecente(admin, org, input.contactId, escolha.fluxoId, disparos.globais.default_response_hours))
+  )
+    return { iniciado: false, motivo: "resposta_padrao_recente" };
 
   const acesso = await decidirPreGoLiveDoCanalViaSupabase(admin, {
     organizationId: org,
@@ -160,11 +225,60 @@ export async function dispararFluxoPorEntrada(
 
   const r = await inscreverNoFluxo(admin, {
     organizationId: org,
-    fluxoId: escolha.fluxo.id,
+    fluxoId: escolha.fluxoId,
     contactId: input.contactId,
     conversationId: input.conversationId,
-    origem: { origem: escolha.porque === "palavra" ? "palavra_gatilho" : "primeiro_contato", mensagem_id: input.inboundMessageId },
+    origem: { origem: ORIGEM_DO_PORQUE[escolha.porque], mensagem_id: input.inboundMessageId },
   });
   if (!r.ok) return { iniciado: false, motivo: r.codigo };
-  return { iniciado: true, fluxoId: escolha.fluxo.id, enrollmentId: r.enrollmentId, porque: escolha.porque };
+  return { iniciado: true, fluxoId: escolha.fluxoId, enrollmentId: r.enrollmentId, porque: escolha.porque };
+}
+
+/**
+ * Gatilhos de FIM da tela Disparos (item 12): a conversa foi fechada. Fechada
+ * com um atendente humano é "atendimento finalizado"; sem, "conversa
+ * finalizada". Cada um só dispara se estiver configurado — nunca cai no outro.
+ * Nunca lança: fechar a conversa não pode falhar por causa de um fluxo.
+ */
+export async function dispararFluxoNoFim(
+  admin: SupabaseClient,
+  input: { organizationId: string; contactId: string; conversationId: string; comAtendente: boolean },
+): Promise<ResultadoDaEntrada> {
+  try {
+    const { globais } = await lerDisparos(admin, input.organizationId);
+    const porque: PorqueDaEntrada = input.comAtendente ? "atendimento_finalizado" : "conversa_finalizada";
+    const fluxoId = input.comAtendente ? globais.attendance_closed_fluxo_id : globais.conversation_closed_fluxo_id;
+    if (!fluxoId) return { iniciado: false, motivo: "sem_gatilho_de_fim" };
+    const r = await inscreverNoFluxo(admin, {
+      organizationId: input.organizationId,
+      fluxoId,
+      contactId: input.contactId,
+      conversationId: input.conversationId,
+      origem: { origem: ORIGEM_DO_PORQUE[porque] },
+    });
+    if (!r.ok) return { iniciado: false, motivo: r.codigo };
+    return { iniciado: true, fluxoId, enrollmentId: r.enrollmentId, porque };
+  } catch (e) {
+    return { iniciado: false, motivo: e instanceof Error ? e.message.slice(0, 200) : "erro" };
+  }
+}
+
+/**
+ * O gancho das rotas que fecham conversa: dispara o gatilho de fim FORA do
+ * caminho da resposta e engole qualquer erro — inclusive o de criar o client.
+ * Fechar a conversa nunca espera nem falha por causa de um fluxo.
+ */
+export function aoFecharConversa(input: {
+  organizationId: string;
+  contactId: string;
+  conversationId: string;
+  comAtendente: boolean;
+}): void {
+  void (async () => {
+    try {
+      await dispararFluxoNoFim(createAdminClient(), input);
+    } catch {
+      // sem fluxo de fim não é erro de quem fechou
+    }
+  })();
 }
