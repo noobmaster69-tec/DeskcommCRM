@@ -135,7 +135,8 @@ describe("Composer + rascunho sugerido", () => {
       rascunho: sugerido,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /nota interna/i }));
+    fireEvent.click(screen.getByTestId("seletor-de-modo"));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /nota interna/i }));
     // Em modo nota a faixa some — e o consumo continua não tendo acontecido.
     expect(screen.queryByTestId("aviso-rascunho")).not.toBeInTheDocument();
     expect(postMock).not.toHaveBeenCalled();

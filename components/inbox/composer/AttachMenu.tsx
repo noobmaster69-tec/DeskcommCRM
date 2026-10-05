@@ -4,7 +4,7 @@ import { useT } from "@/hooks/i18n/useT";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { FileText, ImageSquare, Plus, UserCircle } from "@/lib/ui/icons";
+import { FileText, ImageSquare, Paperclip, UserCircle } from "@/lib/ui/icons";
 
 interface Props {
   disabled?: boolean;
@@ -12,7 +12,7 @@ interface Props {
   onPickContact?: () => void;
 }
 
-/** Menu "+" do composer (padrão WhatsApp): Fotos e vídeos / Documento / Contato. */
+/** Menu do clipe 📎 do composer: Fotos e vídeos / Documento / Contato. */
 export function AttachMenu({ disabled, onPick, onPickContact }: Props) {
   const t = useT();
   const mediaRef = useRef<HTMLInputElement | null>(null);
@@ -36,7 +36,7 @@ export function AttachMenu({ disabled, onPick, onPickContact }: Props) {
             aria-label={t("Anexar")}
             disabled={disabled}
           >
-            <Plus size={18} weight="regular" aria-hidden />
+            <Paperclip size={18} weight="regular" aria-hidden />
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" side="top" className="w-52 p-1">

@@ -168,4 +168,6 @@ export {
   Translate,
   // alça de arrastar pasta (item 3)
   DotsSixVertical,
+  // composer compacto do Inbox (Resumir)
+  ListBullets,
 } from "@phosphor-icons/react/dist/ssr";

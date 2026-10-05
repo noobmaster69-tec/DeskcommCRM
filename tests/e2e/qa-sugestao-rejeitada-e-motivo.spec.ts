@@ -246,10 +246,12 @@ test("rejeitar tira a sugestão da tela e diz que rejeitou; sem agente publicado
       painel(page).getByRole("button", { name: "Rejeitar", exact: true }),
       "a sugestão rejeitada continua oferecendo os botões de decisão",
     ).toHaveCount(0);
+    // Composer compacto (fork jhoow): o "estado neutro" é não haver cartão de
+    // sugestão — o título genérico "Assistência do agente" saiu da tela.
     await expect(
-      painel(page).getByText("Assistência do agente", { exact: true }),
+      painel(page).getByTestId("sugestao-do-agente"),
       "o painel não voltou ao estado neutro",
-    ).toBeVisible();
+    ).toHaveCount(0);
     // E a confirmação FICA — sem ela, Rejeitar apenas esvaziaria a tela em
     // silêncio, que é o outro meio-conserto que este PR evitou.
     await expect(

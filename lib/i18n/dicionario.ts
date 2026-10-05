@@ -14146,6 +14146,19 @@ export const DICIONARIO: Traducoes = {
   "Não foi possível salvar os disparos.": { es: "No se pudieron guardar los disparadores." },
   "Disparos salvos.": { es: "Disparadores guardados." },
   "Um dos fluxos escolhidos não existe mais. Escolha de novo.": { es: "Uno de los flujos elegidos ya no existe. Elige de nuevo." },
+  // Inbox › composer compacto (fork jhoow): pílulas, Resumir e Responder ▼.
+  "Resumir": { es: "Resumir" },
+  "Escreva uma mensagem ou digite / para atalhos": { es: "Escribe un mensaje o escribe / para atajos" },
+  "Nota interna visível só pra equipe...": { es: "Nota interna visible solo para el equipo..." },
+  "Modo do composer": { es: "Modo del editor" },
+  "Resumo da conversa": { es: "Resumen de la conversación" },
+  "Resumindo…": { es: "Resumiendo…" },
+  "Não foi possível resumir a conversa.": { es: "No se pudo resumir la conversación." },
+  "Salvar como nota": { es: "Guardar como nota" },
+  "Sugestão do agente": { es: "Sugerencia del agente" },
+  "Não foi possível ler a conversa.": { es: "No se pudo leer la conversación." },
+  "Ainda não há mensagens para resumir.": { es: "Aún no hay mensajes para resumir." },
+  "Configure um provedor em Credenciais para resumir.": { es: "Configura un proveedor en Credenciales para resumir." },
 };
 
 /**

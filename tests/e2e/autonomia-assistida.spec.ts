@@ -335,7 +335,7 @@ test("testa sem enviar, pausa preserva publicação e duas aprovações entregam
     //
     // O que a tela faz agora é o que se prova aqui: a sugestão SAI e o painel
     // volta ao neutro — título genérico, e nada a aprovar.
-    await expect(panel(page).getByText("Assistência do agente", { exact: true })).toBeVisible();
+    await expect(panel(page).getByTestId("sugestao-do-agente")).toHaveCount(0);
     await expect(panel(page).getByRole("button", { name: "Aprovar e enviar" })).toHaveCount(0);
     await inbound(f, "Obrigada, pode continuar");
     const second = await generate(page);
@@ -378,7 +378,7 @@ test("testa sem enviar, pausa preserva publicação e duas aprovações entregam
     // Os três rótulos de `statuses` cobertos por esse conjunto (`sent`, `stale`,
     // `dismissed`) são hoje código inalcançável no componente. Está anotado; o
     // teste não é o lugar de decidir se eles voltam a aparecer.
-    await expect(panel(page).getByText("Assistência do agente", { exact: true })).toBeVisible();
+    await expect(panel(page).getByTestId("sugestao-do-agente")).toHaveCount(0);
     await expect(panel(page).getByRole("button", { name: "Aprovar e enviar" })).toHaveCount(0);
     await expect(panel(page).getByText("Resposta aprovada. Acompanhe o envio aqui.", { exact: true })).toHaveCount(0);
     await page.setViewportSize({ width: 390, height: 844 });

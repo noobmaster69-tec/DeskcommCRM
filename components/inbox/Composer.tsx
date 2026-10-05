@@ -9,13 +9,17 @@ import {
   type ClipboardEvent,
   type KeyboardEvent,
 } from "react";
-import { PaperPlaneTilt } from "@/lib/ui/icons";
+import { PaperPlaneTilt, Sparkle } from "@/lib/ui/icons";
 import { Button } from "@/components/ui/button";
 import { AttachMenu } from "@/components/inbox/composer/AttachMenu";
 import { AttachmentPreviewDialog } from "@/components/inbox/composer/AttachmentPreviewDialog";
 import { ContactPickerDialog } from "@/components/inbox/composer/ContactPickerDialog";
 import { AudioRecorder } from "@/components/inbox/composer/AudioRecorder";
 import { ReplyReviewPanel } from "@/components/inbox/composer/ReplyReviewPanel";
+import { useSugestaoDoAgente } from "@/components/inbox/composer/useSugestaoDoAgente";
+import { SeletorDeModo } from "@/components/inbox/composer/SeletorDeModo";
+import { ResumirConversa } from "@/components/inbox/composer/ResumirConversa";
+import { alturaDoCampo, ALTURA_MINIMA_PX } from "@/lib/inbox/altura-do-campo";
 import { EmojiButton } from "@/components/inbox/composer/EmojiButton";
 import { resolveSlash, TemplateMenu } from "@/components/inbox/composer/TemplateMenu";
 import { useCreateNote } from "@/hooks/inbox/useCreateNote";
@@ -146,7 +150,11 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
   const createNote = useCreateNote();
   const templates = useMessageTemplates();
   const slash = resolveSlash(text);
-  const menuOpen = mode === "reply" && slash.open && !menuDismissed;
+  // "/ Respostas rápidas" (pílula) abre a MESMA lista do "/" digitado, sem
+  // mexer no que já está escrito.
+  const [menuForcado, setMenuForcado] = useState(false);
+  const menuOpen = mode === "reply" && ((slash.open && !menuDismissed) || menuForcado);
+  const sugestao = useSugestaoDoAgente(conversationId);
 
   useImperativeHandle(ref, () => ({
     focus: () => taRef.current?.focus(),
@@ -166,12 +174,18 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     setPendingEm(mode);
   }
 
+  // Campo estilo WhatsApp: 1 linha → cresce até 4 → depois rola por dentro.
   function autoresize() {
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
+    const { altura, rola } = alturaDoCampo(ta.scrollHeight);
+    ta.style.height = `${altura}px`;
+    ta.style.overflowY = rola ? "auto" : "hidden";
   }
+  useEffect(() => {
+    autoresize();
+  }, [text]);
 
   function handleSubmit() {
     const body = text.trim();
@@ -237,6 +251,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
     const filled = interpolateTemplate(t.body, { name: contactName ?? null });
     setText(filled);
     setMenuDismissed(true);
+    setMenuForcado(false);
     const ta = taRef.current;
     if (!ta) return;
     requestAnimationFrame(() => {
@@ -275,6 +290,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Escape" && menuOpen) {
       setMenuDismissed(true);
+      setMenuForcado(false);
       return;
     }
     if (e.key === "Enter" && !e.shiftKey) {
@@ -294,21 +310,16 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
 
   return (
     <>
-      <div
-        className={cn(
-          "relative border-t border-border bg-background px-3 py-2",
-          mode === "note" && "border-warning/40 bg-warning-bg",
-        )}
-      >
-        {mode === "reply" && (
-          <ReplyReviewPanel conversationId={conversationId} disabled={isDisabled} />
-        )}
+      <div className="relative border-t border-border bg-background px-3 pb-3 pt-2">
         <TemplateMenu
           open={menuOpen}
-          query={slash.query}
+          query={menuForcado && !slash.open ? "" : slash.query}
           templates={templates.data ?? []}
           onPick={applyTemplate}
-          onClose={() => setMenuDismissed(true)}
+          onClose={() => {
+            setMenuDismissed(true);
+            setMenuForcado(false);
+          }}
         />
         {/* O AVISO DO RASCUNHO SUGERIDO (issue #1611) — acima dos modos, sempre
             que a resposta está liberada. Nada aqui envia: a faixa só diz de onde
@@ -332,32 +343,42 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             </p>
           </div>
         )}
-        <div className="mb-1.5 flex gap-1">
-          <button
-            type="button"
-            onClick={() => setMode("reply")}
-            className={cn(
-              "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-              mode === "reply"
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-muted",
+        {/* AÇÕES RÁPIDAS (fork jhoow, composer compacto): o que era a caixa
+            "Assistência do agente" virou UMA linha de pílulas. O cartão de
+            revisão da sugestão só aparece quando há sugestão. */}
+        <section aria-label={t("Assistência do agente")} className="mb-2 space-y-2">
+          {mode === "reply" && <ReplyReviewPanel sugestao={sugestao} disabled={isDisabled} />}
+          <div className="flex flex-wrap items-center gap-2" data-testid="acoes-rapidas">
+            {mode === "reply" && (
+              <button
+                type="button"
+                onClick={() => void sugestao.generate()}
+                disabled={isDisabled || sugestao.busy}
+                aria-busy={sugestao.busy || undefined}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent-soft px-3.5 text-sm font-medium text-text transition-colors hover:bg-accent-soft/80 disabled:opacity-50"
+              >
+                <Sparkle size={15} weight="fill" aria-hidden className="text-violet-400" />
+                {t(sugestao.busy ? "Preparando…" : "Sugerir resposta")}
+              </button>
             )}
-          >
-            {t("Responder")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("note")}
-            className={cn(
-              "rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
-              mode === "note"
-                ? "bg-warning text-warning-fg"
-                : "text-muted-foreground hover:bg-muted",
+            <ResumirConversa conversationId={conversationId} disabled={isDisabled} />
+            {mode === "reply" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuDismissed(false);
+                  setMenuForcado(true);
+                  taRef.current?.focus();
+                }}
+                disabled={respostaBarrada}
+                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-transparent px-3.5 text-sm text-text transition-colors hover:bg-surface-elevated disabled:opacity-50"
+              >
+                <span aria-hidden className="text-text-muted">/</span>
+                {t("Respostas rápidas")}
+              </button>
             )}
-          >
-            {t("Nota interna")}
-          </button>
-        </div>
+          </div>
+        </section>
         {/*
           A FAIXA DA CITAÇÃO — o que o atendente escolheu responder.
 
@@ -388,90 +409,89 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             </button>
           </div>
         )}
-        <div className="flex items-end gap-2">
-          {/* O "+" existe nos DOIS modos desde a F3 da #1863: em "Nota interna"
-              ele abre o mesmo menu, com as DUAS primeiras opções — foto/vídeo e
-              documento — porque a nota passou a aceitar anexo. A terceira
-              (Contato) some: cartão de contato é `type: "contact"`, uma MENSAGEM
-              para o cliente, e nota com cartão de contato não existe. O `disabled`
-              continua o de sempre: em modo nota `respostaBarrada` é só
-              `isDisabled`, e a janela fechada barra a resposta, não a nota. */}
-          <AttachMenu
-            disabled={respostaBarrada}
-            onPick={escolherArquivo}
-            onPickContact={mode === "reply" ? () => setContactPickerOpen(true) : undefined}
-          />
-          <EmojiButton
-            disabled={isDisabled}
-            onPick={(emoji) => {
-              const ta = taRef.current;
-              if (!ta) {
-                setText((t) => t + emoji);
-                return;
-              }
-              const start = ta.selectionStart ?? text.length;
-              const end = ta.selectionEnd ?? text.length;
-              const next = text.slice(0, start) + emoji + text.slice(end);
-              setText(next);
-              requestAnimationFrame(() => {
-                ta.focus();
-                ta.selectionStart = ta.selectionEnd = start + emoji.length;
-                autoresize();
-              });
-            }}
-          />
+        <div
+          className={cn(
+            "rounded-2xl border border-border bg-surface px-2 pb-2 pt-1 transition-colors",
+            mode === "note" && "border-warning/60 bg-warning-bg",
+          )}
+          data-modo={mode}
+        >
           <textarea
             ref={taRef}
             value={text}
             onChange={(e) => {
               setText(e.target.value);
               if (!resolveSlash(e.target.value).open) setMenuDismissed(false);
-              autoresize();
+              setMenuForcado(false);
             }}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
             rows={1}
-            // O atalho saiu do placeholder e foi para o diálogo de atalhos (`?`)
-            // e para o `title` aqui. Dois motivos, nesta ordem: ele some assim
-            // que se digita a primeira letra — isto é, some justamente quando
-            // você ia quebrar linha —; e, com a coluna do inbox mais estreita
-            // depois do conserto do layout, a frase quebrava em duas linhas
-            // dentro de um campo de uma linha só.
-            //
-            // "(só o time vê)" FICA: não é atalho, é consequência. Quem escreve
-            // uma nota interna precisa saber que ela não vai para o cliente, e
-            // essa informação não pode depender de abrir um diálogo.
             placeholder={
               mode === "note"
-                ? t("Escreva uma nota interna… (só o time vê)")
-                : t("Escreva uma mensagem…")
+                ? t("Nota interna visível só pra equipe...")
+                : t("Escreva uma mensagem ou digite / para atalhos")
             }
             title={
               mode === "note"
                 ? t("Enter salva a nota · Shift+Enter quebra linha")
                 : t("Enter envia · Shift+Enter quebra linha")
             }
+            style={{ height: ALTURA_MINIMA_PX }}
             className={cn(
-              "max-h-40 min-h-9 flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm",
-              "placeholder:text-muted-foreground focus:ring-1 focus:ring-ring focus:outline-hidden",
+              "block w-full resize-none overflow-hidden bg-transparent px-2 py-[10px] text-sm leading-5",
+              "transition-[height] duration-150 ease-in-out",
+              "placeholder:text-muted-foreground focus:outline-hidden",
             )}
             disabled={mode === "note" ? isDisabled : respostaBarrada}
             aria-label={t("Mensagem")}
           />
-          {text.trim() || mode === "note" ? (
-            <Button
-              type="button"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              onClick={handleSubmit}
-              disabled={(mode === "note" ? isDisabled : respostaBarrada) || !text.trim()}
-              aria-label={t("Enviar")}
-            >
-              <PaperPlaneTilt size={16} weight="fill" aria-hidden />
-            </Button>
-          ) : (
-            active && <AudioRecorder conversationId={conversationId} disabled={respostaBarrada} />
-          )}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <SeletorDeModo modo={mode} onMudar={setMode} disabled={isDisabled} />
+            <div className="flex items-center gap-1">
+              {/* O clipe existe nos DOIS modos desde a F3 da #1863: em "Nota
+                  interna" ele oferece foto/vídeo e documento (a nota aceita
+                  anexo); Contato some — cartão de contato é MENSAGEM. */}
+              <AttachMenu
+                disabled={respostaBarrada}
+                onPick={escolherArquivo}
+                onPickContact={mode === "reply" ? () => setContactPickerOpen(true) : undefined}
+              />
+              <EmojiButton
+                disabled={isDisabled}
+                onPick={(emoji) => {
+                  const ta = taRef.current;
+                  if (!ta) {
+                    setText((t) => t + emoji);
+                    return;
+                  }
+                  const start = ta.selectionStart ?? text.length;
+                  const end = ta.selectionEnd ?? text.length;
+                  const next = text.slice(0, start) + emoji + text.slice(end);
+                  setText(next);
+                  requestAnimationFrame(() => {
+                    ta.focus();
+                    ta.selectionStart = ta.selectionEnd = start + emoji.length;
+                    autoresize();
+                  });
+                }}
+              />
+              {text.trim() || mode === "note" ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 rounded-full"
+                  onClick={handleSubmit}
+                  disabled={(mode === "note" ? isDisabled : respostaBarrada) || !text.trim()}
+                  aria-label={t("Enviar")}
+                >
+                  <PaperPlaneTilt size={16} weight="fill" aria-hidden />
+                </Button>
+              ) : (
+                active && <AudioRecorder conversationId={conversationId} disabled={respostaBarrada} />
+              )}
+            </div>
+          </div>
         </div>
       </div>
       <AttachmentPreviewDialog
