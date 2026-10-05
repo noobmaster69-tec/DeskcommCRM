@@ -52,6 +52,31 @@ describe("botão Ferramentas do canvas de Fluxos (item 4)", () => {
   });
 });
 
+describe("descrição de cada bloco no popover (item 10)", () => {
+  it("cada bloco mostra uma linha curta do que faz", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<FerramentasPopover onAdd={() => {}} />);
+    await user.click(screen.getByTestId("ferramentas-botao"));
+    expect(screen.getByTestId("ferramenta-descricao-distribuidor")).toHaveTextContent("Reparte os contatos entre saídas");
+    expect(screen.getByTestId("ferramenta-descricao-mensagem")).toHaveTextContent("Envia textos, mídias e pausas");
+  });
+
+  it("todo bloco do popover tem descrição", async () => {
+    const { NOS_DA_SUPERFICIE } = await import("@/lib/followup/validate-publish");
+    const { DESCRICAO_DO_BLOCO } = await import("./descricoes-dos-blocos");
+    for (const tipo of NOS_DA_SUPERFICIE.fluxo) expect(DESCRICAO_DO_BLOCO[tipo], tipo).toBeTruthy();
+  });
+
+  it("a busca também lê a descrição", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<FerramentasPopover onAdd={() => {}} />);
+    await user.click(screen.getByTestId("ferramentas-botao"));
+    await user.type(screen.getByTestId("ferramentas-busca"), "meta");
+    expect(screen.getByTestId("ferramenta-pixel")).toBeInTheDocument();
+    expect(screen.queryByTestId("ferramenta-mensagem")).toBeNull();
+  });
+});
+
 describe("Simular (item 4)", () => {
   it("abre o aviso Em breve", async () => {
     const user = userEvent.setup({ delay: null });

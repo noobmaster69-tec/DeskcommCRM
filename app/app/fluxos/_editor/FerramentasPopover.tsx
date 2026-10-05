@@ -4,13 +4,16 @@ import { useMemo, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { NodeType } from "@/lib/followup/graph-schema";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { FlowNode, NodeType } from "@/lib/followup/graph-schema";
 import { NOS_DA_SUPERFICIE } from "@/lib/followup/validate-publish";
 import { MagnifyingGlass, SquaresFour } from "@/lib/ui/icons";
 import { useT } from "@/hooks/i18n/useT";
 import { NODE_VISUALS } from "@/app/app/ai/followups/[id]/_components/nodes/nodeVisuals";
 
 import { corDoBloco } from "./cores-dos-blocos";
+import { DESCRICAO_DO_BLOCO } from "./descricoes-dos-blocos";
+import { PreviaDoBloco } from "./previas";
 
 /** O mesmo MIME que o `onDrop` do canvas lê — arrastar do popover continua valendo. */
 export const DND_MIME_DO_BLOCO = "application/x-followup-node-type";
@@ -41,7 +44,12 @@ export function FerramentasPopover({ onAdd }: Props) {
     const q = normalizarBusca(busca);
     return NOS_DA_SUPERFICIE.fluxo
       .map((tipo) => NODE_VISUALS[tipo])
-      .filter((v) => q === "" || normalizarBusca(t(v.paletteLabel)).includes(q));
+      // A busca também lê a descrição: "etiqueta" acha o Etiquetas e quem fala dela.
+      .filter((v) => {
+        if (q === "") return true;
+        const descricao = DESCRICAO_DO_BLOCO[v.type];
+        return normalizarBusca(`${t(v.paletteLabel)} ${descricao ? t(descricao) : ""}`).includes(q);
+      });
   }, [busca, t]);
 
   return (
@@ -84,12 +92,16 @@ export function FerramentasPopover({ onAdd }: Props) {
             data-testid="ferramentas-busca"
           />
         </div>
+        <TooltipProvider delayDuration={300}>
         <ul className="max-h-[60vh] space-y-0.5 overflow-y-auto" role="list">
           {blocos.map((visual) => {
             const Icon = visual.icon;
             const cor = corDoBloco(visual.type);
+            const descricao = DESCRICAO_DO_BLOCO[visual.type];
             return (
               <li key={visual.type}>
+                <Tooltip>
+                <TooltipTrigger asChild>
                 <button
                   type="button"
                   draggable
@@ -114,8 +126,25 @@ export function FerramentasPopover({ onAdd }: Props) {
                   >
                     <Icon size={15} aria-hidden />
                   </span>
-                  <span className="truncate font-medium text-text">{t(visual.paletteLabel)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-text">{t(visual.paletteLabel)}</span>
+                    {descricao && (
+                      <span className="block truncate text-xs text-text-muted" data-testid={`ferramenta-descricao-${visual.type}`}>
+                        {t(descricao)}
+                      </span>
+                    )}
+                  </span>
                 </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="right"
+                  sideOffset={12}
+                  className="w-60 border border-border bg-surface p-0 text-text shadow-lg"
+                  data-testid={`ferramenta-previa-${visual.type}`}
+                >
+                  <MiniPrevia tipo={visual.type} cor={cor} />
+                </TooltipContent>
+                </Tooltip>
               </li>
             );
           })}
@@ -123,7 +152,33 @@ export function FerramentasPopover({ onAdd }: Props) {
             <li className="px-2 py-3 text-center text-xs text-text-muted">{t("Nenhum bloco encontrado.")}</li>
           )}
         </ul>
+        </TooltipProvider>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/**
+ * O desenho do bloco recém-criado, no tooltip do popover (item 10): o cabeçalho
+ * na cor dele e a prévia da config PADRÃO — o que vai aparecer no canvas ao
+ * clicar. Sem bolinhas: aqui não é um nó do React Flow.
+ */
+function MiniPrevia({ tipo, cor }: { tipo: NodeType; cor: string }) {
+  const t = useT();
+  const visual = NODE_VISUALS[tipo];
+  const Icon = visual.icon;
+  const config = visual.defaultConfig() as FlowNode["config"];
+  return (
+    <div className="overflow-hidden rounded-md">
+      <div className="flex items-center gap-2 px-2.5 py-2" style={{ backgroundColor: `${cor}1f` }}>
+        <span className="flex h-5 w-5 items-center justify-center rounded-sm text-white" style={{ backgroundColor: cor }}>
+          <Icon size={12} aria-hidden />
+        </span>
+        <span className="text-xs font-semibold">{t(visual.paletteLabel)}</span>
+      </div>
+      <div className="max-h-40 space-y-1.5 overflow-hidden px-2.5 py-2">
+        <PreviaDoBloco tipo={tipo} config={config} />
+      </div>
+    </div>
   );
 }

@@ -14057,6 +14057,20 @@ export const DICIONARIO: Traducoes = {
   "Adicionar etiquetas ao cliente": { es: "Agregar etiquetas al cliente" },
   // Fluxos › canvas no modelo Leona, item 7 (fork jhoow): modal do bloco.
   "Configure o bloco e salve.": { es: "Configura el bloque y guarda." },
+  // Fluxos › canvas no modelo Leona, item 10 (fork jhoow): descrição dos blocos no popover Ferramentas.
+  "Onde o fluxo começa": { es: "Donde empieza el flujo" },
+  "Envia textos, mídias e pausas": { es: "Envía textos, medios y pausas" },
+  "Adiciona ou remove etiquetas do contato": { es: "Agrega o quita etiquetas del contacto" },
+  "Espera o cliente responder": { es: "Espera la respuesta del cliente" },
+  "Pausa por um tempo ou até uma data": { es: "Pausa por un tiempo o hasta una fecha" },
+  "Divide o caminho por regras": { es: "Divide el camino por reglas" },
+  "Reparte os contatos entre saídas": { es: "Reparte los contactos entre salidas" },
+  "Continua em outro fluxo": { es: "Continúa en otro flujo" },
+  "Cria, move ou remove o card no funil": { es: "Crea, mueve o quita la tarjeta en el embudo" },
+  "Avisa a equipe no WhatsApp": { es: "Avisa al equipo por WhatsApp" },
+  "Envia um evento para a Meta": { es: "Envía un evento a Meta" },
+  "Responde ou decide com IA": { es: "Responde o decide con IA" },
+  "Encerra o fluxo": { es: "Termina el flujo" },
 };
 
 /**
