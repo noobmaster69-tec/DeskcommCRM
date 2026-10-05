@@ -56,8 +56,8 @@ const FUSO_DO_DDI: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /**
- * O fuso do CONTATO, quando dá para saber sem chutar: o campo `timezone` da
- * ficha (se for IANA válido) e, senão, o DDI de um país de fuso único. Senão,
+ * O fuso do CONTATO, quando dá para saber sem chutar: o campo `fuso_horario`
+ * (ou o antigo `timezone`) da ficha (se for IANA válido) e, senão, o DDI de um país de fuso único. Senão,
  * o fuso da campanha.
  */
 export function fusoDoContato(
@@ -65,8 +65,12 @@ export function fusoDoContato(
   campos: Record<string, unknown> | null | undefined,
   padrao: string,
 ): string {
-  const daFicha = campos && typeof campos.timezone === "string" ? campos.timezone.trim() : "";
-  if (fusoValido(daFicha)) return daFicha;
+  // `fuso_horario` é o campo do catálogo; `timezone` é o nome antigo (mesmo valor).
+  for (const chave of ["fuso_horario", "timezone"]) {
+    const v = campos && Object.prototype.hasOwnProperty.call(campos, chave) ? campos[chave] : null;
+    const daFicha = typeof v === "string" ? v.trim() : "";
+    if (fusoValido(daFicha)) return daFicha;
+  }
   const digitos = (telefone ?? "").replace(/\D/g, "");
   for (const [ddi, fuso] of FUSO_DO_DDI) if (digitos.startsWith(ddi)) return fuso;
   return padrao;

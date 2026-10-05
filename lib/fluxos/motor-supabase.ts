@@ -23,6 +23,33 @@ import { executarKanban } from "./kanban";
 import { notificarEquipePeloCanal } from "./notificacao";
 import { enviarPixelDoFluxo } from "./pixel";
 import { chamarBlocoDeIa } from "./bloco-ia";
+import { chaveDeArmazenamento } from "@/lib/variables/campos-do-contato";
+import { chaveCanonica } from "@/lib/variables/sistema";
+
+/** Campo nativo salvo pelo fluxo → coluna de `contacts`. O WhatsApp não se troca por resposta. */
+async function salvarCampoNativo(
+  admin: SupabaseClient,
+  org: string,
+  contactId: string,
+  nativo: "nome_completo" | "email" | "idioma_contato" | "whatsapp",
+  valor: string,
+): Promise<void> {
+  const v = valor.trim();
+  if (!v || nativo === "whatsapp") return;
+  if (nativo === "nome_completo") {
+    const { data } = await admin.from("contacts").select("name, source_metadata").eq("organization_id", org).eq("id", contactId).maybeSingle();
+    const meta = ((data as { source_metadata?: Record<string, unknown> } | null)?.source_metadata ?? {}) as Record<string, unknown>;
+    if (meta.nome_manual === true && (data as { name?: string | null } | null)?.name) return;
+    const { error } = await admin.from("contacts").update({ name: v.slice(0, 200) }).eq("organization_id", org).eq("id", contactId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  if (nativo === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return; // resposta que não é e-mail não vira e-mail
+  if (nativo === "idioma_contato" && !/^[a-z]{2,3}([-_][A-Za-z0-9]{2,8})?$/.test(v)) return;
+  const coluna = nativo === "email" ? { email: v } : { locale: v };
+  const { error } = await admin.from("contacts").update(coluna).eq("organization_id", org).eq("id", contactId);
+  if (error && error.code !== "23505") throw new Error(error.message);
+}
 
 const BUCKET = "whatsapp-media";
 
@@ -84,7 +111,7 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
     async carregarContato(org, contactId) {
       const { data, error } = await admin
         .from("contacts")
-        .select("name, display_name, phone_number, email, tags, custom_fields")
+        .select("name, display_name, phone_number, email, tags, custom_fields, locale, source, last_activity_at")
         .eq("organization_id", org)
         .eq("id", contactId)
         .maybeSingle();
@@ -95,6 +122,9 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
         email: (data?.email as string | null) ?? null,
         etiquetas: ((data?.tags as string[] | null) ?? []).filter((t) => typeof t === "string"),
         campos: ((data?.custom_fields as Record<string, unknown> | null) ?? {}) as Record<string, unknown>,
+        locale: (data?.locale as string | null) ?? null,
+        origem: (data?.source as string | null) ?? null,
+        ultimaInteracao: (data?.last_activity_at as string | null) ?? null,
       };
     },
 
@@ -193,6 +223,14 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
     dormir: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 
     async salvarCampo(org, contactId, chave, valor) {
+      // Fonte única (fork jhoow): guardar em {nome_completo}/{nome}, {email} ou
+      // {idioma_contato} grava a COLUNA do contato — o mesmo valor que a ficha,
+      // as campanhas e a IA leem. O nome editado à mão na ficha não é trocado.
+      const nativo = chaveCanonica(chave);
+      if (nativo === "nome_completo" || nativo === "email" || nativo === "idioma_contato" || nativo === "whatsapp") {
+        await salvarCampoNativo(admin, org, contactId, nativo, valor);
+        return;
+      }
       const { data, error } = await admin
         .from("contacts")
         .select("custom_fields")
@@ -200,7 +238,8 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
         .eq("id", contactId)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      const campos = { ...((data?.custom_fields as Record<string, unknown> | null) ?? {}), [chave]: valor };
+      // Fonte única: um alias antigo (`timezone`, `empresa`) grava no campo do catálogo.
+      const campos = { ...((data?.custom_fields as Record<string, unknown> | null) ?? {}), [chaveDeArmazenamento(chave)]: valor };
       const { error: up } = await admin
         .from("contacts")
         .update({ custom_fields: campos })

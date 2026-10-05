@@ -121,13 +121,19 @@ describe("importarAudiencia", () => {
     await importarAudiencia(
       admin,
       { organizationId: ORG, userId: "u1" },
-      entrada({ novas_variaveis: [{ key: "cidade", label: "Cidade", type: "texto" }] }),
+      entrada({
+        novas_variaveis: [
+          { key: "interesse", label: "Interesse", type: "texto" },
+          // Campo do catálogo (cidade) NÃO vira definição: ele já existe.
+          { key: "cidade", label: "Cidade", type: "texto" },
+        ],
+      }),
       { bytes: new Uint8Array([1]), tipo: "text/csv", extensao: "csv" },
     );
     const calls = upload.mock.calls as unknown as Array<[string]>;
     expect(calls[0]![0]).toMatch(new RegExp(`^${ORG}/[0-9a-f-]{36}\\.csv$`));
     const vars = chamadas.find((c) => c.tabela === "contact_custom_fields")!;
-    expect(vars.dados).toEqual([expect.objectContaining({ key: "cidade", organization_id: ORG })]);
+    expect(vars.dados).toEqual([expect.objectContaining({ key: "interesse", organization_id: ORG })]);
     const lista = chamadas.find((c) => c.tabela === "campaign_audience_sources")!;
     expect((lista.dados as { snapshot_file_path: string }).snapshot_file_path).toBe(calls[0]![0]);
   });

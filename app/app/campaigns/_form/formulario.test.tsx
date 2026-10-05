@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/hooks/contacts/useContactList", () => ({ useContactList: () => ({ data: undefined }) }));
 vi.mock("@/hooks/campanhas/useCampanhas", () => ({ usePreviaDaAudiencia: () => ({ mutate: vi.fn(), isPending: false, data: undefined }) }));
 vi.mock("@/hooks/channels/useChannelSessions", () => ({
   useChannelSessions: () => ({ data: [{ id: "c1", display_name: "Principal" }] }),

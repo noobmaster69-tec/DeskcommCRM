@@ -35,6 +35,17 @@ export async function persistirRespostaFollowupSupabase(
   if (value.length === 0) return;
 
   if (input.save_to.kind === "contact_name") {
+    // Fork jhoow: nome editado à mão na ficha (`source_metadata.nome_manual`)
+    // não é sobrescrito por resposta automática — "Ana Paula" digitado pela
+    // equipe vale mais que o "oi" que o fluxo guardaria.
+    const { data: atual } = await admin
+      .from("contacts")
+      .select("name, source_metadata")
+      .eq("organization_id", input.organization_id)
+      .eq("id", input.contact_id)
+      .maybeSingle();
+    const meta = ((atual as { source_metadata?: Record<string, unknown> } | null)?.source_metadata ?? {}) as Record<string, unknown>;
+    if (meta.nome_manual === true && (atual as { name?: string | null } | null)?.name) return;
     const { error } = await admin
       .from("contacts")
       .update({ name: value, updated_at: new Date().toISOString() })

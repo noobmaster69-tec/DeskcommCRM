@@ -80,6 +80,13 @@ const baseDaCampanha = {
    * horário passado e exige o fuso.
    */
   scheduled_at: z.string().datetime().nullable().optional(),
+  /** 9019: o idioma da campanha (inicia o idioma da prospecção/conversa do contato). */
+  language: z
+    .string()
+    .trim()
+    .regex(/^[a-z]{2,3}([-_][A-Za-z0-9]{2,8})?$/, "idioma no formato pt-PT, es, en")
+    .nullable()
+    .optional(),
 };
 
 export const criarCampanhaSchema = z
@@ -141,6 +148,7 @@ export const editarCampanhaSchema = z
     recipients_pipeline_id: baseDaCampanha.recipients_pipeline_id,
     recipients_stage_id: baseDaCampanha.recipients_stage_id,
     scheduled_at: baseDaCampanha.scheduled_at,
+    language: baseDaCampanha.language,
   })
   .merge(ritmoSchema)
   .refine((c) => janelaEmMinutosCoerente(c), {

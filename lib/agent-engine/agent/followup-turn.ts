@@ -63,6 +63,7 @@ import {
   type PropostaDeEsperaBruta,
 } from './followup-flow-classify';
 import { consultarJevNoFollowup } from '@/lib/ai/decisao/followup';
+import { interpolarParaContatoPg } from '@/lib/variables/contexto-do-envio';
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -524,6 +525,18 @@ async function runFlowDrivenTurn(
 
   if (input.purpose === 'send_message') {
     let passo = await resolveFlowSendBody(pool, target.tenantId, target.channelSessionId, input);
+    // Fork jhoow: o texto pronto resolve as variáveis do CONTATO ({nome_saudacao},
+    // {saudacao_horario}…) — antes saía com o token cru.
+    if (passo !== null && passo.tipo === 'texto') {
+      passo = {
+        ...passo,
+        body: await interpolarParaContatoPg(pool as unknown as Parameters<typeof interpolarParaContatoPg>[0], {
+          organizationId: target.tenantId,
+          contactId: target.leadId,
+          texto: passo.body,
+        }),
+      };
+    }
     // O PLANO B DA MENSAGEM POR IA. Com a janela de 24 h fechada, o canal recusa
     // qualquer texto livre — o da IA inclusive —, e o passo terminava sem mandar
     // nada. A tela prometia "se a IA não conseguir escrever, mandar este modelo"

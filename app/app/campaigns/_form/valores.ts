@@ -64,6 +64,8 @@ export interface ValoresDaCampanha {
   inicioModo: "agora" | "agendar";
   inicioData: string;
   inicioHora: string;
+  /** 9019: o idioma da campanha ("" = sem idioma próprio). */
+  idioma: string;
   tetoDiario: string;
   tetoHorario: string;
 }
@@ -125,6 +127,7 @@ export function valoresDaCampanha(c?: CampanhaDetalhada | null): ValoresDaCampan
     minIntervalo: String(c?.min_interval_seconds ?? 60),
     maxIntervalo: String(c?.max_interval_seconds ?? 180),
     fuso: c?.timezone ?? "",
+    idioma: c?.language ?? "",
     ...programacaoDaCampanha({
       janela_inicio_hora: c?.janela_inicio_hora,
       janela_fim_hora: c?.janela_fim_hora,
@@ -211,6 +214,7 @@ export function corpoDaCampanha(v: ValoresDaCampanha): Record<string, unknown> {
     min_interval_seconds: Number(v.minIntervalo) || 60,
     max_interval_seconds: Number(v.maxIntervalo) || 180,
     timezone: v.fuso || null,
+    language: v.idioma.trim() || null,
     channel_session_ids: v.extras.filter((id) => id !== v.canal),
     pipeline_id: v.funil || null,
     stage_id: v.etapa || null,

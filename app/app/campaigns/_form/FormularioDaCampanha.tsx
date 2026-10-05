@@ -21,7 +21,8 @@ import { usePreviaDaAudiencia } from "@/hooks/campanhas/useCampanhas";
 import { channelLabel, useChannelSessions } from "@/hooks/channels/useChannelSessions";
 import { useT } from "@/hooks/i18n/useT";
 import { useAgentesPublicados, useEtapas, useFunis } from "@/hooks/campanhas/useDestinoDaCampanha";
-import { ListaDeVariaveis } from "@/components/campanhas/ListaDeVariaveis";
+import { ListaDeVariaveis, PreviaPorContato } from "@/components/campanhas/ListaDeVariaveis";
+import { IdiomaDaCampanha } from "@/components/campanhas/IdiomaDaCampanha";
 import { CamposDeRitmo } from "@/components/campanhas/CamposDeRitmo";
 import { FonteDoPublico } from "@/components/campanhas/FonteDoPublico";
 import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
@@ -305,8 +306,10 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
               aria-label={t("Texto da mensagem")}
             />
             <ListaDeVariaveis onInserir={(token) => setTexto((atual) => `${atual}${token}`)} />
+            {texto.trim() !== "" && <PreviaPorContato texto={texto} idioma={v.idioma || null} fuso={v.fuso || null} />}
           </>
         )}
+        <IdiomaDaCampanha valor={v.idioma} onChange={(x) => mudar("idioma", x)} />
       </Card>
 
       <Card className="space-y-4 p-4">

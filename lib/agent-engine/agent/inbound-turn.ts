@@ -1,5 +1,6 @@
 import { prospectingConversationContext } from "@/lib/prospecting/context";
 import { setExecutionAgentOperation } from '@/lib/atendimento/fronteira-server';
+import { blocoDeIdioma } from '@/lib/variables/contexto-da-ia';
 import { TIPOS_DE_CASO, TIPOS_DE_CASO_PARA_A_IA } from "@/lib/ai/case-copy";
 import { DEFAULT_CHANNEL_PROVIDER } from '@/lib/channels/capabilities';
 import { applyPreviewPolicy, previewGateContext, type TurnPreview } from './preview';
@@ -4162,8 +4163,11 @@ async function executarTurnoDoAgente(
     // ponto só cobre os três — e alcança de carona a chamada de fechamento, que
     // reusa `openingTextOnly` e é onde nasce o `prazo` ISO da declaração.
     const agoraBlock = renderAgora(clock(), fusoDaOrg);
+    // Fork jhoow: o idioma da conversa (a campanha o inicia; "ok" não o troca).
+    const idiomaBlock = blocoDeIdioma(effectiveContext.contact.idioma_conversa);
     const openingSuffixes = [
       agoraBlock,
+      idiomaBlock,
       matchedSkillsBlock,
       stageHintBlock,
       splitHint,

@@ -39,6 +39,15 @@ export interface ContatoParaDecidir {
    * REGISTRADO. Só pesa quando a base legal da campanha é consentimento.
    */
   consentiu?: boolean;
+  /** Campo "Não contatar" (`custom_fields.nao_contatar`) marcado na ficha. */
+  naoContatar?: boolean;
+}
+
+/** `nao_contatar` marcado? Aceita booleano e os textos que planilha e formulário gravam. */
+export function marcadoNaoContatar(campos: Record<string, unknown> | null | undefined): boolean {
+  const v = campos && Object.prototype.hasOwnProperty.call(campos, "nao_contatar") ? campos.nao_contatar : null;
+  if (v === true) return true;
+  return typeof v === "string" && /^(true|sim|s|1|yes|x)$/i.test(v.trim());
 }
 
 /** O telefone que o canal aceita: E.164 com `+`, o mesmo CHECK de `contacts.phone_number`. */
@@ -59,6 +68,7 @@ export function motivoParaExcluir(
   if (c.bloqueado) return "opt_out";
   if (c.anonimizado) return "anonimizado";
   if (c.recusouMarketing) return "recusou_marketing";
+  if (c.naoContatar) return "nao_contatar";
   // Item 6: base legal CONSENTIMENTO só fala com quem consentiu — ausência de
   // registro não é consentimento.
   if (opcoes.exigeConsentimento && !c.consentiu) return "sem_consentimento";
@@ -74,6 +84,10 @@ export interface CandidatoDaAudiencia extends ContatoParaDecidir {
   /** Para as variáveis (item 2): e-mail e `contacts.custom_fields`. */
   email?: string | null;
   campos?: Record<string, unknown>;
+  /** `contacts.locale`, `source` e `last_activity_at` — as variáveis {idioma_contato}, {origem_contato}, {ultima_interacao}. */
+  locale?: string | null;
+  origem?: string | null;
+  ultimaInteracao?: string | null;
 }
 
 export interface LinhaClassificada {

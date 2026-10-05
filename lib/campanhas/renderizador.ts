@@ -29,7 +29,15 @@
 
 import { horaNoFuso } from "./relogio";
 import { chaveCanonica, VARIAVEIS_DO_SISTEMA } from "@/lib/variables/sistema";
-import { resolverVariavel, TOKEN_DE_VARIAVEL, valorDoCampo, VARIAVEIS_DE_TEMPO } from "@/lib/variables/resolve";
+import {
+  BURACO,
+  ehVariavelConhecida,
+  limparPontuacaoOrfa,
+  partesDoToken,
+  resolverVariavel,
+  TOKEN_DE_VARIAVEL,
+  VARIAVEIS_DE_TEMPO,
+} from "@/lib/variables/resolve";
 
 /** As variáveis que existem. Oferecer uma que não resolve é prometer dado que não há. */
 /**
@@ -55,6 +63,11 @@ export interface ValoresDoDestinatario {
   personalizadas?: readonly string[];
   /** Valores padrão das personalizadas (chave → valor). */
   padroes?: Record<string, string>;
+  /** `contacts.locale` / `source` / `last_activity_at` e a campanha que envia. */
+  locale?: string | null;
+  origem?: string | null;
+  ultimaInteracao?: string | null;
+  campanhaId?: string | null;
 }
 
 export interface TextoRenderizado {
@@ -89,42 +102,40 @@ export function renderizar(
     email: valores.email ?? null,
     campos,
     padroes: valores.padroes,
+    locale: valores.locale ?? null,
+    origem: valores.origem ?? null,
+    ultimaInteracao: valores.ultimaInteracao ?? null,
+    campanhaId: valores.campanhaId ?? null,
     quando,
   };
+  let apagou = false;
 
-  const texto = template.replace(TOKEN_DE_VARIAVEL, (literal, duplo: string | undefined, simples: string | undefined) => {
-    const bruto = (duplo ?? simples ?? "").trim();
-    const sistema = chaveCanonica(bruto);
-    if (sistema) {
-      if (VARIAVEIS_DE_TEMPO.has(sistema) && !quando) return literal;
-      const v = resolverVariavel(bruto, ctx);
-      if (v === "") {
-        faltando.add(bruto.toLowerCase());
-        return literal;
-      }
-      return v;
+  const texto = template.replace(TOKEN_DE_VARIAVEL, (literal, ...grupos: (string | undefined)[]) => {
+    const { nome, alternativo } = partesDoToken([literal, ...grupos]);
+    const sistema = chaveCanonica(nome);
+    if (sistema && VARIAVEIS_DE_TEMPO.has(sistema) && !quando) return literal;
+    const conhecida = ehVariavelConhecida(nome, personalizadas, campos);
+    const v = conhecida ? resolverVariavel(nome, ctx) : "";
+    if (v !== "") return v;
+    if (!conhecida) desconhecidas.add(nome);
+    // `{x|texto}`: o alternativo é o fallback SEGURO escrito por quem fez o texto.
+    if (alternativo !== null) {
+      if (alternativo !== "") return alternativo;
+      apagou = true;
+      return BURACO;
     }
-    const definida = personalizadas.has(bruto) || Object.prototype.hasOwnProperty.call(campos, bruto);
-    if (!definida) {
-      desconhecidas.add(bruto);
-      return literal;
-    }
-    const v = valorDoCampo(ctx, bruto);
-    if (v === "") {
-      faltando.add(bruto);
-      return literal;
-    }
-    return v;
+    if (conhecida) faltando.add(sistema ? nome.toLowerCase() : nome);
+    return literal;
   });
 
-  return { texto, faltando: [...faltando], desconhecidas: [...desconhecidas] };
+  return { texto: apagou ? limparPontuacaoOrfa(texto) : texto, faltando: [...faltando], desconhecidas: [...desconhecidas] };
 }
 
 /** As variáveis do SISTEMA que o texto usa (como escritas), sem repetir. */
 export function variaveisUsadas(template: string): string[] {
   const achadas = new Set<string>();
   for (const m of template.matchAll(TOKEN_DE_VARIAVEL)) {
-    const chave = (m[1] ?? m[2] ?? "").trim().toLowerCase();
+    const chave = partesDoToken(m).nome.toLowerCase();
     if (chaveCanonica(chave)) achadas.add(chave);
   }
   return [...achadas];

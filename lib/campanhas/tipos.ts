@@ -77,6 +77,8 @@ export const MOTIVOS_DE_EXCLUSAO = [
   "ja_em_fluxo",
   // Item 6: base legal consentimento e nenhum consentimento registrado.
   "sem_consentimento",
+  // Campo "Não contatar" marcado na ficha do contato.
+  "nao_contatar",
 ] as const;
 
 export type MotivoDeExclusao = (typeof MOTIVOS_DE_EXCLUSAO)[number];
@@ -95,4 +97,5 @@ export const TEXTO_DA_EXCLUSAO: Record<MotivoDeExclusao, string> = {
   suprimido: "Está na lista de exclusão de campanhas",
   ja_em_fluxo: "Já está em outro fluxo; a campanha não o tira de lá",
   sem_consentimento: "Sem consentimento registrado no perfil (a base legal é consentimento)",
+  nao_contatar: "Marcado como “Não contatar” na ficha",
 };

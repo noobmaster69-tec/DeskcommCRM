@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Trash } from "@/lib/ui/icons";
 import { useT } from "@/hooks/i18n/useT";
 import { TIPOS_DE_VARIAVEL, VARIAVEIS_DO_SISTEMA, type TipoDeVariavel } from "@/lib/variables/sistema";
+import { CAMPOS_DO_CONTATO } from "@/lib/variables/campos-do-contato";
 import type { VariavelPersonalizada } from "@/lib/variables/definicoes";
 
 const ROTULO_DO_TIPO: Record<TipoDeVariavel, string> = {
@@ -113,6 +114,30 @@ export function VariaveisClient({ inicial, podeEditar }: { inicial: VariavelPers
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{`{${v.chave}}`}</td>
                   <td className="px-3 py-2">{t(v.descricao)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{v.exemplo}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="space-y-3" aria-labelledby="vars-campos">
+        <h2 id="vars-campos" className="text-base font-semibold">
+          {t("Campos do contato")}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {t(
+            "Os campos padrão da ficha de cada contato — o valor é de cada contato, editado no Inbox, em Contatos ou pelo importador. Para dar opções a um deles (ex.: os idiomas de idioma_conversa), crie abaixo uma variável com a MESMA chave, do tipo seleção.",
+          )}
+        </p>
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full text-sm" data-testid="campos-do-catalogo">
+            <tbody>
+              {CAMPOS_DO_CONTATO.filter((c) => c.origem === "padrao").map((c) => (
+                <tr key={c.chave} className="border-b border-border last:border-0">
+                  <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{`{${c.chave}}`}</td>
+                  <td className="px-3 py-2">{t(c.rotulo)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{c.dica ? t(c.dica) : ""}</td>
                 </tr>
               ))}
             </tbody>

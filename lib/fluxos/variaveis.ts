@@ -1,5 +1,7 @@
-import { chaveCanonica, VARIAVEIS_DO_SISTEMA } from "@/lib/variables/sistema";
-import { resolverVariavel } from "@/lib/variables/resolve";
+import { VARIAVEIS_DO_SISTEMA } from "@/lib/variables/sistema";
+import { CAMPOS_DO_CONTATO } from "@/lib/variables/campos-do-contato";
+import { interpolarVariaveis, resolverVariavel } from "@/lib/variables/resolve";
+import { fusoDoContato } from "@/lib/campanhas/fuso";
 
 /**
  * Variáveis do texto dos blocos de FLUXO (fork jhoow): `{nome}`, `{campo}`…
@@ -19,65 +21,59 @@ export interface ContextoDeVariaveis {
   telefone: string | null;
   campos: Record<string, unknown>;
   ultimaMensagem: string | null;
+  /** Fork jhoow: o resto do contato, para o catálogo de campos inteiro. */
+  email?: string | null;
+  locale?: string | null;
+  origem?: string | null;
+  ultimaInteracao?: string | null;
+  /** Fuso da organização — o do contato (ficha/DDI) manda quando é conhecido. */
+  fuso?: string;
 }
 
-const VARIAVEL = /\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}/g;
+const FUSO_PADRAO = "America/Sao_Paulo";
 
-function emTexto(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  if (typeof v === "string") return v;
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  return "";
+function paraResolver(ctx: ContextoDeVariaveis) {
+  return {
+    nome: ctx.nome,
+    telefone: ctx.telefone,
+    email: ctx.email ?? null,
+    campos: ctx.campos,
+    ultimaMensagem: ctx.ultimaMensagem,
+    locale: ctx.locale ?? null,
+    origem: ctx.origem ?? null,
+    ultimaInteracao: ctx.ultimaInteracao ?? null,
+    // Saudação/dia/data no relógio do CONTATO (campo fuso_horario ou DDI de
+    // fuso único), senão no da organização; o idioma é o da conversa (ficha).
+    quando: { agora: new Date(), fuso: fusoDoContato(ctx.telefone, ctx.campos, ctx.fuso ?? FUSO_PADRAO) },
+  };
 }
 
+/** O valor de UMA variável no bloco — o MESMO resolvedor das Campanhas (aliases, catálogo, `{x|alternativo}`). */
 export function valorDaVariavel(nomeDaVariavel: string, ctx: ContextoDeVariaveis): string {
-  const chave = nomeDaVariavel.trim();
-  // Variáveis do SISTEMA (Configurações › Variáveis, item 2) — as mesmas das
-  // Campanhas. As de tempo usam o fuso de Brasília: o fluxo ainda não tem o
-  // fuso do contato (o item 7 só cobre a campanha).
-  if (chave !== "nome" && chave !== "primeiro_nome" && chave !== "telefone" && chaveCanonica(chave)) {
-    return resolverVariavel(chave, {
-      nome: ctx.nome,
-      telefone: ctx.telefone,
-      campos: ctx.campos,
-      quando: { agora: new Date(), fuso: "America/Sao_Paulo" },
-    });
-  }
-  switch (chave) {
-    case "nome":
-      return (ctx.nome ?? "").trim();
-    case "primeiro_nome":
-      return (ctx.nome ?? "").trim().split(/\s+/)[0] ?? "";
-    case "telefone":
-      return ctx.telefone ?? "";
-    case "last_user_message":
-    case "ultima_mensagem":
-      return ctx.ultimaMensagem ?? "";
-    default: {
-      if (chave in ctx.campos) return emTexto(ctx.campos[chave]);
-      // `{ai.response}` gravado como objeto aninhado também vale.
-      const partes = chave.split(".");
-      let atual: unknown = ctx.campos;
-      for (const p of partes) {
-        if (atual && typeof atual === "object" && p in (atual as Record<string, unknown>)) {
-          atual = (atual as Record<string, unknown>)[p];
-        } else return "";
-      }
-      return emTexto(atual);
-    }
-  }
+  return resolverVariavel(nomeDaVariavel.trim(), paraResolver(ctx));
 }
 
-/** Troca cada `{variavel}` pelo valor; o que não existe vira vazio. Espaço duplo que sobra é aparado. */
+/**
+ * Troca cada `{variavel}` pelo valor. Sem valor: o alternativo (`{x|texto}`),
+ * senão VAZIO com a pontuação órfã limpa — o cliente nunca recebe "{nome}"
+ * nem "undefined". Espaço duplo que sobra é aparado.
+ */
 export function interpolar(texto: string, ctx: ContextoDeVariaveis): string {
-  return texto
-    .replace(VARIAVEL, (_, nome: string) => valorDaVariavel(nome, ctx))
-    .replace(/[ \t]{2,}/g, " ")
+  return interpolarVariaveis(texto, paraResolver(ctx), { vazioQuandoFalta: true })
+    .texto.replace(/[ \t]{2,}/g, " ")
     .replace(/ ([,.!?])/g, "$1");
 }
 
 /** As variáveis que o editor sugere ao digitar `{`: as do sistema, a última mensagem e as da organização. */
 export function variaveisSugeridas(camposDaOrganizacao: readonly string[]): string[] {
-  const todas = ["nome", "primeiro_nome", "telefone", ...VARIAVEIS_DO_SISTEMA.map((v) => v.chave), "ultima_mensagem", ...camposDaOrganizacao];
+  const todas = [
+    "nome",
+    "primeiro_nome",
+    "telefone",
+    ...VARIAVEIS_DO_SISTEMA.map((v) => v.chave),
+    ...CAMPOS_DO_CONTATO.map((c) => c.chave),
+    "ultima_mensagem",
+    ...camposDaOrganizacao,
+  ];
   return [...new Set(todas)];
 }

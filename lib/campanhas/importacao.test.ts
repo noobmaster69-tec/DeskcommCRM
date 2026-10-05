@@ -97,3 +97,33 @@ describe("importar lista — XLSX", () => {
     expect(() => lerXlsx(zipSync({ "a.txt": strToU8("x") }))).toThrow();
   });
 });
+
+describe("importar lista — campos do contato (fork jhoow)", () => {
+  it("cabeçalhos comuns caem no campo do catálogo", () => {
+    expect(sugerirDestino("Cidade")).toBe("var:cidade");
+    expect(sugerirDestino("País")).toBe("var:pais");
+    expect(sugerirDestino("Website")).toBe("var:site_atual");
+    expect(sugerirDestino("Google Maps URL")).toBe("var:google_maps_url");
+    expect(sugerirDestino("Nota Google")).toBe("var:nota_avaliacoes_gg");
+    expect(sugerirDestino("Especialidade")).toBe("var:especialidade");
+    expect(sugerirDestino("Idioma")).toBe("var:idioma_prospeccao");
+    expect(sugerirDestino("timezone")).toBe("var:fuso_horario");
+    expect(sugerirDestino("Avaliações Google")).toBe("comentarios_google_maps");
+  });
+
+  it("avaliações vão para n_avaliacoes_gg (fonte única) e alias antigo vira a chave nova", () => {
+    const r = lerLinhas(["Tel", "Reviews", "Fuso"], [["11999990001", "87 avaliações", "Europe/Lisbon"]], [
+      "numero_contato",
+      "comentarios_google_maps",
+      "var:timezone",
+    ]);
+    expect(r.validas[0]!.campos).toEqual({ n_avaliacoes_gg: "87", fuso_horario: "Europe/Lisbon" });
+  });
+
+  it("nome composto e acento preservados; célula vazia não vira campo", () => {
+    const r = lerLinhas(["Nome", "Tel", "Cidade"], [["  Ana Paula Ribeiro ", "11999990001", ""]], ["nome_profissional", "numero_contato", "var:cidade"]);
+    expect(r.validas[0]).toMatchObject({ nome: "Ana Paula Ribeiro", campos: {} });
+    const r2 = lerLinhas(["Nome", "Tel"], [["João Ávila", "11999990002"]], ["nome_profissional", "numero_contato"]);
+    expect(r2.validas[0]!.nome).toBe("João Ávila");
+  });
+});

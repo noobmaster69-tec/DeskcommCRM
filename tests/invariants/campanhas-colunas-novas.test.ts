@@ -140,3 +140,19 @@ describe("9018 — janela em minutos e motivo da espera", () => {
     expect(sql(`select janela_fim_minuto from public.campaigns where id = '${CAMP}'`)).toBe("1440");
   });
 });
+
+describe("9019 — idioma da campanha", () => {
+  it("formato de idioma (ou nulo)", () => {
+    sql(`update public.campaigns set language = 'pt-PT' where id = '${CAMP}'`);
+    sql(`update public.campaigns set language = 'es' where id = '${CAMP}'`);
+    sql(`update public.campaigns set language = null where id = '${CAMP}'`);
+    expect(sqlstate(`update public.campaigns set language = 'Português' where id = '${CAMP}'`)).toBe("23514");
+  });
+
+  it("reaplicar o bloco não muda nada", () => {
+    const r = "-- ---- idioma da campanha (migration 9019) ----";
+    sql(blocoDoBaseline(r));
+    sql(blocoDoBaseline(r));
+    expect(sql(`select count(*) from public.campaigns where id = '${CAMP}'`)).toBe("1");
+  });
+});

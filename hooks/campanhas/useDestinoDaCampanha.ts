@@ -90,6 +90,8 @@ export function useAgentesPublicados() {
 export interface VariavelDaOrganizacao {
   key: string;
   label: string;
+  type?: string;
+  options?: string[];
 }
 
 /** As variáveis personalizadas (Configurações › Variáveis) — condições do público. */

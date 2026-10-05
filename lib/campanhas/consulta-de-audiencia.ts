@@ -15,7 +15,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { CAMPANHAS_VIVAS, limiteDeSilencio, usaNegocio, type FiltroDeAudiencia } from "./audiencia";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
-import { consentiuMarketing, recusouMarketing, type CandidatoDaAudiencia } from "./elegibilidade";
+import { consentiuMarketing, marcadoNaoContatar, recusouMarketing, type CandidatoDaAudiencia } from "./elegibilidade";
 
 /** Teto de ids que um filtro de negócio devolve antes de virar `in (...)`. */
 const TETO_DE_IDS_DE_NEGOCIO = 20_000;
@@ -30,6 +30,9 @@ interface LinhaDeContato {
   consent: unknown;
   email?: string | null;
   custom_fields?: Record<string, unknown> | null;
+  locale?: string | null;
+  source?: string | null;
+  last_activity_at?: string | null;
 }
 
 export async function buscarCandidatos(
@@ -76,7 +79,7 @@ export async function buscarCandidatos(
 
   let consulta = admin
     .from("contacts")
-    .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields")
+    .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields, locale, source, last_activity_at")
     .eq("organization_id", organizationId)
     // Placeholder de GRUPO não recebe campanha: campanha é 1:1 por doutrina, e
     // o grupo não tem opt-in individual nenhum por trás desse registro técnico.
@@ -134,7 +137,7 @@ export async function buscarCandidatos(
   if (faltam.length > 0) {
     const { data: extras, error: erroExtras } = await admin
       .from("contacts")
-      .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields")
+      .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields, locale, source, last_activity_at")
       .eq("organization_id", organizationId)
       .eq("kind", "person")
       .in("id", faltam);
@@ -169,6 +172,10 @@ function paraCandidato(l: LinhaDeContato): CandidatoDaAudiencia {
     consentiu: consentiuMarketing(l.consent),
     email: l.email ?? null,
     campos: (l.custom_fields ?? {}) as Record<string, unknown>,
+    naoContatar: marcadoNaoContatar(l.custom_fields as Record<string, unknown> | null),
+    locale: l.locale ?? null,
+    origem: l.source ?? null,
+    ultimaInteracao: l.last_activity_at ?? null,
   };
 }
 
@@ -194,7 +201,7 @@ async function candidatosDaLista(
     const lote = ids.slice(i, i + LOTE_DE_IDS);
     const { data, error: e2 } = await admin
       .from("contacts")
-      .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields")
+      .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields, locale, source, last_activity_at")
       .eq("organization_id", organizationId)
       .eq("kind", "person")
       .is("is_merged_into", null)

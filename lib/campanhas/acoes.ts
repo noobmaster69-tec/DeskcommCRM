@@ -21,7 +21,10 @@ import type { ApiErrorCode } from "@/lib/api/errors";
 import { sendMessageHandler } from "@/app/api/v1/messages/_handler";
 import { beginServiceAtOrigin } from "@/lib/atendimento/origem";
 
-import { baseLegalValida, consentiuMarketing, motivoParaExcluir, recusouMarketing } from "./elegibilidade";
+import { baseLegalValida, consentiuMarketing, marcadoNaoContatar, motivoParaExcluir, recusouMarketing } from "./elegibilidade";
+import { fusoDoContato } from "./fuso";
+import { idiomaDoEnvio } from "./idioma";
+import { lerVariaveisDaOrganizacao, paraRenderizar } from "@/lib/variables/definicoes";
 import { ehStatusDaCampanha, podeTransitar } from "./maquina-de-estados";
 import { prepararCampanha } from "./preparacao";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
@@ -61,6 +64,7 @@ export interface CampanhaCarregada {
   agent_id?: string | null;
   recipients_pipeline_id?: string | null;
   recipients_stage_id?: string | null;
+  language?: string | null;
 }
 
 export type Recusa = { ok: false; codigo: ApiErrorCode; mensagem: string; status: number };
@@ -71,7 +75,7 @@ const COLUNAS =
   "audience_filter, audience_version, content_version, scheduled_at, description, " +
   "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
   "timezone, min_interval_seconds, max_interval_seconds, janela_inicio_minuto, janela_fim_minuto, " +
-  "pipeline_id, stage_id, agent_id, recipients_pipeline_id, recipients_stage_id";
+  "pipeline_id, stage_id, agent_id, recipients_pipeline_id, recipients_stage_id, language";
 
 export async function carregarCampanha(
   admin: SupabaseClient,
@@ -428,6 +432,7 @@ export async function duplicarAcao(
       agent_id: c.agent_id ?? null,
       recipients_pipeline_id: c.recipients_pipeline_id ?? null,
       recipients_stage_id: c.recipients_stage_id ?? null,
+      language: c.language ?? null,
       created_by: autorId,
       // Nada de destinatário, resultado, agenda ou carimbo de execução: a cópia
       // é uma INTENÇÃO nova, e herdar números faria a tela mostrar entrega de
@@ -466,7 +471,7 @@ export async function testarAcao(
 
   const { data: contato } = await admin
     .from("contacts")
-    .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent")
+    .select("id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields, locale, source, last_activity_at")
     .eq("organization_id", c.organization_id)
     .eq("id", contactId)
     .maybeSingle();
@@ -486,6 +491,11 @@ export async function testarAcao(
     is_blocked: boolean;
     is_anonymized: boolean;
     consent: unknown;
+    email: string | null;
+    custom_fields: Record<string, unknown> | null;
+    locale: string | null;
+    source: string | null;
+    last_activity_at: string | null;
   };
 
   // O teste respeita os MESMOS vetos: mandar teste para quem pediu para parar
@@ -497,6 +507,7 @@ export async function testarAcao(
     anonimizado: linha.is_anonymized,
     recusouMarketing: recusouMarketing(linha.consent),
     consentiu: consentiuMarketing(linha.consent),
+    naoContatar: marcadoNaoContatar(linha.custom_fields),
   }, { exigeConsentimento: c.base_legal === "consent" });
   if (motivo) {
     return {
@@ -531,10 +542,22 @@ export async function testarAcao(
     return { ok: true, status: "em_fluxo" };
   }
 
+  // O teste renderiza com os MESMOS dados do envio real (antes ia só o nome, e
+  // {nome_empresa} preenchido na ficha voltava "Falta nome_empresa").
   const render = renderizar(
     c.message_body ?? "",
-    { nome: nomeDoContato(linha) },
-    { agora, fuso },
+    {
+      nome: nomeDoContato(linha),
+      telefone: linha.phone_number,
+      email: linha.email,
+      campos: (linha.custom_fields ?? {}) as Record<string, unknown>,
+      locale: linha.locale,
+      origem: linha.source,
+      ultimaInteracao: linha.last_activity_at,
+      campanhaId: c.id,
+      ...paraRenderizar(await lerVariaveisDaOrganizacao(admin, c.organization_id)),
+    },
+    { agora, fuso: fusoDoContato(linha.phone_number, linha.custom_fields, fuso), idioma: idiomaDoEnvio(linha.custom_fields, c.language, linha.locale) },
   );
   if (render.faltando.length > 0) {
     return {

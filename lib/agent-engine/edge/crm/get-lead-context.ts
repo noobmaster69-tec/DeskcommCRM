@@ -17,6 +17,32 @@ import { deriveLgpdFromContact, type LgpdInput } from '../../guardrails/lgpd/leg
 import { isoLocalComOffset } from '@/lib/tempo/agora';
 import { logger } from '@/lib/logger';
 import { nomeDoContato } from '@/lib/contacts/rotulo-do-contato';
+import { camposParaIA, idiomaParaIA } from '@/lib/variables/contexto-da-ia';
+
+/** Campos do contato + idioma da conversa (fork jhoow). Falha aqui não derruba o turno. */
+function camposDoContatoParaIA(
+  contact: ContactRow,
+  daConversa: string | null,
+): { campos?: Record<string, string>; idioma_conversa?: string | null } {
+  try {
+    const ctx = {
+      nome: contact.name ?? contact.display_name,
+      telefone: contact.phone_number,
+      email: contact.email,
+      campos: (contact.custom_fields ?? {}) as Record<string, unknown>,
+      locale: contact.locale ?? null,
+      origem: contact.source,
+    };
+    const campos = camposParaIA(ctx);
+    const idioma = idiomaParaIA(ctx, daConversa);
+    return {
+      ...(Object.keys(campos).length > 0 ? { campos } : {}),
+      ...(idioma ? { idioma_conversa: idioma } : {}),
+    };
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Heurística conservadora de contagem: ~3,5 chars/token para pt-br (BPE real fica
@@ -112,6 +138,14 @@ export interface LeadContext {
     tags: string[];
     /** contacts.is_blocked lido NESTE turno (fonte da verdade do gate 1). */
     is_blocked: boolean;
+    /**
+     * Os campos do contato preenchidos (fork jhoow): nome curto, nome de
+     * saudação, profissão, cidade… já resolvidos. Opcional pelo mesmo motivo
+     * de `contact_id` (fixtures congeladas).
+     */
+    campos?: Record<string, string>;
+    /** O idioma em que a conversa acontece (contexto da conversa → ficha → perfil). */
+    idioma_conversa?: string | null;
   };
   conversation_id: string | null;
   previous_service?: { label: string; outcomes: string[] };
@@ -161,6 +195,8 @@ interface ContactRow {
   source: string | null;
   consent: Record<string, unknown> | null;
   is_anonymized: boolean;
+  custom_fields?: Record<string, unknown> | null;
+  locale?: string | null;
 }
 
 interface DecisionRow {
@@ -208,7 +244,8 @@ export async function getLeadContext(
   knobs: LeadContextKnobs,
 ): Promise<LeadContextResult> {
   const { rows: contactRows } = await db.query<ContactRow>(
-    `select name, display_name, email, phone_number, tags, is_blocked, source, consent, is_anonymized
+    `select name, display_name, email, phone_number, tags, is_blocked, source, consent, is_anonymized,
+            custom_fields, locale
      from contacts where organization_id = $1 and id = $2`,
     [input.tenantId, input.leadId],
   );
@@ -231,6 +268,19 @@ export async function getLeadContext(
       [input.tenantId, input.leadId],
     );
     conversationId = rows[0]?.id ?? null;
+  }
+
+  // O idioma da conversa gravado no CONTEXTO DA CONVERSA (a campanha o inicia;
+  // ver `lib/campanhas/idioma.ts`). Sem conversa ou sem idioma, cai na ficha.
+  let idiomaDaConversaGravado: string | null = null;
+  if (conversationId !== null) {
+    const { rows } = await db
+      .query<{ idioma: string | null }>(
+        `select metadata->>'idioma_conversa' as idioma from conversations where organization_id = $1 and id = $2`,
+        [input.tenantId, conversationId],
+      )
+      .catch(() => ({ rows: [] as Array<{ idioma: string | null }> }));
+    idiomaDaConversaGravado = rows[0]?.idioma ?? null;
   }
 
   // A decisão vem do BARRAMENTO (crm_lead_activities), não de coluna nova: a
@@ -333,6 +383,7 @@ export async function getLeadContext(
         email: contact.email,
         tags: contact.tags ?? [],
         is_blocked: contact.is_blocked,
+        ...camposDoContatoParaIA(contact, idiomaDaConversaGravado),
       },
       conversation_id: conversationId,
       last_human_decision: lastHumanDecision,

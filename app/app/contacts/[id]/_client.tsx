@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useContact } from "@/hooks/contacts/useContact";
-import { ConsentimentoDeCampanhas, VariaveisDoPerfil } from "@/components/contacts/ConsentimentoEVariaveis";
+import { ConsentimentoDeCampanhas } from "@/components/contacts/ConsentimentoEVariaveis";
+import { CamposDoContato } from "@/components/contacts/CamposDoContato";
 import { useUnblockContact } from "@/hooks/contacts/useUnblockContact";
 import { useHierarquiaDoAnuncio } from "@/hooks/contacts/useHierarquiaDoAnuncio";
 import { useAuth } from "@/hooks/auth/AuthProvider";
@@ -358,8 +359,18 @@ export function ContactDetailClient({ contactId }: Props) {
               consent={contact.consent}
               podeEditar={!contact.is_anonymized}
             />
-            <VariaveisDoPerfil campos={contact.custom_fields} />
           </div>
+          {!contact.is_anonymized && (
+            <Card className="mt-4 p-4">
+              <CamposDoContato
+                contactId={contact.id}
+                podeEditar={
+                  user.support?.access_mode !== "support_readonly" &&
+                  Boolean(activeOrg && ROLE_RANK[activeOrg.role] >= ROLE_RANK.agent)
+                }
+              />
+            </Card>
+          )}
           <div className="mt-4">
             <RoteirosDoContato contactId={contactId} />
           </div>

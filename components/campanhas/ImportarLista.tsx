@@ -8,6 +8,7 @@ import { useEtapas, useFunis, useVariaveisDaOrganizacao } from "@/hooks/campanha
 import { useT } from "@/hooks/i18n/useT";
 import { decodificarCsv, parseCsv } from "@/lib/contacts/csv";
 import {
+  DESTINOS_DO_CATALOGO,
   DESTINOS_FIXOS,
   MAX_LINHAS_IMPORTADAS,
   POLITICAS_DE_DUPLICATA,
@@ -18,9 +19,11 @@ import {
 } from "@/lib/campanhas/importacao";
 import { lerXlsx } from "@/lib/campanhas/xlsx";
 import { NOMES_RESERVADOS } from "@/lib/variables/sistema";
+import { campoDoCatalogo } from "@/lib/variables/campos-do-contato";
 
 export interface ResumoDaLista {
-  fonteId: string;
+  /** `null` no import de Contatos (não grava audiência). */
+  fonteId: string | null;
   total: number;
   criados: number;
   atualizados: number;
@@ -53,27 +56,32 @@ type ErroDeLeitura = keyof typeof ERRO_DE_LEITURA;
  * para auditoria e devolve a lista (`campaign_audience_sources`).
  */
 export function ImportarLista({
-  importada,
+  importada = null,
   onImportada,
   onTrocar,
+  destino = "campanha",
 }: {
-  importada: { id: string; resumo: ResumoDaLista | null } | null;
-  onImportada: (r: ResumoDaLista) => void;
-  onTrocar: () => void;
+  importada?: { id: string; resumo: ResumoDaLista | null } | null;
+  onImportada?: (r: ResumoDaLista) => void;
+  onTrocar?: () => void;
+  /** "contatos": a página de Contatos — atualiza a base, sem audiência de campanha. */
+  destino?: "campanha" | "contatos";
 }) {
   const t = useT();
+  const [concluida, setConcluida] = useState<ResumoDaLista | null>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [tabela, setTabela] = useState<string[][] | null>(null);
   const [erro, setErro] = useState<ErroDeLeitura | null>(null);
   const [destinos, setDestinos] = useState<DestinoDaColuna[]>([]);
-  const [politica, setPolitica] = useState<PoliticaDeDuplicata>("manter");
+  const [politica, setPolitica] = useState<PoliticaDeDuplicata>(destino === "contatos" ? "atualizar" : "manter");
   const [criarCards, setCriarCards] = useState(false);
   const [funil, setFunil] = useState("");
   const [etapa, setEtapa] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erroDoEnvio, setErroDoEnvio] = useState<string | null>(null);
   const variaveis = useVariaveisDaOrganizacao();
-  const personalizadas = useMemo(() => variaveis.data ?? [], [variaveis.data]);
+  // As da organização que NÃO são campos do catálogo (esses aparecem no grupo próprio).
+  const personalizadas = useMemo(() => (variaveis.data ?? []).filter((p) => !campoDoCatalogo(p.key)), [variaveis.data]);
   const funis = useFunis();
   const etapas = useEtapas(funil || null);
 
@@ -120,7 +128,7 @@ export function ImportarLista({
   const novas = destinos.flatMap((d, i) => {
     if (!d.startsWith("var:")) return [];
     const key = d.slice(4);
-    if (existentes.includes(key) || NOMES_RESERVADOS.has(key)) return [];
+    if (existentes.includes(key) || NOMES_RESERVADOS.has(key) || campoDoCatalogo(key)) return [];
     return [{ key, label: (cabecalho[i] ?? key).slice(0, 80) || key, type: "texto" as const }];
   });
 
@@ -142,13 +150,15 @@ export function ImportarLista({
     );
     form.append("arquivo", arquivo);
     try {
-      const res = await fetch("/api/v1/campaigns/audiences/import", { method: "POST", body: form });
+      const rota = destino === "contatos" ? "/api/v1/contacts/import/mapeado" : "/api/v1/campaigns/audiences/import";
+      const res = await fetch(rota, { method: "POST", body: form });
       const json = (await res.json().catch(() => null)) as { data?: ResumoDaLista; error?: { message?: string } } | null;
       if (!res.ok || !json?.data) {
         setErroDoEnvio(json?.error?.message ?? t("Não foi possível importar a lista."));
         return;
       }
-      onImportada(json.data);
+      if (destino === "contatos") setConcluida(json.data);
+      onImportada?.(json.data);
       setTabela(null);
       setArquivo(null);
     } catch {
@@ -156,6 +166,23 @@ export function ImportarLista({
     } finally {
       setEnviando(false);
     }
+  }
+
+  if (destino === "contatos" && concluida) {
+    const r = concluida;
+    return (
+      <div className="space-y-2 rounded-md border border-border p-3 text-sm" data-testid="lista-importada">
+        <p className="font-medium">{t("Planilha importada")}</p>
+        <p className="text-muted-foreground">
+          {r.criados} {t("criados")} · {r.atualizados} {t("atualizados")} · {r.mantidos} {t("mantidos")} · {r.pulados}{" "}
+          {t("pulados")} · {r.invalidos} {t("inválidos")}
+          {r.cards > 0 ? ` · ${r.cards} ${t("cards no funil")}` : ""}
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={() => setConcluida(null)}>
+          {t("Importar outra planilha")}
+        </Button>
+      </div>
+    );
   }
 
   if (importada) {
@@ -173,7 +200,7 @@ export function ImportarLista({
         ) : (
           <p className="text-muted-foreground">{t("Use “Ver quantas pessoas” para conferir quem recebe.")}</p>
         )}
-        <Button type="button" variant="outline" size="sm" onClick={onTrocar}>
+        <Button type="button" variant="outline" size="sm" onClick={() => onTrocar?.()}>
           {t("Trocar lista")}
         </Button>
       </div>
@@ -219,6 +246,13 @@ export function ImportarLista({
                         {t(d.rotulo)}
                       </option>
                     ))}
+                    <optgroup label={t("Campos do contato")}>
+                      {DESTINOS_DO_CATALOGO.map((d) => (
+                        <option key={d.valor} value={d.valor}>
+                          {t(d.rotulo)}
+                        </option>
+                      ))}
+                    </optgroup>
                     {personalizadas.map((p) => (
                       <option key={p.key} value={`var:${p.key}`}>
                         {t("Variável")}: {p.label}
@@ -226,7 +260,7 @@ export function ImportarLista({
                     ))}
                     {(() => {
                       const sugerida = sugerirDestino(c, existentes);
-                      return sugerida.startsWith("var:") && !existentes.includes(sugerida.slice(4)) ? (
+                      return sugerida.startsWith("var:") && !existentes.includes(sugerida.slice(4)) && !campoDoCatalogo(sugerida.slice(4)) ? (
                         <option value={sugerida}>
                           {t("Nova variável")}: {`{${sugerida.slice(4)}}`}
                         </option>

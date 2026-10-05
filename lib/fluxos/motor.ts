@@ -110,6 +110,10 @@ export interface DepsDoMotor {
     email: string | null;
     etiquetas: string[];
     campos: Record<string, unknown>;
+    /** Fork jhoow: o resto do contato para as variáveis do catálogo. */
+    locale?: string | null;
+    origem?: string | null;
+    ultimaInteracao?: string | null;
   }>;
   /** O estado da conversa que a Condicional lê. */
   carregarConversa(
@@ -322,11 +326,18 @@ export async function executarPasso(
 
   const contato = await deps.carregarContato(org, enrollment.contact_id);
   let etiquetasAtuais = contato.etiquetas;
+  // O relógio das variáveis de tempo: o da organização, e o do contato quando conhecido.
+  const fusoDasVariaveis = await deps.fusoDaOrganizacao(org).catch(() => undefined);
   const contexto = (): ContextoDeVariaveis => ({
     nome: contato.nome,
     telefone: contato.telefone,
     campos: contato.campos,
     ultimaMensagem,
+    email: contato.email,
+    locale: contato.locale ?? null,
+    origem: contato.origem ?? null,
+    ultimaInteracao: contato.ultimaInteracao ?? null,
+    ...(fusoDasVariaveis ? { fuso: fusoDasVariaveis } : {}),
   });
 
   // ── O laço: executa blocos até parar ─────────────────────────────────────

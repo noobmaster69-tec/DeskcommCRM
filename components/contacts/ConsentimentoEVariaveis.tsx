@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -82,48 +82,6 @@ export function ConsentimentoDeCampanhas({
           )}
         </div>
       )}
-    </Card>
-  );
-}
-
-interface Definicao {
-  key: string;
-  label: string;
-  visible_in_profile: boolean;
-  default_value: string | null;
-}
-
-/** As variáveis da organização marcadas "mostrar no perfil" (item 2), com o valor deste contato. */
-export function VariaveisDoPerfil({ campos }: { campos: Record<string, unknown> | null | undefined }) {
-  const t = useT();
-  const [defs, setDefs] = useState<Definicao[]>([]);
-  useEffect(() => {
-    let vivo = true;
-    fetch("/api/v1/variaveis")
-      .then((r) => (r.ok ? (r.json() as Promise<{ data: { personalizadas: Definicao[] } }>) : null))
-      .then((j) => vivo && j && setDefs((j.data.personalizadas ?? []).filter((d) => d.visible_in_profile)))
-      .catch(() => {});
-    return () => {
-      vivo = false;
-    };
-  }, []);
-  if (defs.length === 0) return null;
-  const valores = campos ?? {};
-  return (
-    <Card className="space-y-2 p-4" data-testid="variaveis-do-perfil">
-      <h3 className="text-sm font-semibold">{t("Variáveis")}</h3>
-      <dl className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-        {defs.map((d) => {
-          const v = Object.prototype.hasOwnProperty.call(valores, d.key) ? valores[d.key] : null;
-          const texto = v === null || v === undefined || v === "" ? (d.default_value ?? "—") : String(v);
-          return (
-            <div key={d.key}>
-              <dt className="text-xs uppercase text-muted-foreground">{d.label}</dt>
-              <dd className="mt-1">{texto}</dd>
-            </div>
-          );
-        })}
-      </dl>
     </Card>
   );
 }

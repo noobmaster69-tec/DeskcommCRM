@@ -29,6 +29,7 @@ import { useDefaultPipeline } from "@/hooks/pipelines/useDefaultPipeline";
 import { NewLeadDialog } from "@/components/kanban/NewLeadDialog";
 import { MoverParaFunil, type FunilDoSeletorDoInbox } from "./MoverParaFunil";
 import { CustomFieldsEditor, type CustomFieldDef } from "@/components/contacts/CustomFieldsEditor";
+import { CamposDoContato } from "@/components/contacts/CamposDoContato";
 import { useEditLead } from "@/hooks/kanban/useUpdateLead";
 import { useBulkAction } from "@/hooks/kanban/useBulkAction";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -769,6 +770,12 @@ export function CRMSidePanel({ conversation }: Props) {
           conversa é o canal, demanda é o que precisa acabar. Quem abre esta
           conversa está atendendo alguém que pediu alguma coisa — a primeira
           pergunta a responder é o que ainda está pendente, não quanto vale. */}
+      {contactId && !contact?.is_anonymized && (
+        <section data-testid="inbox-campos-do-contato">
+          <CamposDoContato contactId={contactId} podeEditar={!readonly} />
+        </section>
+      )}
+
       <section data-testid="inbox-demandas">
         <h3 className="text-xs font-semibold text-text">
           {t("Demandas abertas")}

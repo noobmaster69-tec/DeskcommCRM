@@ -57,6 +57,7 @@ function mundo(g: FlowGraph, inicio = "t") {
   const agendados: Array<{ motivo: MotivoDoPasso; quando: Date }> = [];
   const campos: Record<string, unknown> = {};
   let tags: string[] = ["antiga"];
+  let nome: string | null = "Maria Silva";
   const respostas: RespostaDoLead[] = [];
   const presencas: string[] = [];
   const reacoes: string[] = [];
@@ -80,7 +81,7 @@ function mundo(g: FlowGraph, inicio = "t") {
   const deps: DepsDoMotor = {
     carregarEnrollment: async () => ({ ...enrollment }),
     carregarGrafo: async () => g,
-    carregarContato: async () => ({ nome: "Maria Silva", telefone: "5511999999999", email: "maria@ex.com", etiquetas: [...tags], campos }),
+    carregarContato: async () => ({ nome, telefone: "5511999999999", email: "maria@ex.com", etiquetas: [...tags], campos }),
     carregarConversa: async () => ({ ...conversaAtual }),
     fusoDaOrganizacao: async () => "America/Sao_Paulo",
     distribuicoes: async () => ({ total: totalDistribuido, doContato: distribuidoAoContato }),
@@ -133,6 +134,8 @@ function mundo(g: FlowGraph, inicio = "t") {
     },
     salvarCampo: async (_o, _c, k, v) => {
       campos[k] = v;
+      // Como o real (fork jhoow): nome_completo/nome é a COLUNA do nome — fonte única.
+      if (k === "nome_completo" || k === "nome" || k === "nome_profissional") nome = v;
     },
     mudarEtiquetas: async (_o, _c, op, et) => {
       tags = op === "adicionar" ? [...new Set([...tags, ...et])] : tags.filter((t) => !et.includes(t));

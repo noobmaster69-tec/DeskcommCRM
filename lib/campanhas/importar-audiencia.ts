@@ -5,6 +5,7 @@ import { z } from "zod";
 import { phoneLookupVariants } from "@/lib/channels/phone-variants";
 import { normalizePhoneBR } from "@/lib/webhooks/inbound";
 import { CHAVE_DE_VARIAVEL, NOMES_RESERVADOS, TIPOS_DE_VARIAVEL } from "@/lib/variables/sistema";
+import { campoDoCatalogo, chavesAntigasDe } from "@/lib/variables/campos-do-contato";
 import { garantirCardNaEtapa } from "./card-da-campanha";
 import { MAX_LINHAS_IMPORTADAS, POLITICAS_DE_DUPLICATA, type PoliticaDeDuplicata } from "./importacao";
 
@@ -57,7 +58,8 @@ export const importacaoSchema = z.strictObject({
 export type EntradaDaImportacao = z.infer<typeof importacaoSchema>;
 
 export interface ResumoDaImportacao {
-  fonteId: string;
+  /** A lista gravada (modo campanha); `null` no import de Contatos. */
+  fonteId: string | null;
   total: number;
   criados: number;
   atualizados: number;
@@ -85,6 +87,8 @@ interface Existente {
   name: string | null;
   email: string | null;
   custom_fields: Record<string, unknown> | null;
+  /** `source_metadata.nome_manual` — nome digitado na ficha. */
+  nomeManual?: boolean;
 }
 
 export async function importarAudiencia(
@@ -92,15 +96,21 @@ export async function importarAudiencia(
   ctx: { organizationId: string; userId: string },
   entrada: EntradaDaImportacao,
   arquivo: { bytes: Uint8Array; tipo: string; extensao: string } | null,
+  opcoes: { gravarLista?: boolean; podeCriarVariaveis?: boolean; origem?: string } = {},
 ): Promise<ResumoDaImportacao> {
   const org = ctx.organizationId;
+  const gravarLista = opcoes.gravarLista ?? true;
 
-  // 1. variáveis novas (as que já existem ficam como estão)
-  if (entrada.novas_variaveis.length > 0) {
+  // 1. variáveis novas (as que já existem ficam como estão). Campo do catálogo
+  // não vira definição: ele já existe para todo mundo. Quem não pode criar
+  // variáveis (agent) importa os VALORES mesmo assim — a ficha os mostra em
+  // "Outros campos".
+  const novas = entrada.novas_variaveis.filter((v) => !campoDoCatalogo(v.key));
+  if (novas.length > 0 && (opcoes.podeCriarVariaveis ?? true)) {
     await admin
       .from("contact_custom_fields")
       .upsert(
-        entrada.novas_variaveis.map((v, i) => ({ ...v, organization_id: org, position: 1000 + i })),
+        novas.map((v, i) => ({ ...v, organization_id: org, position: 1000 + i })),
         { onConflict: "organization_id,key", ignoreDuplicates: true },
       );
   }
@@ -108,7 +118,7 @@ export async function importarAudiencia(
   // 2. arquivo original, para auditoria
   let caminho: string | null = null;
   if (arquivo) {
-    caminho = `${org}/${randomUUID()}.${arquivo.extensao}`;
+    caminho = `${org}/${gravarLista ? "" : "contatos/"}${randomUUID()}.${arquivo.extensao}`;
     const { error } = await admin.storage
       .from(BUCKET)
       .upload(caminho, arquivo.bytes, { contentType: arquivo.tipo || "application/octet-stream", upsert: false });
@@ -131,12 +141,13 @@ export async function importarAudiencia(
   for (let i = 0; i < variantes.length; i += LOTE) {
     const { data } = await admin
       .from("contacts")
-      .select("id, name, email, custom_fields, phone_number")
+      .select("id, name, email, custom_fields, phone_number, source_metadata")
       .eq("organization_id", org)
       .is("is_merged_into", null)
       .in("phone_number", variantes.slice(i, i + LOTE));
-    for (const c of (data ?? []) as Array<Existente & { phone_number: string }>) {
-      for (const v of phoneLookupVariants(c.phone_number)) porVariante.set(v, c);
+    for (const c of (data ?? []) as Array<Existente & { phone_number: string; source_metadata?: Record<string, unknown> | null }>) {
+      const e = { ...c, nomeManual: c.source_metadata?.nome_manual === true };
+      for (const v of phoneLookupVariants(c.phone_number)) porVariante.set(v, e);
     }
   }
 
@@ -157,10 +168,15 @@ export async function importarAudiencia(
         return;
       }
       if (politica === "atualizar") {
-        const patch: Record<string, unknown> = {
-          custom_fields: { ...(existente.custom_fields ?? {}), ...l.campos },
-        };
-        if (l.nome) patch.name = l.nome;
+        // Célula vazia não apaga nada (`lerLinhas` só traz o que tem valor), e o
+        // nome editado à mão na ficha não é trocado pelo da planilha.
+        const campos = { ...(existente.custom_fields ?? {}) };
+        for (const [k, v] of Object.entries(l.campos)) {
+          campos[k] = v;
+          for (const antiga of chavesAntigasDe(k)) delete campos[antiga];
+        }
+        const patch: Record<string, unknown> = { custom_fields: campos };
+        if (l.nome && !(existente.nomeManual && existente.name)) patch.name = l.nome;
         if (l.email && !existente.email) patch.email = l.email;
         await admin.from("contacts").update(patch).eq("organization_id", org).eq("id", existente.id);
         atualizados++;
@@ -181,8 +197,8 @@ export async function importarAudiencia(
         display_name: l.nome ?? l.empresa,
         phone_number: l.telefone,
         email: l.email,
-        source: "campanha_importacao",
-        source_metadata: { importacao: "campanha", arquivo: entrada.nome_do_arquivo },
+        source: opcoes.origem ?? "campanha_importacao",
+        source_metadata: { importacao: gravarLista ? "campanha" : "contatos", arquivo: entrada.nome_do_arquivo },
         custom_fields: l.campos,
         tags: [],
       })
@@ -219,7 +235,7 @@ export async function importarAudiencia(
         p_event_type: "contact.created",
         p_entity_kind: "contact",
         p_entity_id: id,
-        p_payload: { source: "campanha_importacao", has_email: !!l.email, has_phone: true, has_cpf: false },
+        p_payload: { source: opcoes.origem ?? "campanha_importacao", has_email: !!l.email, has_phone: true, has_cpf: false },
         p_metadata: { actor_type: "user" },
         p_organization_id: org,
       })
@@ -266,30 +282,34 @@ export async function importarAudiencia(
     }
   }
 
-  // 6. a lista
-  const { data: fonte, error } = await admin
-    .from("campaign_audience_sources")
-    .insert({
-      organization_id: org,
-      mode: "import",
-      contact_ids: contatos,
-      snapshot_file_path: caminho,
-      estimated_recipients: contatos.length,
-      created_by: ctx.userId,
-      config: {
-        arquivo: entrada.nome_do_arquivo,
-        mapeamento: entrada.mapeamento,
-        politica,
-        criar_cards: entrada.criar_cards,
-        contagens: { total: entrada.linhas.length, criados, atualizados, mantidos, pulados, invalidos, cards },
-      },
-    })
-    .select("id")
-    .single();
-  if (error || !fonte) throw new Error(`importação: lista — ${error?.message ?? "sem linha"}`);
+  // 6. a lista (só no modo campanha) — é ela a audiência
+  let fonteId: string | null = null;
+  if (gravarLista) {
+    const { data: fonte, error } = await admin
+      .from("campaign_audience_sources")
+      .insert({
+        organization_id: org,
+        mode: "import",
+        contact_ids: contatos,
+        snapshot_file_path: caminho,
+        estimated_recipients: contatos.length,
+        created_by: ctx.userId,
+        config: {
+          arquivo: entrada.nome_do_arquivo,
+          mapeamento: entrada.mapeamento,
+          politica,
+          criar_cards: entrada.criar_cards,
+          contagens: { total: entrada.linhas.length, criados, atualizados, mantidos, pulados, invalidos, cards },
+        },
+      })
+      .select("id")
+      .single();
+    if (error || !fonte) throw new Error(`importação: lista — ${error?.message ?? "sem linha"}`);
+    fonteId = (fonte as { id: string }).id;
+  }
 
   return {
-    fonteId: (fonte as { id: string }).id,
+    fonteId,
     total: entrada.linhas.length,
     criados,
     atualizados,

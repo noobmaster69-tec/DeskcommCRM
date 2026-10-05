@@ -160,3 +160,17 @@ describe("classificação da lista", () => {
     expect(contarExclusoes(linhas)).toEqual({ opt_out: 2, sem_telefone: 1 });
   });
 });
+
+describe("não contatar (fork jhoow)", () => {
+  it("campo da ficha marcado tira o contato da campanha", async () => {
+    const { marcadoNaoContatar, motivoParaExcluir } = await import("./elegibilidade");
+    expect(marcadoNaoContatar({ nao_contatar: true })).toBe(true);
+    expect(marcadoNaoContatar({ nao_contatar: "Sim" })).toBe(true);
+    expect(marcadoNaoContatar({ nao_contatar: false })).toBe(false);
+    expect(marcadoNaoContatar({})).toBe(false);
+    expect(
+      motivoParaExcluir({ contactId: "c", telefone: "+5511999990001", bloqueado: false, anonimizado: false, recusouMarketing: false, naoContatar: true }),
+    ).toBe("nao_contatar");
+  });
+});
+

@@ -14,6 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useImportContacts } from "@/hooks/contacts/useImportContacts";
+import { useQueryClient } from "@tanstack/react-query";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ImportarLista } from "@/components/campanhas/ImportarLista";
 
 interface Props {
   open: boolean;
@@ -28,6 +31,7 @@ interface Props {
 export function ImportContactsDialog({ open, onOpenChange }: Props) {
   const t = useT();
   const importar = useImportContacts();
+  const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [resumo, setResumo] = useState<Awaited<ReturnType<typeof importar.mutateAsync>> | null>(null);
@@ -63,15 +67,32 @@ export function ImportContactsDialog({ open, onOpenChange }: Props) {
         onOpenChange(v);
       }}
     >
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t("Importar contatos de planilha")}</DialogTitle>
-          <DialogDescription>
-            {t(
-              "Envie um arquivo .csv com cabeçalho — colunas reconhecidas: nome, telefone, email, cpf, nascimento, tags. Excel: use “Salvar como” → “CSV UTF-8”. Máximo de 500 linhas por arquivo.",
-            )}
-          </DialogDescription>
         </DialogHeader>
+        <Tabs defaultValue="mapeada">
+          <TabsList>
+            <TabsTrigger value="mapeada">{t("Planilha com mapeamento")}</TabsTrigger>
+            <TabsTrigger value="simples">{t("CSV simples")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="mapeada" className="mt-4 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              {t(
+                "CSV ou XLSX. Você escolhe o que cada coluna é — inclusive os campos personalizados. Quem já existe é atualizado conforme a regra escolhida; célula vazia nunca apaga um valor.",
+              )}
+            </p>
+            <ImportarLista
+              destino="contatos"
+              onImportada={() => void qc.invalidateQueries({ queryKey: ["contacts"] })}
+            />
+          </TabsContent>
+          <TabsContent value="simples" className="mt-4">
+        <DialogDescription className="mb-4">
+          {t(
+            "Envie um arquivo .csv com cabeçalho — colunas reconhecidas: nome, telefone, email, cpf, nascimento, tags. Excel: use “Salvar como” → “CSV UTF-8”. Máximo de 500 linhas por arquivo.",
+          )}
+        </DialogDescription>
 
         <form onSubmit={onSubmit} className="space-y-4">
           {!resumo && (
@@ -149,6 +170,8 @@ export function ImportContactsDialog({ open, onOpenChange }: Props) {
             </div>
           )}
         </form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

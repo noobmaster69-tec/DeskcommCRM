@@ -25,8 +25,8 @@ describe("variáveis do sistema (item 2)", () => {
     expect(resolverVariavel("comentarios_google_maps", ctx)).toBe("128");
   });
 
-  it("nome_curto vira 'amigo' sem nome; ultimo_nome vazio com uma palavra só", () => {
-    expect(resolverVariavel("nome_curto", { ...ctx, nome: null })).toBe("amigo");
+  it("nome_curto sem nome fica VAZIO (o alternativo ou a barreira decidem); ultimo_nome vazio com uma palavra só", () => {
+    expect(resolverVariavel("nome_curto", { ...ctx, nome: null })).toBe("");
     expect(resolverVariavel("ultimo_nome", { ...ctx, nome: "Ana" })).toBe("");
   });
 
@@ -38,21 +38,25 @@ describe("variáveis do sistema (item 2)", () => {
   });
 
   it("os nomes antigos continuam valendo (aliases)", () => {
-    expect(chaveCanonica("nome")).toBe("nome_profissional");
+    // Fonte única: nome/nome_profissional → nome_completo; telefone/numero → whatsapp.
+    expect(chaveCanonica("nome")).toBe("nome_completo");
+    expect(chaveCanonica("nome_profissional")).toBe("nome_completo");
     expect(chaveCanonica("saudacao")).toBe("saudacao_horario");
-    expect(chaveCanonica("telefone")).toBe("numero");
+    expect(chaveCanonica("telefone")).toBe("whatsapp");
+    expect(chaveCanonica("numero")).toBe("whatsapp");
     expect(resolverVariavel("saudacao", ctx)).toBe("Boa tarde");
   });
 
   it("personalizada vem de custom_fields; o padrão entra quando falta", () => {
     expect(resolverVariavel("interesse", ctx)).toBe("ensaio");
-    expect(resolverVariavel("cidade", { ...ctx, padroes: { cidade: "São Paulo" } })).toBe("São Paulo");
+    expect(resolverVariavel("bairro", { ...ctx, padroes: { bairro: "Centro" } })).toBe("Centro");
     expect(resolverVariavel("constructor", ctx)).toBe("");
   });
 
   it("interpola {x} e {{x}}; sem valor vira vazio (fluxo) ou fica literal (prévia)", () => {
     const fluxo = interpolarVariaveis("{saudacao_horario}, {{primeiro_nome}}! {xpto}", ctx, { vazioQuandoFalta: true });
-    expect(fluxo.texto).toBe("Boa tarde, Jonatas! ");
+    // O buraco do {xpto} some sem deixar espaço sobrando.
+    expect(fluxo.texto).toBe("Boa tarde, Jonatas!");
     expect(fluxo.faltando).toEqual(["xpto"]);
     const previa = interpolarVariaveis("Oi {xpto}", ctx, { vazioQuandoFalta: false });
     expect(previa.texto).toBe("Oi {xpto}");

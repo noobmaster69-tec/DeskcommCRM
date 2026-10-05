@@ -44,13 +44,14 @@ import { beginServiceAtOrigin } from "@/lib/atendimento/origem";
 import { inscreverNoFluxo } from "@/lib/fluxos/disparar";
 import { logger } from "@/lib/logger";
 
-import { consentiuMarketing, motivoParaExcluir, recusouMarketing } from "./elegibilidade";
+import { consentiuMarketing, marcadoNaoContatar, motivoParaExcluir, recusouMarketing } from "./elegibilidade";
 import { hashDoEndereco } from "./exclusoes";
 import { renderizar } from "./renderizador";
 import { escolherNumero, poolDaCampanha, type NumeroDisponivel } from "./rodizio";
 import { podeMandarAgora, proximaTentativa, type RitmoDaCampanha } from "./ritmo";
 import { fusoDoContato, fusoValido, proximoEnvioAleatorio } from "./fuso";
 import { garantirCardNaEtapa } from "./card-da-campanha";
+import { idiomaDoEnvio as idiomaDaExecucao, iniciarIdiomaDaExecucao } from "./idioma";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { TEXTO_DA_EXCLUSAO } from "./tipos";
 
@@ -107,13 +108,15 @@ interface CampanhaRow {
   janela_inicio_minuto?: number | null;
   janela_fim_minuto?: number | null;
   wait_reason?: string | null;
+  /** O idioma da campanha (9019): inicia o idioma da prospecção/conversa. */
+  language?: string | null;
 }
 
 const COLUNAS_DA_CAMPANHA =
   "id, organization_id, channel_session_id, name, message_body, content_version, base_legal, " +
   "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
   "min_interval_seconds, max_interval_seconds, next_send_at, timezone, recipients_pipeline_id, recipients_stage_id, " +
-  "janela_inicio_minuto, janela_fim_minuto, wait_reason";
+  "janela_inicio_minuto, janela_fim_minuto, wait_reason, language";
 
 export async function rodarUmaRodadaDeCampanha(
   admin: SupabaseClient,
@@ -238,6 +241,9 @@ interface DestinatarioRow {
     consent: unknown;
     email?: string | null;
     custom_fields?: Record<string, unknown> | null;
+    locale?: string | null;
+    source?: string | null;
+    last_activity_at?: string | null;
   } | null;
 }
 
@@ -250,7 +256,7 @@ async function rodarUmaCampanha(
     .from("campaign_recipients")
     .select(
       "id, contact_id, recipient_address, rendered_body, " +
-        "contacts(id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields)",
+        "contacts(id, name, display_name, phone_number, is_blocked, is_anonymized, consent, email, custom_fields, locale, source, last_activity_at)",
     )
     .eq("campaign_id", campanha.id)
     .eq("status", "pending")
@@ -296,6 +302,7 @@ async function rodarUmaCampanha(
     anonimizado: !!contato?.is_anonymized,
     recusouMarketing: recusouMarketing(contato?.consent),
     consentiu: consentiuMarketing(contato?.consent),
+    naoContatar: marcadoNaoContatar(contato?.custom_fields),
   }, { exigeConsentimento: campanha.base_legal === "consent" });
   if (motivo) {
     await admin
@@ -469,17 +476,40 @@ async function rodarUmaCampanha(
   // preparação produziria "bom dia" numa mensagem enviada à tarde — foi o
   // defeito do primeiro piloto.
   const congelado = alvo.rendered_body ?? campanha.message_body ?? "";
+  // O idioma do envio: o da conversa já estabelecida, senão o da campanha —
+  // a saudação ("Bom dia" × "Buenos días") sai nele.
+  const idiomaDoEnvio = idiomaDaExecucao(
+    (contato?.custom_fields ?? null) as Record<string, unknown> | null,
+    campanha.language,
+    contato?.locale,
+  );
   // As variáveis do contato (item 2) — as de TEMPO resolvem aqui, no envio.
-  const corpo = renderizar(
+  const renderizado = renderizar(
     congelado,
     {
       nome: nomeDoContato(contato),
       telefone: contato?.phone_number ?? alvo.recipient_address,
       email: contato?.email ?? null,
       campos: (contato?.custom_fields ?? {}) as Record<string, unknown>,
+      locale: contato?.locale ?? null,
+      origem: contato?.source ?? null,
+      ultimaInteracao: contato?.last_activity_at ?? null,
+      campanhaId: campanha.id,
     },
-    { agora, fuso: fusoDoDestinatario },
-  ).texto;
+    { agora, fuso: fusoDoDestinatario, idioma: idiomaDoEnvio },
+  );
+  const corpo = renderizado.texto;
+  // ÚLTIMA barreira: variável que ficou sem valor no envio (o campo foi apagado
+  // da ficha depois da preparação) NÃO sai crua — "{nome_curto}" na mensagem é
+  // pior que não mandar. O destinatário sai da fila com o motivo visível.
+  if (campanha.mode !== "flow" && (renderizado.faltando.length > 0 || renderizado.desconhecidas.length > 0)) {
+    await admin
+      .from("campaign_recipients")
+      .update({ status: "skipped", eligibility_status: "excluded", exclusion_reason: "variavel_ausente" })
+      .eq("id", alvo.id)
+      .eq("status", "sending");
+    return { enviadas: 0, pulados: 1, concluidas: 0, detalhe: "pulado:variavel_ausente" };
+  }
 
   try {
     const boundary = await beginServiceAtOrigin(
@@ -492,6 +522,14 @@ async function rodarUmaCampanha(
       .from("campaign_recipients")
       .update({ conversation_id: boundary.conversation_id, channel_session_id: sessionEscolhida })
       .eq("id", alvo.id);
+    // O idioma da campanha INICIA o da prospecção/conversa (ficha + contexto da
+    // conversa), só onde ainda não há — antes do fluxo, para os blocos já o lerem.
+    await iniciarIdiomaDaExecucao(pool, {
+      organizationId: campanha.organization_id,
+      contactId: alvo.contact_id,
+      conversationId: boundary.conversation_id,
+      idioma: campanha.language,
+    });
 
     // ─── Item 4: a campanha INICIA UM FLUXO em vez de mandar o texto ───
     // A campanha decide QUEM e QUANDO (público, ritmo, janela, rodízio); daqui

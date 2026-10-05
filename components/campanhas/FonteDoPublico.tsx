@@ -259,7 +259,7 @@ export function FonteDoPublico({
           onImportada={(r) =>
             setV((a) => ({
               ...a,
-              listaImportada: r.fonteId,
+              listaImportada: r.fonteId ?? "",
               resumoDaLista: r,
               // O teto acompanha a lista: importar 800 e mandar para 100 seria surpresa.
               limite: String(Math.min(5000, Math.max(Number(a.limite) || 0, r.criados + r.atualizados + r.mantidos))),

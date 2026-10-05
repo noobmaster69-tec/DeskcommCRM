@@ -75,7 +75,7 @@ export function ResumirConversa({ conversationId, disabled }: { conversationId: 
         )}
         {estado.fase === "pronto" && (
           <>
-            <p className="max-h-60 overflow-y-auto whitespace-pre-wrap text-sm">{estado.resumo}</p>
+            <p className="max-h-60 overflow-y-auto whitespace-pre-wrap wrap-anywhere text-sm">{estado.resumo}</p>
             <div className="flex justify-end">
               <Button
                 type="button"

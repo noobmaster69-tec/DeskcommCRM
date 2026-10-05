@@ -126,6 +126,9 @@ async function classificar(
         telefone: c.telefone,
         email: c.email ?? null,
         campos: c.campos ?? {},
+        locale: c.locale ?? null,
+        origem: c.origem ?? null,
+        ultimaInteracao: c.ultimaInteracao ?? null,
         ...variaveis,
       });
       return { texto: r.texto, faltando: r.faltando };

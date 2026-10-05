@@ -14,6 +14,7 @@ import { createSupabaseAdminClient, type FollowupJobRequest } from "@/lib/follow
 import type { EnrollmentRow } from "@/lib/followup/node-handlers";
 import { completeTurnForEnrollment, type TurnBridgeAdminClient } from "@/lib/followup/turn-bridge";
 import { logger } from "@/lib/logger";
+import { interpolarParaContato } from "@/lib/variables/contexto-do-envio";
 
 function ponteSupabase(admin: SupabaseClient): TurnBridgeAdminClient {
   const base = createSupabaseAdminClient(admin);
@@ -78,11 +79,11 @@ export async function enviarTextoFixoPendente(
   const ponte = ponteSupabase(admin);
   for (const job of jobs ?? []) {
     const payload = (job.payload ?? {}) as FollowupJobRequest["payload"];
-    const body = payload.fixed_body;
+    const bruto = payload.fixed_body;
     const enrollmentId = payload.followup_enrollment_id;
     const nodeId = payload.node_id;
     const contactId = job.contact_id as string | null;
-    if (typeof body !== "string" || !body || !enrollmentId || !nodeId || !contactId) continue;
+    if (typeof bruto !== "string" || !bruto || !enrollmentId || !nodeId || !contactId) continue;
     if (somenteContactIds && !somenteContactIds.includes(contactId)) continue;
 
     const { data: claimed, error: claimErr } = await admin
@@ -134,6 +135,8 @@ export async function enviarTextoFixoPendente(
         continue;
       }
 
+      // Fork jhoow: as variáveis do contato resolvem no envio (antes o token saía cru).
+      const body = await interpolarParaContato(admin, { organizationId: job.organization_id as string, contactId, texto: bruto });
       const proactiveContext={organizationId:job.organization_id as string,contactId,enrollmentId,nodeId,jobId:job.id,jobClaim};
       await assertAgendaEffectSupabase(admin,proactiveContext);
       const resultado=await sendWithLedger(supabaseSendLedger(admin),{tenantId:job.organization_id,leadId:contactId,jobId:job.id,seq:1,body},async(key,messageId)=>sendMessageHandler(

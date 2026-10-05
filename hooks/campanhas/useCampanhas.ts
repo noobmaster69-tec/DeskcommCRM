@@ -68,6 +68,8 @@ export interface CampanhaDetalhada extends CampanhaDaLista {
   janela_fim_minuto?: number | null;
   wait_reason?: string | null;
   wait_until?: string | null;
+  /** 9019: idioma da campanha. */
+  language?: string | null;
 }
 
 export interface Destinatario {

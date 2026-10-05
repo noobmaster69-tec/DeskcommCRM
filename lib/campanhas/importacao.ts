@@ -3,6 +3,7 @@
  * a parte PURA: o que cada coluna da planilha vira, a validação de telefone e
  * os duplicados. Roda igual no navegador (prévia) e no servidor (gravação).
  */
+import { CAMPOS_DO_CONTATO, campoDoCatalogo } from "@/lib/variables/campos-do-contato";
 import { CHAVE_DE_VARIAVEL, NOMES_RESERVADOS } from "@/lib/variables/sistema";
 
 /** Teto de linhas por importação: o mesmo limite de contatos de uma campanha. */
@@ -27,6 +28,33 @@ export const DESTINOS_FIXOS: ReadonlyArray<{ valor: DestinoDaColuna; rotulo: str
   { valor: "ignorar", rotulo: "Ignorar esta coluna" },
 ];
 
+/**
+ * Os CAMPOS DO CATÁLOGO que uma coluna pode preencher (fork jhoow) — os mesmos
+ * da ficha do contato. Ficam como `var:<chave>`; nome, telefone e e-mail têm
+ * destino próprio acima.
+ */
+export const DESTINOS_DO_CATALOGO: ReadonlyArray<{ valor: DestinoDaColuna; rotulo: string }> = CAMPOS_DO_CONTATO.filter(
+  (c) => (c.origem === "padrao" || c.aceitaManual) && c.chave !== "nome_empresa" && c.chave !== "n_avaliacoes_gg",
+).map((c) => ({ valor: `var:${c.chave}` as DestinoDaColuna, rotulo: c.rotulo }));
+
+/** Sinônimos de cabeçalho → campo do catálogo (sem acento, minúsculo). */
+const SINONIMOS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^(cidade|city|municipio|localidade)$/, "cidade"],
+  [/^(pais|country)$/, "pais"],
+  [/^(site|website|site atual|url do site|pagina)$/, "site_atual"],
+  [/(maps.*(url|link)|link.*maps|google maps url)/, "google_maps_url"],
+  [/^(nota|rating|nota (no )?google|estrelas)$/, "nota_avaliacoes_gg"],
+  [/^(especialidade|specialty|area)$/, "especialidade"],
+  [/^(profissao|profession|ocupacao|cargo)$/, "profissao_singular"],
+  [/^(tratamento|titulo|title)$/, "tratamento"],
+  [/^(idioma|lingua|language)$/, "idioma_prospeccao"],
+  [/^(fuso|fuso horario|timezone|time zone)$/, "fuso_horario"],
+  [/^(nome curto|apelido|como chamar)$/, "nome_curto"],
+  [/^(origem|fonte|source)$/, "origem_contato"],
+  [/^(status)$/, "status_contato"],
+  [/^(observacao|observacoes|obs|nota interna)$/, "observacao_personalizacao"],
+];
+
 function semAcento(s: string): string {
   return s
     .normalize("NFD")
@@ -49,6 +77,8 @@ export function chaveDoCabecalho(cabecalho: string): string {
 /** O destino sugerido para cada cabeçalho — o operador confere e troca no mapeamento visual. */
 export function sugerirDestino(cabecalho: string, variaveisExistentes: readonly string[] = []): DestinoDaColuna {
   const c = semAcento(cabecalho);
+  // Os sinônimos do catálogo primeiro: "Google Maps URL" e "Nota Google" não são avaliações.
+  for (const [rx, campo] of SINONIMOS) if (rx.test(c)) return `var:${campo}`;
   if (/^(nome|name|nome[ _]?(do[ _]?)?profissional|nome[ _]?completo|contato|responsavel)$/.test(c)) return "nome_profissional";
   if (/(empresa|company|negocio|estabelecimento|loja|razao social|nome[ _]?fantasia)/.test(c)) return "nome_empresa";
   if (/(telefone|celular|whats|fone|phone|numero|n[ºo°]? ?contato)/.test(c)) return "numero_contato";
@@ -56,6 +86,9 @@ export function sugerirDestino(cabecalho: string, variaveisExistentes: readonly 
   if (/(avalia|review|coment|google)/.test(c)) return "comentarios_google_maps";
   const chave = chaveDoCabecalho(cabecalho);
   if (chave && variaveisExistentes.includes(chave)) return `var:${chave}`;
+  // Cabeçalho que já é a chave de um campo do catálogo (ou alias antigo) vai para ele.
+  const doCatalogo = chave ? campoDoCatalogo(chave) : null;
+  if (doCatalogo) return `var:${doCatalogo.chave}`;
   return chave ? `var:${chave}` : "ignorar";
 }
 
@@ -121,8 +154,12 @@ export function lerLinhas(
         l.campos.nome_empresa = l.empresa;
       } else if (destino === "numero_contato") telefoneBruto = valor;
       else if (destino === "email") l.email = valor.slice(0, 254);
-      else if (destino === "comentarios_google_maps") l.campos.comentarios_google_maps = valor.replace(/[^\d]/g, "") || valor;
-      else if (destino.startsWith("var:")) l.campos[destino.slice(4)] = valor.slice(0, 1000);
+      // Fonte única: as avaliações vão para `n_avaliacoes_gg` (o `{comentarios_google_maps}` lê o mesmo valor).
+      else if (destino === "comentarios_google_maps") l.campos.n_avaliacoes_gg = valor.replace(/[^\d]/g, "") || valor;
+      else if (destino.startsWith("var:")) {
+        const k = destino.slice(4);
+        l.campos[campoDoCatalogo(k)?.chave ?? k] = valor.slice(0, 1000);
+      }
     });
     const tel = telefoneE164(telefoneBruto);
     if (!tel) {

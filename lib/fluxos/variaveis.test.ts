@@ -29,13 +29,16 @@ describe("variáveis dos fluxos", () => {
   });
 
   it("sugestões trazem as fixas e os campos da organização", () => {
-    const s = variaveisSugeridas(["cidade"]);
+    const s = variaveisSugeridas(["interesse"]);
     // As fixas de sempre, as do SISTEMA (Configurações › Variáveis) e a da org, sem repetir.
     expect(s.slice(0, 3)).toEqual(["nome", "primeiro_nome", "telefone"]);
     expect(s).toContain("saudacao_horario");
     expect(s).toContain("nome_empresa");
     expect(s).toContain("ultima_mensagem");
-    expect(s[s.length - 1]).toBe("cidade");
+    // Os campos do catálogo da ficha também (fork jhoow) — e o da org por último.
+    expect(s).toContain("nome_saudacao");
+    expect(s).toContain("cidade");
+    expect(s[s.length - 1]).toBe("interesse");
     expect(new Set(s).size).toBe(s.length);
   });
 });
