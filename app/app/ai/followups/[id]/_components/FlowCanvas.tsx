@@ -14,6 +14,7 @@ import {
   useReactFlow,
   type Connection,
   type EdgeMouseHandler,
+  type EdgeTypes,
   type NodeMouseHandler,
   type NodeTypes,
 } from "@xyflow/react";
@@ -64,6 +65,8 @@ import { CollectNode } from "./nodes/CollectNode";
 import { InternalTaskNode } from "./nodes/InternalTaskNode";
 import { SkillNode } from "./nodes/SkillNode";
 import { BlocoDoFluxoNode } from "@/app/app/fluxos/_blocos/BlocoDoFluxoNode";
+import { ArestaDoFluxo, ArestaDoFluxoContext } from "@/app/app/fluxos/_editor/ArestaDoFluxo";
+import { rotuloDaArestaDoFluxo } from "@/app/app/fluxos/_editor/aresta-do-fluxo";
 
 const EMPTY_GRAPH: FlowGraph = { nodes: [], edges: [] };
 const DND_MIME = "application/x-followup-node-type";
@@ -103,6 +106,10 @@ const nodeTypes: NodeTypes = {
   kanban: BlocoDoFluxoNode,
 };
 
+// Fluxos (fork jhoow, item 6): a linha sem painel de condição — selecionar,
+// apagar com Delete ou com o X do hover. Follow-up segue com a aresta padrão.
+const edgeTypes: EdgeTypes = { fluxo: ArestaDoFluxo };
+
 interface Props {
   flowId: string;
   initialData: FollowupFlowDetailRow;
@@ -127,6 +134,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
   // apagava — `fromReactFlow` só conhece nós e arestas.
   const [settings, setSettings] = useState<FlowGraph["settings"]>(initialData.draft_graph?.settings);
   const surface = initialData.surface ?? "followup";
+  const isFluxo = surface === "fluxo";
   // Continue after the largest persisted suffix. Starting again at 1 makes a
   // newly-created node/edge reuse an existing React Flow key and visually
   // replace a connection in older drafts.
@@ -136,6 +144,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [arestaEmFoco, setArestaEmFoco] = useState<string | null>(null);
 
   const liveGraph = useMemo(() => {
     const base = fromReactFlow(nodes, edges);
@@ -197,6 +206,17 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
       edges.map((e) => {
         const condition = e.data?.condition ?? { type: "always" as const };
         const source = nodes.find((n) => n.id === e.source);
+        if (isFluxo) {
+          // Fluxos: a linha não tem condição própria — só a saída de um bloco
+          // com várias saídas ganha nome (Sim/Não, Saída N). Sem "Sempre".
+          const rotulo = rotuloDaArestaDoFluxo(source ? toFlowNode(source) : undefined, condition, nomes);
+          return {
+            ...e,
+            type: "fluxo" as const,
+            label: rotulo ? t(rotulo) : undefined,
+            selected: e.id === selectedEdgeId,
+          };
+        }
         const branch = source
           ? nodeBranches(toFlowNode(source)).find(
               (b) => b.id === branchIdForCondition(toFlowNode(source), condition),
@@ -209,7 +229,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
           selected: e.id === selectedEdgeId,
         };
       }),
-    [edges, nodes, selectedEdgeId, t, nomes],
+    [edges, nodes, selectedEdgeId, t, nomes, isFluxo],
   );
 
   // Quais saídas do nó selecionado já têm aresta. Quem sabe isso é o canvas —
@@ -294,6 +314,13 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
     [setEdges],
   );
 
+  const contextoDaAresta = useMemo(
+    () => ({ emFoco: arestaEmFoco, focar: setArestaEmFoco, excluir: deleteEdge }),
+    [arestaEmFoco, deleteEdge],
+  );
+  const onEdgeMouseEnter = useCallback<EdgeMouseHandler<RFEdge>>((_, edge) => setArestaEmFoco(edge.id), []);
+  const onEdgeMouseLeave = useCallback<EdgeMouseHandler<RFEdge>>(() => setArestaEmFoco(null), []);
+
   const onDeleteSelection = useCallback(() => {
     if (selectedNodeId) deleteNode(selectedNodeId);
     else if (selectedEdgeId) deleteEdge(selectedEdgeId);
@@ -373,10 +400,16 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
         </Sheet>
 
         <div className="relative h-full flex-1" data-testid="flow-canvas" onDragOver={onDragOver} onDrop={onDrop}>
+          <ArestaDoFluxoContext.Provider value={contextoDaAresta}>
           <ReactFlow
             nodes={nodes}
             edges={edgesForRender}
             nodeTypes={nodeTypes}
+            edgeTypes={isFluxo ? edgeTypes : undefined}
+            onEdgeMouseEnter={isFluxo ? onEdgeMouseEnter : undefined}
+            onEdgeMouseLeave={isFluxo ? onEdgeMouseLeave : undefined}
+            // Fluxos: Delete também apaga (Backspace é o padrão da lib).
+            deleteKeyCode={isFluxo ? ["Backspace", "Delete"] : undefined}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
@@ -417,6 +450,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
               />
             )}
           </ReactFlow>
+          </ArestaDoFluxoContext.Provider>
           <Button
             type="button"
             variant="secondary"
@@ -472,7 +506,8 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
           </aside>
         )}
 
-        {selectedEdge && (
+        {/* Fluxos não têm painel de aresta (item 6): a linha só é selecionada. */}
+        {selectedEdge && !isFluxo && (
           <aside
             className="fixed inset-x-0 bottom-0 z-40 flex max-h-[75vh] flex-col overflow-hidden rounded-t-lg border-t border-border bg-surface shadow-lg lg:static lg:z-auto lg:h-full lg:w-96 lg:max-h-none lg:shrink-0 lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none"
             data-testid="edge-config-sheet"

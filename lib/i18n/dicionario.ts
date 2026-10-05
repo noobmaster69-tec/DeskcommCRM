@@ -14024,6 +14024,8 @@ export const DICIONARIO: Traducoes = {
   "Para perder o negócio, use a etapa de perda do funil onde ele está.": { es: "Para perder el negocio, usa la etapa de pérdida del embudo donde está." },
   "Este funil é de outro CRM. Dentro do mesmo CRM o card se move; para levá-lo a outro CRM, use «Levar para outro funil» no quadro (POST /api/v1/leads/[id]/clone) — ele cria o negócio lá e encerra este.": { es: "Este embudo es de otro CRM. Dentro del mismo CRM la tarjeta se mueve; para llevarla a otro CRM, usa «Llevar a otro embudo» en el tablero (POST /api/v1/leads/[id]/clone): crea el negocio allí y cierra este." },
   "Opções de": { es: "Opciones de" },
+  // Fluxos › canvas no modelo Leona, item 6 (fork jhoow): a linha sem painel de condição.
+  "Excluir ligação": { es: "Eliminar conexión" },
 };
 
 /**
