@@ -14230,6 +14230,26 @@ export const DICIONARIO: Traducoes = {
   // Campanhas › item 4 (fork jhoow): métricas do fluxo.
   "entraram no fluxo": { es: "entraron al flujo" },
   "concluíram o fluxo": { es: "completaron el flujo" },
+  // Campanhas › item 7 (fork jhoow): intervalo aleatório e fuso.
+  "Intervalo mínimo (segundos)": { es: "Intervalo mínimo (segundos)" },
+  "Intervalo máximo (segundos)": { es: "Intervalo máximo (segundos)" },
+  "Cada envio aguarda um tempo aleatório entre esses valores. Evita o padrão robótico que o WhatsApp detecta.": { es: "Cada envío espera un tiempo aleatorio entre estos valores. Evita el patrón robótico que WhatsApp detecta." },
+  "Fuso horário desta campanha": { es: "Zona horaria de esta campaña" },
+  "O do número (Conexões › Proteção de envio)": { es: "La del número (Conexiones › Protección de envío)" },
+  "🇧🇷 Brasil": { es: "🇧🇷 Brasil" },
+  "🇵🇹 Portugal": { es: "🇵🇹 Portugal" },
+  "🇬🇧 Reino Unido": { es: "🇬🇧 Reino Unido" },
+  "🇪🇸 Espanha": { es: "🇪🇸 España" },
+  "🇳🇱 Holanda": { es: "🇳🇱 Países Bajos" },
+  "Outro…": { es: "Otro…" },
+  "Escolha o fuso": { es: "Elige la zona horaria" },
+  "Agora no fuso selecionado são": { es: "Ahora en la zona horaria elegida son las" },
+  "a campanha pode enviar": { es: "la campaña puede enviar" },
+  "fora da janela de envio": { es: "fuera del horario de envío" },
+  "Quando o fuso do contato é conhecido (campo timezone da ficha ou o DDI de um país de fuso único), a janela vale no fuso dele.": { es: "Cuando se conoce la zona horaria del contacto (campo timezone de la ficha o el prefijo de un país con una sola zona), el horario vale en su zona." },
+  "O intervalo mínimo é de pelo menos 10 segundos.": { es: "El intervalo mínimo es de al menos 10 segundos." },
+  "O intervalo máximo não pode ser menor que o mínimo.": { es: "El intervalo máximo no puede ser menor que el mínimo." },
+  "Fuso horário desconhecido.": { es: "Zona horaria desconocida." },
 };
 
 /**

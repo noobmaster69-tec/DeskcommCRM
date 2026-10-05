@@ -53,6 +53,11 @@ export interface CampanhaDetalhada extends CampanhaDaLista {
   /** Item 4 (9014): o que a campanha faz com cada contato. */
   mode?: "text" | "flow";
   flow_id?: string | null;
+  /** Item 7 (9015). */
+  min_interval_seconds?: number;
+  max_interval_seconds?: number;
+  timezone?: string | null;
+  next_send_at?: string | null;
 }
 
 export interface Destinatario {

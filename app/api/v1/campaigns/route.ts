@@ -161,6 +161,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       stage_id: entrada.stage_id ?? null,
       agent_id: entrada.agent_id ?? null,
       mode: entrada.mode ?? "text",
+      min_interval_seconds: entrada.min_interval_seconds ?? 60,
+      max_interval_seconds: entrada.max_interval_seconds ?? 180,
+      timezone: entrada.timezone ?? null,
       flow_id: entrada.flow_id ?? null,
       created_by: user.id,
     })

@@ -22,6 +22,7 @@ import { channelLabel, useChannelSessions } from "@/hooks/channels/useChannelSes
 import { useT } from "@/hooks/i18n/useT";
 import { useAgentesPublicados, useEtapas, useFunis } from "@/hooks/campanhas/useDestinoDaCampanha";
 import { ListaDeVariaveis } from "@/components/campanhas/ListaDeVariaveis";
+import { CamposDeRitmo } from "@/components/campanhas/CamposDeRitmo";
 import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
 
 import {
@@ -51,7 +52,7 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
     setV((atual) => ({ ...atual, [campo]: valor }));
   const {
     nome, canal, baseLegal, liaRef, comAlgumaTag, semTags, semInteracao, limite, texto,
-    intervalo, janelaInicio, janelaFim, tetoDiario, tetoHorario, extras, funil, etapa, agente,
+    extras, funil, etapa, agente,
     funilDoPublico, etapaDoPublico,
   } = v;
   const setNome = (x: string) => mudar("nome", x);
@@ -64,11 +65,6 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
   const setLimite = (x: string) => mudar("limite", x);
   const setTexto = (x: string | ((atual: string) => string)) =>
     setV((atual) => ({ ...atual, texto: typeof x === "function" ? x(atual.texto) : x }));
-  const setIntervalo = (x: string) => mudar("intervalo", x);
-  const setJanelaInicio = (x: string) => mudar("janelaInicio", x);
-  const setJanelaFim = (x: string) => mudar("janelaFim", x);
-  const setTetoDiario = (x: string) => mudar("tetoDiario", x);
-  const setTetoHorario = (x: string) => mudar("tetoHorario", x);
   const setExtras = (f: (atual: string[]) => string[]) => setV((atual) => ({ ...atual, extras: f(atual.extras) }));
   const setFunil = (x: string) => mudar("funil", x);
   const setEtapa = (x: string) => mudar("etapa", x);
@@ -445,60 +441,7 @@ export function FormularioDaCampanha({ titulo, subtitulo, inicial, salvando, rot
             "Em branco, vale o ritmo do número (Conexões › Proteção de envio). O que você puser aqui só pode deixar mais devagar.",
           )}
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="intervalo">{t("Intervalo mínimo entre mensagens (segundos)")}</Label>
-            <Input
-              id="intervalo"
-              type="number"
-              min={1}
-              value={intervalo}
-              onChange={(e) => setIntervalo(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="teto">{t("Máximo por dia")}</Label>
-            <Input
-              id="teto"
-              type="number"
-              min={1}
-              value={tetoDiario}
-              onChange={(e) => setTetoDiario(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="teto-hora">{t("Máximo por hora")}</Label>
-            <Input
-              id="teto-hora"
-              type="number"
-              min={1}
-              value={tetoHorario}
-              onChange={(e) => setTetoHorario(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="janela-inicio">{t("Enviar só a partir das (hora)")}</Label>
-            <Input
-              id="janela-inicio"
-              type="number"
-              min={0}
-              max={23}
-              value={janelaInicio}
-              onChange={(e) => setJanelaInicio(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="janela-fim">{t("Parar de enviar às (hora)")}</Label>
-            <Input
-              id="janela-fim"
-              type="number"
-              min={1}
-              max={24}
-              value={janelaFim}
-              onChange={(e) => setJanelaFim(e.target.value)}
-            />
-          </div>
-        </div>
+        <CamposDeRitmo v={v} onChange={(campo, valor) => mudar(campo, valor)} prefixo="ritmo" />
       </Card>
 
       <div className="flex items-center justify-end gap-2">

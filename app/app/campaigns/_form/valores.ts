@@ -1,4 +1,5 @@
 import type { CampanhaDetalhada } from "@/hooks/campanhas/useCampanhas";
+import { errosDoRitmo } from "@/components/campanhas/CamposDeRitmo";
 
 /**
  * O que o formulário de campanha edita — UM formato para criar e editar (fork
@@ -26,6 +27,10 @@ export interface ValoresDaCampanha {
   etapa: string;
   agente: string;
   intervalo: string;
+  /** Item 7: intervalo sorteado entre mínimo e máximo, e o fuso da janela ("" = o do número). */
+  minIntervalo: string;
+  maxIntervalo: string;
+  fuso: string;
   janelaInicio: string;
   janelaFim: string;
   tetoDiario: string;
@@ -65,6 +70,9 @@ export function valoresDaCampanha(c?: CampanhaDetalhada | null): ValoresDaCampan
     etapa: c?.stage_id ?? "",
     agente: c?.agent_id ?? "",
     intervalo: num(c?.intervalo_segundos),
+    minIntervalo: String(c?.min_interval_seconds ?? 60),
+    maxIntervalo: String(c?.max_interval_seconds ?? 180),
+    fuso: c?.timezone ?? "",
     janelaInicio: num(c?.janela_inicio_hora),
     janelaFim: num(c?.janela_fim_hora),
     tetoDiario: num(c?.teto_diario),
@@ -101,7 +109,8 @@ export function podeSalvar(v: ValoresDaCampanha): boolean {
     v.canal !== "" &&
     (v.modo === "flow" ? v.fluxo !== "" : v.texto.trim() !== "") &&
     temCriterio(v) &&
-    (v.baseLegal !== "legitimate_interest" || v.liaRef.trim() !== "")
+    (v.baseLegal !== "legitimate_interest" || v.liaRef.trim() !== "") &&
+    errosDoRitmo(v).length === 0
   );
 }
 
@@ -123,6 +132,9 @@ export function corpoDaCampanha(v: ValoresDaCampanha): Record<string, unknown> {
     janela_fim_hora: ouNulo(v.janelaFim),
     teto_diario: ouNulo(v.tetoDiario),
     teto_horario: ouNulo(v.tetoHorario),
+    min_interval_seconds: Number(v.minIntervalo) || 60,
+    max_interval_seconds: Number(v.maxIntervalo) || 180,
+    timezone: v.fuso || null,
     channel_session_ids: v.extras.filter((id) => id !== v.canal),
     pipeline_id: v.funil || null,
     stage_id: v.etapa || null,

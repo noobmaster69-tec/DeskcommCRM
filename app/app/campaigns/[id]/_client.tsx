@@ -21,7 +21,6 @@ import { EstadoDaCampanha } from "@/components/campanhas/EstadoDaCampanha";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useAcaoDeCampanha,
@@ -40,6 +39,7 @@ import { ArrowBendUpLeft } from "@/lib/ui/icons";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { TEXTO_DA_EXCLUSAO } from "@/lib/campanhas/tipos";
 import { useListaRemota } from "@/app/app/fluxos/_blocos/useListaRemota";
+import { CamposDeRitmo, errosDoRitmo, type ValoresDeRitmo } from "@/components/campanhas/CamposDeRitmo";
 
 export function DetalheDaCampanha({ id }: { id: string }) {
   const t = useT();
@@ -434,11 +434,15 @@ function NumerosDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
 function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
   const t = useT();
   const editar = useEditarCampanha(campanha.id);
-  const [intervalo, setIntervalo] = useState(texto(campanha.intervalo_segundos));
-  const [tetoDia, setTetoDia] = useState(texto(campanha.teto_diario));
-  const [tetoHora, setTetoHora] = useState(texto(campanha.teto_horario));
-  const [inicio, setInicio] = useState(texto(campanha.janela_inicio_hora));
-  const [fim, setFim] = useState(texto(campanha.janela_fim_hora));
+  const [v, setV] = useState<ValoresDeRitmo>({
+    minIntervalo: String(campanha.min_interval_seconds ?? 60),
+    maxIntervalo: String(campanha.max_interval_seconds ?? 180),
+    tetoDiario: texto(campanha.teto_diario),
+    tetoHorario: texto(campanha.teto_horario),
+    janelaInicio: texto(campanha.janela_inicio_hora),
+    janelaFim: texto(campanha.janela_fim_hora),
+    fuso: campanha.timezone ?? "",
+  });
 
   const encerrada = campanha.status === "completed" || campanha.status === "cancelled";
   if (encerrada) return null;
@@ -453,25 +457,20 @@ function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
           )}
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <CampoDeRitmo id="r-intervalo" rotulo={t("Intervalo mínimo entre mensagens (segundos)")} valor={intervalo} onChange={setIntervalo} />
-        <CampoDeRitmo id="r-dia" rotulo={t("Máximo por dia")} valor={tetoDia} onChange={setTetoDia} />
-        <CampoDeRitmo id="r-hora" rotulo={t("Máximo por hora")} valor={tetoHora} onChange={setTetoHora} />
-        <div />
-        <CampoDeRitmo id="r-inicio" rotulo={t("Enviar só a partir das (hora)")} valor={inicio} onChange={setInicio} />
-        <CampoDeRitmo id="r-fim" rotulo={t("Parar de enviar às (hora)")} valor={fim} onChange={setFim} />
-      </div>
+      <CamposDeRitmo v={v} onChange={(campo, valor) => setV((a) => ({ ...a, [campo]: valor }))} prefixo="r" />
       <div className="flex items-center gap-3">
         <Button
           size="sm"
-          disabled={editar.isPending}
+          disabled={editar.isPending || errosDoRitmo(v).length > 0}
           onClick={() =>
             editar.mutate({
-              intervalo_segundos: numero(intervalo),
-              teto_diario: numero(tetoDia),
-              teto_horario: numero(tetoHora),
-              janela_inicio_hora: numero(inicio),
-              janela_fim_hora: numero(fim),
+              min_interval_seconds: Number(v.minIntervalo),
+              max_interval_seconds: Number(v.maxIntervalo),
+              timezone: v.fuso || null,
+              teto_diario: numero(v.tetoDiario),
+              teto_horario: numero(v.tetoHorario),
+              janela_inicio_hora: numero(v.janelaInicio),
+              janela_fim_hora: numero(v.janelaFim),
             })
           }
         >
@@ -485,24 +484,6 @@ function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
   );
 }
 
-function CampoDeRitmo({
-  id,
-  rotulo,
-  valor,
-  onChange,
-}: {
-  id: string;
-  rotulo: string;
-  valor: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={id}>{rotulo}</Label>
-      <Input id={id} type="number" min={0} value={valor} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
 
 /** `null` vira campo vazio — e campo vazio volta a ser `null`, que é "herda o número". */
 function texto(valor: number | null): string {

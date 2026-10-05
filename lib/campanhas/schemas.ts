@@ -6,6 +6,7 @@
 import { z } from "zod";
 
 import { filtroDeAudienciaSchema } from "./audiencia";
+import { fusoValido } from "./fuso";
 
 /**
  * O ritmo próprio. Todos opcionais e anuláveis: `null` devolve a decisão ao
@@ -21,6 +22,17 @@ export const ritmoSchema = z.object({
   janela_fim_hora: z.number().int().min(1).max(24).nullable().optional(),
   teto_diario: z.number().int().min(1).max(10_000).nullable().optional(),
   teto_horario: z.number().int().min(1).max(10_000).nullable().optional(),
+  /** Item 7: intervalo SORTEADO entre min e max (segundos). */
+  min_interval_seconds: z.number().int().min(10).max(86_400).optional(),
+  max_interval_seconds: z.number().int().min(10).max(86_400).optional(),
+  /** Item 7: fuso IANA da janela desta campanha. `null` = o do número. */
+  timezone: z
+    .string()
+    .trim()
+    .max(64)
+    .refine((f) => fusoValido(f), "fuso horário desconhecido")
+    .nullable()
+    .optional(),
 });
 
 const baseDaCampanha = {
@@ -60,6 +72,10 @@ export const criarCampanhaSchema = z
         "perguntar com base em quê recebeu a mensagem.",
       path: ["lia_ref"],
     },
+  )
+  .refine(
+    (c) => c.min_interval_seconds == null || c.max_interval_seconds == null || c.max_interval_seconds >= c.min_interval_seconds,
+    { message: "O intervalo máximo não pode ser menor que o mínimo.", path: ["max_interval_seconds"] },
   )
   .refine((c) => c.mode !== "flow" || c.flow_id != null, {
     message: "Escolha o fluxo que a campanha vai iniciar.",

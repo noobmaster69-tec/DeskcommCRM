@@ -49,6 +49,7 @@ import { hashDoEndereco } from "./exclusoes";
 import { renderizar } from "./renderizador";
 import { escolherNumero, poolDaCampanha, type NumeroDisponivel } from "./rodizio";
 import { podeMandarAgora, proximaTentativa, type RitmoDaCampanha } from "./ritmo";
+import { fusoDoContato, fusoValido, proximoEnvioAleatorio } from "./fuso";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { TEXTO_DA_EXCLUSAO } from "./tipos";
 
@@ -91,11 +92,17 @@ interface CampanhaRow {
   /** Item 4 (9014): `flow` inscreve no fluxo em vez de mandar o texto. */
   mode?: "text" | "flow";
   flow_id?: string | null;
+  /** Item 7 (9015): intervalo sorteado, o próximo envio e o fuso da janela. */
+  min_interval_seconds?: number;
+  max_interval_seconds?: number;
+  next_send_at?: string | null;
+  timezone?: string | null;
 }
 
 const COLUNAS_DA_CAMPANHA =
   "id, organization_id, channel_session_id, name, message_body, content_version, " +
-  "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id";
+  "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
+  "min_interval_seconds, max_interval_seconds, next_send_at, timezone";
 
 export async function rodarUmaRodadaDeCampanha(
   admin: SupabaseClient,
@@ -317,8 +324,26 @@ async function rodarUmaCampanha(
   // que a janela usa. Com `setUTCHours`, o "dia" virava 21h no horário de
   // Brasília — DENTRO da janela de envio —, e uma campanha que já tinha batido
   // o teto diário voltava a enviar com uma hora de janela pela frente.
-  const estado = await estadoDeEnvio(admin, campanha.id, agora, knobsDoPrincipal.knobs.timezone);
-  const doRitmo = podeMandarAgora(ritmo, estado, agora, knobsDoPrincipal.knobs.timezone);
+  // Item 7: o fuso da CAMPANHA (escolhido na tela) manda sobre o do número; a
+  // janela e a saudação usam o do CONTATO quando dá para saber sem chutar
+  // (campo `timezone` da ficha, ou DDI de país de fuso único).
+  const fusoDaCampanha = fusoValido(campanha.timezone) ? campanha.timezone : knobsDoPrincipal.knobs.timezone;
+  const fusoDoDestinatario = fusoDoContato(
+    contato?.phone_number ?? alvo.recipient_address,
+    (contato?.custom_fields ?? null) as Record<string, unknown> | null,
+    fusoDaCampanha,
+  );
+  // Item 7: o próximo envio SORTEADO entre min e max — espera não é falha.
+  if (campanha.next_send_at && new Date(campanha.next_send_at).getTime() > agora.getTime()) {
+    await admin
+      .from("campaign_recipients")
+      .update({ next_attempt_at: campanha.next_send_at })
+      .eq("id", alvo.id)
+      .eq("status", "pending");
+    return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "ritmo:intervalo_aleatorio" };
+  }
+  const estado = await estadoDeEnvio(admin, campanha.id, agora, fusoDaCampanha);
+  const doRitmo = podeMandarAgora(ritmo, estado, agora, fusoDoDestinatario);
   if (!doRitmo.pode) {
     // Espera não é falha: grava QUANDO tentar de novo para a fila não ser varrida
     // a cada tique por uma campanha que só volta amanhã.
@@ -383,7 +408,6 @@ async function rodarUmaCampanha(
     return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "canal:sem_numero_livre" };
   }
   const sessionEscolhida = escolha.sessionId;
-  const knobs = knobsPorNumero.get(sessionEscolhida)!.knobs;
 
   // ─── O envio ───
   // O id da mensagem nasce AQUI, e não do insert: com ele, o destinatário já
@@ -402,7 +426,7 @@ async function rodarUmaCampanha(
   }
 
   // O corpo é montado DEPOIS do ritmo: a saudação ("bom dia" × "boa tarde") tem
-  // de ser a do instante em que a mensagem SAI, no fuso do canal. Montá-la na
+  // de ser a do instante em que a mensagem SAI, no fuso do contato. Montá-la na
   // preparação produziria "bom dia" numa mensagem enviada à tarde — foi o
   // defeito do primeiro piloto.
   const congelado = alvo.rendered_body ?? campanha.message_body ?? "";
@@ -415,7 +439,7 @@ async function rodarUmaCampanha(
       email: contato?.email ?? null,
       campos: (contato?.custom_fields ?? {}) as Record<string, unknown>,
     },
-    { agora, fuso: knobs.timezone },
+    { agora, fuso: fusoDoDestinatario },
   ).texto;
 
   try {
@@ -436,7 +460,9 @@ async function rodarUmaCampanha(
     // do Inbox). O envio conta no ritmo do número: a 1ª mensagem do fluxo sai
     // por ele logo em seguida.
     if (campanha.mode === "flow") {
-      return await iniciarFluxoDoDestinatario(admin, pool, campanha, alvo, boundary.conversation_id, sessionEscolhida, agora);
+      const r = await iniciarFluxoDoDestinatario(admin, pool, campanha, alvo, boundary.conversation_id, sessionEscolhida, agora);
+      if (r.enviadas > 0) await agendarProximoEnvio(admin, campanha, agora);
+      return r;
     }
 
     const mensagem = await sendMessageHandler(
@@ -463,6 +489,7 @@ async function rodarUmaCampanha(
       } as Parameters<typeof sendMessageHandler>[2],
     );
     await recordSend(pool, campanha.organization_id, sessionEscolhida, agora);
+    await agendarProximoEnvio(admin, campanha, agora);
 
     // O desfecho vem do ESTADO da mensagem, nunca da ausência de exceção — o
     // handler marca `failed` e devolve normalmente.
@@ -506,6 +533,17 @@ async function rodarUmaCampanha(
       .eq("status", "sending");
     return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "falhou" };
   }
+}
+
+/**
+ * Item 7: grava o PRÓXIMO envio desta campanha num instante sorteado entre o
+ * intervalo mínimo e o máximo. Com o cron de 1 minuto, 60–180s vira "a cada 1
+ * a 3 minutos, nunca no mesmo compasso". Falha aqui não desfaz o envio feito.
+ */
+async function agendarProximoEnvio(admin: SupabaseClient, campanha: CampanhaRow, agora: Date): Promise<void> {
+  const proximo = proximoEnvioAleatorio(agora, campanha.min_interval_seconds ?? 60, campanha.max_interval_seconds ?? 180);
+  const { error } = await admin.from("campaigns").update({ next_send_at: proximo.toISOString() }).eq("id", campanha.id);
+  if (error) logger.warn("[campanha] não gravou o próximo envio", { campanha: campanha.id, motivo: error.message });
 }
 
 /** Os desfechos do `inscreverNoFluxo` que valem para a CAMPANHA inteira — parar é o certo. */

@@ -29,7 +29,8 @@ const COLUNAS =
   "audience_filter, audience_version, content_version, snapshot_total, snapshot_eligible, " +
   "snapshot_excluded, scheduled_at, prepared_at, started_at, paused_at, completed_at, " +
   "cancelled_at, failure_code, intervalo_segundos, janela_inicio_hora, janela_fim_hora, " +
-  "teto_diario, teto_horario, pipeline_id, stage_id, agent_id, mode, flow_id, created_at, created_by";
+  "teto_diario, teto_horario, pipeline_id, stage_id, agent_id, mode, flow_id, " +
+  "min_interval_seconds, max_interval_seconds, timezone, next_send_at, created_at, created_by";
 
 export async function GET(
   _req: NextRequest,
@@ -139,6 +140,14 @@ export async function PATCH(
     );
   }
 
+  // Item 7: min ≤ max também contra o que JÁ está gravado (o PATCH pode mandar só um).
+  {
+    const atual = campanha as { min_interval_seconds?: number; max_interval_seconds?: number };
+    const min = entrada.min_interval_seconds ?? atual.min_interval_seconds ?? 60;
+    const max = entrada.max_interval_seconds ?? atual.max_interval_seconds ?? 180;
+    if (max < min)
+      return fail("validation_failed", t("O intervalo máximo não pode ser menor que o mínimo."), 422, { requestId });
+  }
   const mudanca: Record<string, unknown> = { updated_by: authz.user.id };
   for (const campo of [
     "name",
@@ -156,6 +165,9 @@ export async function PATCH(
     "agent_id",
     "mode",
     "flow_id",
+    "min_interval_seconds",
+    "max_interval_seconds",
+    "timezone",
   ] as const) {
     if (entrada[campo] !== undefined) mudanca[campo] = entrada[campo];
   }
