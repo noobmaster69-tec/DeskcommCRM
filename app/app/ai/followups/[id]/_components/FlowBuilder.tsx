@@ -25,8 +25,11 @@ interface Props {
 }
 
 export function FlowBuilder({ flowId, initialData }: Props) {
+  // Fluxos (item 8): a página já dá a altura da tela; o piso de 600px do
+  // follow-up faria o canvas vazar para baixo num notebook baixo.
+  const piso = initialData.surface === "fluxo" ? "min-h-0" : "min-h-[600px]";
   return (
-    <div className="flex h-full min-h-[600px] flex-1 flex-col" data-testid="flow-builder-shell">
+    <div className={`flex h-full ${piso} flex-1 flex-col`} data-testid="flow-builder-shell">
       <FlowCanvas flowId={flowId} initialData={initialData} />
     </div>
   );

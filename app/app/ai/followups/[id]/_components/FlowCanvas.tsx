@@ -143,7 +143,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
   // replace a connection in older drafts.
   const nextId = useRef(nextSequenceId(initial.nodes.map((node) => node.id)));
   const nextEdgeId = useRef(nextSequenceId(initial.edges.map((edge) => edge.id)));
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, setViewport } = useReactFlow();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -365,6 +365,15 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
     }, 0);
   }, [nodes, liveGraph, setNodes, fitView]);
 
+  // Fluxos (item 8): fluxo sem bloco nenhum abre com a origem (0,0) no MEIO da
+  // tela, a 100% — o padrão da lib a deixa no canto de cima, e o primeiro bloco
+  // nasce espremido na borda. Com blocos, quem enquadra é o `fitView`.
+  const onInit = useCallback(() => {
+    if (!isFluxo || initial.nodes.length > 0) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect) void setViewport({ x: rect.width / 2 - 120, y: rect.height / 2 - 50, zoom: 1 });
+  }, [isFluxo, initial.nodes.length, setViewport]);
+
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -382,7 +391,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
   );
 
   return (
-    <div className="flex h-full min-h-[600px] w-full flex-col">
+    <div className={`flex h-full w-full flex-col ${isFluxo ? "min-h-0" : "min-h-[600px]"}`}>
       {flow && (
         <PublishBar
           flowId={flowId}
@@ -449,6 +458,7 @@ function FlowCanvasInner({ flowId, initialData }: Props) {
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
             onPaneClick={onPaneClick}
+            onInit={onInit}
             defaultEdgeOptions={{ type: "smoothstep" }}
             connectionLineType={ConnectionLineType.SmoothStep}
             // Enquadrar só o que já existia ao abrir. Num fluxo vazio o XYFlow

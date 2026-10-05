@@ -55,8 +55,12 @@ export default async function FluxoEditorPage({ params }: { params: Promise<{ id
     previous_version_id: versionRows?.[1]?.id ?? null,
   };
 
+  // Canvas de ponta a ponta (item 8, modelo Leona): `-m-6` desfaz o `p-6` do
+  // <main> da casca e a altura é a da tela menos a barra do topo (h-14) — o
+  // <main> não tem altura definida, então `h-full` aqui não resolvia nada e o
+  // canvas ficava preso no `min-h-[600px]`.
   return (
-    <div className="flex h-full flex-col">
+    <div className="-m-6 flex h-[calc(100dvh-3.5rem)] min-h-[420px] flex-col" data-testid="fluxo-editor-tela">
       <FlowBuilder flowId={id} initialData={flow} />
     </div>
   );
