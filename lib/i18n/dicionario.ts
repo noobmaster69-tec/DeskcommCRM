@@ -14104,6 +14104,9 @@ export const DICIONARIO: Traducoes = {
   "Configure um provedor em Credenciais para traduzir.": { es: "Configura un proveedor en Credenciales para traducir." },
   "O provedor de IA não respondeu. Tente de novo.": { es: "El proveedor de IA no respondió. Inténtalo de nuevo." },
   "Não foi possível criar o fluxo traduzido.": { es: "No se pudo crear el flujo traducido." },
+  // Fluxos › lista no modelo Leona, item 1 (fork jhoow): arrastar fluxo para pasta.
+  "Sem pasta": { es: "Sin carpeta" },
+  "Não foi possível mover o fluxo.": { es: "No se pudo mover el flujo." },
 };
 
 /**
