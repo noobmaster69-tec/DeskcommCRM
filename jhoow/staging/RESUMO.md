@@ -1,3 +1,42 @@
+# Campanhas: aprimoramento grande (7 itens), 5 out
+
+Branch `jhoow/main`. Imagem `3289d4f` no ar no staging. Produção (`/opt/deskcommcrm`) **não foi tocada**.
+O inventário que veio antes está em `jhoow/campanhas/INVENTARIO.md` (`b9a603f`).
+
+| # | Item | Status | Commit |
+|---|------|--------|--------|
+| 2 | Variáveis do sistema + da organização (Configurações › Variáveis) | ✅ migration **9013** | `9a977f9` |
+| — | Um formulário só para criar e editar. Antes, salvar um rascunho editado apagava funil, etapa, ritmo e números | ✅ | `942eac9` |
+| 4 | Campanha que inicia um fluxo | ✅ migration **9014** | `05475c2` |
+| 7 | Intervalo aleatório (mín./máx.) + fuso da campanha e do contato | ✅ migration **9015** | `7e66c19` |
+| 6 | Base legal "consentimento" só envia para quem consentiu; card de consentimento no contato | ✅ | `07e4156` |
+| 3 | Progresso no funil: quem recebe → quem responde | ✅ migration **9016** | `dcfd851` |
+| 5 | "Quem responder" todo opcional | ✅ | `52fa7ad` |
+| 1 | Fonte do público: Do CRM / Por etiqueta / Importar lista (CSV/XLSX) | ✅ migration **9017** | `2c5001c` + `3289d4f` |
+
+**Banco do staging:** as migrations 9013–9017 foram aplicadas à mão com psql. O snapshot de antes está em `/root/backups/staging-antes-9013-9017-*`. Na produção, as 5 precisam ser aplicadas antes da imagem.
+
+**Prova pela tela (`tela-campanhas.cjs`): 15/15 PASS.** Ela cobre:
+- os 3 modos;
+- a prévia da planilha: 2 válidas de 4, inválida em vermelho, repetida avisada e mapeamento sugerido;
+- a importação: 2 contatos e a variável nova criados;
+- a contagem da audiência;
+- salvar o rascunho, que liga a lista à campanha;
+- reabrir no modo certo;
+- 390px sem rolagem.
+
+No banco: a lista ficou ligada à campanha, com o arquivo original guardado. Os dados de teste foram apagados depois.
+
+## Decisões e pendências
+
+- **O contato é criado sempre** na importação: o destinatário de campanha é um contato (opt-out, LGPD e a conversa da resposta dependem dele). A opção "criar no CRM" controla **só o card** no funil.
+- **Modo 4, consulta avançada (opcional): não feito.** Os modos CRM e etiqueta já cobrem funil, etapas, entrada, etiquetas, interação e variáveis. Uma consulta livre exigiria um construtor de condições E/OU ou SQL restrito. Fica para uma rodada própria.
+- **RLS corrigida antes de ir ao ar:** nas tabelas `contact_custom_fields` (9013) e `campaign_audience_sources` (9017), a policy única `for all` deixava o agent **apagar** linhas. Agora são 4 policies: leitura para a organização; criar, alterar e apagar só para manager+. Os invariantes provam isso.
+- **Consentimento:** a prova mostrou "0 podem receber · 2 ficam de fora" na lista recém-importada. É o item 6 funcionando: com a base legal "consentimento", contato importado sem consentimento registrado não recebe. Para disparar para uma lista fria, a base precisa ser "interesse legítimo", com LIA.
+- **Arquivo original:** fica no bucket privado `campaign-audiences`. O arquivo da prova (um CSV de 4 linhas) continua lá, porque só a API de storage o remove.
+
+---
+
 # Fluxos no modelo Leona: entrega noturna (12 itens)
 
 Branch `jhoow/main`. Base: `3037384`. Produção (`/opt/deskcommcrm`) **não foi tocada**.
