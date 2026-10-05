@@ -53,10 +53,10 @@ export function ResumirConversa({ conversationId, disabled }: { conversationId: 
         <button
           type="button"
           disabled={disabled}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-transparent px-3.5 text-sm text-text transition-colors hover:bg-surface-elevated disabled:opacity-50"
+          className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-transparent px-3 text-xs text-text transition-colors hover:bg-surface-elevated disabled:opacity-50"
           data-testid="acao-resumir"
         >
-          <ListBullets size={15} aria-hidden />
+          <ListBullets size={14} aria-hidden />
           {t("Resumir")}
         </button>
       </PopoverTrigger>

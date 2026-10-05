@@ -34,8 +34,13 @@ describe("composer compacto", () => {
   it("as três ações ficam numa linha de pílulas — sem a caixa 'Assistência do agente'", () => {
     renderComposer();
     const linha = screen.getByTestId("acoes-rapidas");
-    const rotulos = [...linha.querySelectorAll("button")].map((b) => b.textContent?.replace(/\s+/g, " ").trim());
+    const rotulos = [...linha.querySelectorAll("button")].map(
+      (b) => b.getAttribute("aria-label") ?? b.textContent?.replace(/\s+/g, " ").trim(),
+    );
     expect(rotulos).toEqual(["Sugerir resposta", "Resumir", "/Respostas rápidas"]);
+    // UMA linha: não quebra, e "Sugerir resposta" é só a estrela (o nome fica no aria-label).
+    expect(linha.className).toMatch(/flex-nowrap/);
+    expect(linha.querySelector("button")?.textContent?.trim()).toBe("");
     expect(screen.queryByText("Assistência do agente")).toBeNull();
     expect(screen.queryByTestId("sugestao-do-agente")).toBeNull();
   });

@@ -348,17 +348,21 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             revisão da sugestão só aparece quando há sugestão. */}
         <section aria-label={t("Assistência do agente")} className="mb-2 space-y-2">
           {mode === "reply" && <ReplyReviewPanel sugestao={sugestao} disabled={isDisabled} />}
-          <div className="flex flex-wrap items-center gap-2" data-testid="acoes-rapidas">
+          {/* UMA linha só, sem quebrar (pedido do Jhoow, 5 out): pílulas de 32px,
+              texto pequeno, e "Sugerir resposta" vira só a estrela — o nome
+              continua no aria-label e no title. */}
+          <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden" data-testid="acoes-rapidas">
             {mode === "reply" && (
               <button
                 type="button"
                 onClick={() => void sugestao.generate()}
                 disabled={isDisabled || sugestao.busy}
                 aria-busy={sugestao.busy || undefined}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent-soft px-3.5 text-sm font-medium text-text transition-colors hover:bg-accent-soft/80 disabled:opacity-50"
+                aria-label={t(sugestao.busy ? "Preparando…" : "Sugerir resposta")}
+                title={t(sugestao.busy ? "Preparando…" : "Sugerir resposta")}
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-text transition-colors hover:bg-accent-soft/80 disabled:opacity-50"
               >
-                <Sparkle size={15} weight="fill" aria-hidden className="text-violet-400" />
-                {t(sugestao.busy ? "Preparando…" : "Sugerir resposta")}
+                <Sparkle size={16} weight="fill" aria-hidden className={sugestao.busy ? "animate-pulse text-violet-400" : "text-violet-400"} />
               </button>
             )}
             <ResumirConversa conversationId={conversationId} disabled={isDisabled} />
@@ -371,7 +375,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                   taRef.current?.focus();
                 }}
                 disabled={respostaBarrada}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-transparent px-3.5 text-sm text-text transition-colors hover:bg-surface-elevated disabled:opacity-50"
+                className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-transparent px-3 text-xs text-text transition-colors hover:bg-surface-elevated disabled:opacity-50"
               >
                 <span aria-hidden className="text-text-muted">/</span>
                 {t("Respostas rápidas")}
