@@ -26,9 +26,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FolderPlus, FolderSimple, Lightning, MagnifyingGlass, Plus, UploadSimple } from "@/lib/ui/icons";
+import { DotsSixVertical, FolderPlus, FolderSimple, Lightning, MagnifyingGlass, Plus, UploadSimple } from "@/lib/ui/icons";
 import { cn } from "@/lib/utils";
-import { arvoreDePastas, idsDaPastaEDescendentes, type NoDaArvore, type PastaDoFluxo } from "@/lib/fluxos/pastas";
+import { arvoreDePastas, idsDaPastaEDescendentes, reordenarIrmas, type NoDaArvore, type PastaDoFluxo } from "@/lib/fluxos/pastas";
 import { passaNoFiltro, proximoNomeDeFluxo, type FiltroDeStatus, type StatusDoFluxo } from "@/lib/fluxos/lista";
 import { ALVO_SEM_PASTA, ALVO_TODOS, alvoDaPasta, destinoDoSoltar } from "@/lib/fluxos/arrastar";
 import { ImportarDoLeona } from "./ImportarDoLeona";
@@ -75,6 +75,13 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
   // confirma, e a falha devolve o fluxo para onde estava.
   const [movidos, setMovidos] = useState<Record<string, string | null>>({});
   const [arrastando, setArrastando] = useState<FluxoDaLista | null>(null);
+  // Item 3: a ordem das pastas arrastadas vale na hora; o POST de ordem confirma.
+  const [ordemLocal, setOrdemLocal] = useState<Record<string, number>>({});
+  const [arrastandoPasta, setArrastandoPasta] = useState<PastaDoFluxo | null>(null);
+  const pastasVivas = useMemo(
+    () => pastas.map((p) => (p.id in ordemLocal ? { ...p, posicao: ordemLocal[p.id]! } : p)),
+    [pastas, ordemLocal],
+  );
   // Distância mínima: sem ela, todo clique na linha (que abre o editor) viraria arrasto.
   const sensores = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -88,8 +95,8 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
   const arvore = useMemo(() => {
     const porPasta = new Map<string, number>();
     for (const f of fluxosVivos) if (f.pasta_id && !f.arquivado) porPasta.set(f.pasta_id, (porPasta.get(f.pasta_id) ?? 0) + 1);
-    return arvoreDePastas(pastas, porPasta);
-  }, [fluxosVivos, pastas]);
+    return arvoreDePastas(pastasVivas, porPasta);
+  }, [fluxosVivos, pastasVivas]);
 
   const visiveis = useMemo(() => {
     const naPasta = pastaAtual && pastaAtual !== SEM_PASTA ? idsDaPastaEDescendentes(arvore, pastaAtual) : null;
@@ -104,11 +111,44 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
   }, [fluxosVivos, filtro, busca, pastaAtual, arvore]);
 
   function aoComecar(e: DragStartEvent) {
+    const id = String(e.active.id);
+    if (id.startsWith(PREFIXO_DA_ALCA)) {
+      setArrastandoPasta(pastasVivas.find((p) => p.id === id.slice(PREFIXO_DA_ALCA.length)) ?? null);
+      return;
+    }
     setArrastando(fluxosVivos.find((f) => f.id === e.active.id) ?? null);
+  }
+
+  /** Item 3: soltar uma pasta sobre uma IRMÃ a põe no lugar dela. */
+  function reordenar(arrastada: string, alvo: string | null) {
+    if (!alvo?.startsWith("pasta:")) return;
+    const ids = reordenarIrmas(pastasVivas, arrastada, alvo.slice("pasta:".length));
+    if (!ids) return;
+    const antes = ordemLocal;
+    setOrdemLocal((o) => ({ ...o, ...Object.fromEntries(ids.map((id, i) => [id, i])) }));
+    void fetch("/api/v1/fluxos/pastas/ordem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        router.refresh();
+      })
+      .catch(() => {
+        setOrdemLocal(antes);
+        toast.error(t("Não foi possível ordenar as pastas."));
+      });
   }
 
   function aoSoltar(e: DragEndEvent) {
     setArrastando(null);
+    setArrastandoPasta(null);
+    const ativo = String(e.active.id);
+    if (ativo.startsWith(PREFIXO_DA_ALCA)) {
+      reordenar(ativo.slice(PREFIXO_DA_ALCA.length), e.over ? String(e.over.id) : null);
+      return;
+    }
     const fluxo = fluxosVivos.find((f) => f.id === e.active.id);
     if (!fluxo) return;
     const plano = destinoDoSoltar(e.over ? String(e.over.id) : null, fluxo.pasta_id);
@@ -176,7 +216,10 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
   const semPasta = fluxosVivos.filter((f) => f.pasta_id === null && !f.arquivado).length;
 
   return (
-    <DndContext sensors={sensores} onDragStart={aoComecar} onDragEnd={aoSoltar} onDragCancel={() => setArrastando(null)}>
+    <DndContext sensors={sensores} onDragStart={aoComecar} onDragEnd={aoSoltar} onDragCancel={() => {
+        setArrastando(null);
+        setArrastandoPasta(null);
+      }}>
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
@@ -237,6 +280,8 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
           {arvore.map((no) => (
             <RamoDePastas key={no.id} no={no} nivel={0} atual={pastaAtual} onEscolher={setPastaAtual} />
           ))}
+          {/* "Sem pasta" é SEMPRE a última, separada das pastas nomeadas (item 3). */}
+          <div role="separator" className="my-1.5 border-t border-border" />
           <ItemDePasta
             nome={t("Sem pasta")}
             total={semPasta}
@@ -302,7 +347,12 @@ export function ListaDeFluxos({ fluxos, pastas }: { fluxos: FluxoDaLista[]; past
 
       {/* O que segue o mouse: o nome do fluxo. A linha fica no lugar, translúcida. */}
       <DragOverlay dropAnimation={null}>
-        {arrastando ? (
+        {arrastandoPasta ? (
+          <div className="inline-flex items-center gap-2 rounded-md border border-accent bg-surface px-3 py-1.5 text-sm font-medium shadow-lg">
+            <FolderSimple size={14} aria-hidden className="text-accent" />
+            {arrastandoPasta.nome}
+          </div>
+        ) : arrastando ? (
           <div className="inline-flex items-center gap-2 rounded-md border border-accent bg-surface px-3 py-2 text-sm font-medium shadow-lg">
             <Lightning size={14} aria-hidden className="text-accent" />
             {arrastando.nome}
@@ -376,6 +426,9 @@ function PillDeStatus({ status }: { status: StatusDoFluxo }) {
   return <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", estilo)}>{t(rotulo)}</span>;
 }
 
+/** O id arrastável da ALÇA de uma pasta (item 3) — distinto do alvo `pasta:<id>`. */
+const PREFIXO_DA_ALCA = "alca-pasta:";
+
 function ItemDePasta(props: {
   nome: string;
   total: number;
@@ -383,10 +436,32 @@ function ItemDePasta(props: {
   nivel: number;
   /** Id do alvo de soltar (item 1) — `todos`, `sem-pasta` ou `pasta:<id>`. */
   alvo: string;
+  /** Pasta nomeada: ganha a alça de arrastar para reordenar (item 3). */
+  pastaId?: string;
   onClick: () => void;
 }) {
+  const t = useT();
   const { setNodeRef, isOver } = useDroppable({ id: props.alvo });
+  const {
+    setNodeRef: refDaAlca,
+    attributes: atributosDaAlca,
+    listeners: ouvintesDaAlca,
+    isDragging: arrastandoPasta,
+  } = useDraggable({ id: `${PREFIXO_DA_ALCA}${props.pastaId ?? props.alvo}`, disabled: !props.pastaId });
   return (
+    <div className={cn("group/pasta relative flex items-center", arrastandoPasta && "opacity-40")}>
+    {props.pastaId && (
+      <span
+        ref={refDaAlca}
+        {...atributosDaAlca}
+        {...ouvintesDaAlca}
+        aria-label={`${props.nome}: ${t("arrastar para reordenar")}`}
+        className="absolute -left-1.5 z-10 flex h-6 w-3 cursor-grab items-center justify-center text-text-muted opacity-0 group-hover/pasta:opacity-100 focus-visible:opacity-100"
+        data-testid={`alca-pasta-${props.pastaId}`}
+      >
+        <DotsSixVertical size={12} aria-hidden />
+      </span>
+    )}
     <button
       ref={setNodeRef}
       type="button"
@@ -409,6 +484,7 @@ function ItemDePasta(props: {
         {props.total}
       </span>
     </button>
+    </div>
   );
 }
 
@@ -426,6 +502,7 @@ function RamoDePastas(props: {
         ativo={props.atual === props.no.id}
         nivel={props.nivel + 1}
         alvo={alvoDaPasta(props.no.id)}
+        pastaId={props.no.id}
         onClick={() => props.onEscolher(props.no.id)}
       />
       {props.no.filhas.map((f) => (

@@ -14107,6 +14107,9 @@ export const DICIONARIO: Traducoes = {
   // Fluxos › lista no modelo Leona, item 1 (fork jhoow): arrastar fluxo para pasta.
   "Sem pasta": { es: "Sin carpeta" },
   "Não foi possível mover o fluxo.": { es: "No se pudo mover el flujo." },
+  // Fluxos › lista no modelo Leona, item 3 (fork jhoow): ordem das pastas.
+  "arrastar para reordenar": { es: "arrastrar para reordenar" },
+  "Não foi possível ordenar as pastas.": { es: "No se pudieron ordenar las carpetas." },
 };
 
 /**

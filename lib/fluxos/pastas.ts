@@ -75,3 +75,30 @@ export function idsDaPastaEDescendentes(arvore: NoDaArvore[], id: string): Set<s
   if (alvo) juntar(alvo);
   return ids;
 }
+
+/** Reordenar pastas irmãs (fork jhoow, item 3): a nova ordem inteira, por id. */
+export const ordemDasPastasSchema = z.strictObject({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+});
+
+/**
+ * A ordem das irmãs depois de soltar `arrastada` sobre `alvo` (item 3): a
+ * arrastada ocupa o lugar do alvo e as outras escorregam. Só entre IRMÃS (mesmo
+ * pai) — soltar numa pasta de outro nível devolve `null` (mudar de pai é o
+ * "mover" do menu, não o arrasto). As posições viram 0..n-1 na ordem nova.
+ */
+export function reordenarIrmas(pastas: PastaDoFluxo[], arrastada: string, alvo: string): string[] | null {
+  if (arrastada === alvo) return null;
+  const a = pastas.find((p) => p.id === arrastada);
+  const b = pastas.find((p) => p.id === alvo);
+  if (!a || !b || (a.parent_id ?? null) !== (b.parent_id ?? null)) return null;
+  const irmas = pastas
+    .filter((p) => (p.parent_id ?? null) === (a.parent_id ?? null))
+    .sort((x, y) => x.posicao - y.posicao || x.nome.localeCompare(y.nome, "pt-BR"))
+    .map((p) => p.id);
+  const de = irmas.indexOf(arrastada);
+  const para = irmas.indexOf(alvo);
+  irmas.splice(de, 1);
+  irmas.splice(para, 0, arrastada);
+  return irmas;
+}

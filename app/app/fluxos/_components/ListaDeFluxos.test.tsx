@@ -42,3 +42,25 @@ describe("lista de Fluxos — arrastar para pasta (item 1)", () => {
     expect(screen.queryByText("Boas-vindas")).toBeNull();
   });
 });
+
+describe("ordem da barra de pastas (item 3)", () => {
+  it("Todos primeiro, pastas no meio, Sem pasta por último com separador", () => {
+    render(
+      <ListaDeFluxos
+        fluxos={fluxos}
+        pastas={[...pastas, { id: "p2", nome: "Atendimento", parent_id: null, posicao: 0 }]}
+      />,
+    );
+    const nav = screen.getByRole("navigation", { name: "Pastas" });
+    const alvos = [...nav.querySelectorAll("[data-alvo]")].map((e) => e.getAttribute("data-alvo"));
+    expect(alvos).toEqual(["todos", "pasta:p2", "pasta:p1", "sem-pasta"]);
+    const separador = within(nav).getByRole("separator");
+    expect(separador.nextElementSibling?.querySelector('[data-alvo="sem-pasta"]')).not.toBeNull();
+  });
+
+  it("só as pastas nomeadas têm alça de reordenar", () => {
+    render(<ListaDeFluxos fluxos={fluxos} pastas={pastas} />);
+    expect(screen.getByTestId("alca-pasta-p1")).toBeInTheDocument();
+    expect(screen.queryAllByTestId(/alca-pasta-/)).toHaveLength(1);
+  });
+});

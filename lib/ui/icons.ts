@@ -166,4 +166,6 @@ export {
   // Fork jhoow — menu ⋯ da lista de Fluxos (Compartilhar, Traduzir)
   ShareNetwork,
   Translate,
+  // alça de arrastar pasta (item 3)
+  DotsSixVertical,
 } from "@phosphor-icons/react/dist/ssr";
