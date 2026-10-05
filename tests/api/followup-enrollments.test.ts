@@ -136,6 +136,12 @@ function makeDb(
         filters.push([col, val]);
         return b;
       },
+      // A lista tira as inscrições de FLUXO (fork jhoow, Fase B) com um `.neq` no
+      // embed do ponteiro. Nenhuma linha deste dublê é de fluxo: o filtro não
+      // tira nada aqui — e sem o método a rota quebrava antes de responder.
+      neq() {
+        return b;
+      },
       order(col: string, opts?: { ascending?: boolean }) {
         orderCol = col;
         orderAsc = opts?.ascending ?? true;
