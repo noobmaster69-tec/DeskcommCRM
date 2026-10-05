@@ -28,12 +28,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     ),
   );
   if (resultados.some((r) => r.error)) return fail("internal_error", "Não foi possível ordenar as pastas.", 500, { requestId });
+  // A primeira pasta da ordem nova ancora a linha de auditoria; a ordem inteira vai no metadata.
+  const primeiraPastaId = parsed.data.ids[0]!;
   void audit({
     action: "fluxo_pasta.updated",
     organizationId: orgId,
     actorUserId: authz.user.id,
     resourceType: "fluxo_pasta",
-    resourceId: parsed.data.ids[0]!,
+    resourceId: primeiraPastaId,
     requestId,
     metadata: { ordem: parsed.data.ids },
   });
