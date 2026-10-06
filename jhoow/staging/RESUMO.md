@@ -1,3 +1,34 @@
+# 5 melhorias (6 out): credenciais, segundos, lidas, digitando, importação
+
+Branch `jhoow/main`. Imagem `da66c92` no ar no staging. A correção `00c4378` (marcar como lidas no NOWEB + linha vazia) está pushada e espera o próximo workflow. Produção não foi tocada. Sem migrations novas.
+
+| Item | Commit | Prova pela tela (staging) |
+|---|---|---|
+| 5. Chave de API dava "Erro interno" | `beb9848` | ✅ grava (HTTP 201) e aparece em Credenciais |
+| 3. Segundos no Aguardar resposta | `f807026` | ✅ "Segundos" no topo; aviso abaixo de 10 s |
+| 2. Marcar como lidas ao responder | `bdc48c8` + `00c4378` | ✅ Preferências ligado por padrão · ⚠️ WAHA recusou (ver abaixo); corrigido em `00c4378` |
+| 1. Delay do "digitando" | `9e0b545` | ✅ slider 6 s, máximo 60 s, dica, arrastar para 15 s, aleatório 15–19 s |
+| 4. Importar com o modelo de 18 colunas | `da66c92` | ✅ modelo XLSX baixa; 18/18 reconhecidas; extra pede variável; vermelho com motivo; amarelo "já é contato"; importou 2 criados + 1 existente |
+
+## Detalhes
+
+**Item 5 — causa raiz:** a `AI_CRED_AES_KEY` desta instalação está em hex (64 caracteres), e o código só lia base64. Toda gravação de chave falhava, e a rota respondia o 500 genérico sem log. Agora o código aceita hex e base64. A falha de cifragem tem código e frase próprios (`credencial_cifra_indisponivel`) e vai para o log com o requestId. A produção provavelmente tem a mesma chave em hex: o conserto vale lá quando a imagem subir, sem mexer no `.env`.
+
+**Item 2 — achado da prova:** o WAHA do staging roda NOWEB sem o "store" de mensagens. `sendSeen` só com o chat volta 400 ("Enable NOWEB store"). Com os ids das mensagens recebidas, o mesmo endpoint responde 201 (medido direto no WAHA). Por isso `00c4378` manda os `external_id` das recebidas ainda não respondidas. A verificação em aparelho real (os tiques azuis) fica para quando houver um número de teste conversando com o número do staging.
+
+**Item 1:** os fluxos existentes também ganham o digitando padrão (texto 6 s, áudio 15 s, vídeo 10 s); antes enviavam na hora. A sequência é: digitando (ou gravando, no áudio), espera, envio, para. O indicador é renovado a cada 20 s. O Slider tem a API do shadcn, sem dependência nova.
+
+**Item 4:**
+- O telefone usa o parser E.164 que já existia; um teste prova que a prévia e o servidor concordam.
+- A importação é tudo ou nada: a primeira linha que o banco recusa desfaz as outras.
+- "Criar duplicata" não existe, porque o mesmo número é a mesma pessoa no WhatsApp e o banco impede o mesmo telefone duas vezes. As opções são pular, atualizar ou manter.
+- A coluna `campanha_id` é reconhecida, mas não é gravada: a lista entra na campanha em que se importa.
+- Rota nova `POST /api/v1/campaigns/:id/import-list`, para importar direto num rascunho.
+
+Os dados de teste foram apagados e claude-prints voltou a agent.
+
+---
+
 # Campos do contato + Ritmo e Programação (6 out)
 
 Branch `jhoow/main`. Imagem `e03f43d` no ar no staging. Produção (`/opt/deskcommcrm`) **não foi tocada**.
