@@ -79,10 +79,19 @@ export const etiquetasConfigSchema = z.strictObject({
 });
 
 // ── #3 Aguardar resposta ────────────────────────────────────────────────────
-export const UNIDADES_DE_ESPERA = ["minutos", "horas", "dias"] as const;
-const MAX_ESPERA_MIN = 31 * 24 * 60;
-const minutosDe = (valor: number, unidade: (typeof UNIDADES_DE_ESPERA)[number]) =>
-  valor * (unidade === "dias" ? 1440 : unidade === "horas" ? 60 : 1);
+/** `segundos` (fork jhoow) no topo: respostas rápidas pedem espera de segundos. */
+export const UNIDADES_DE_ESPERA = ["segundos", "minutos", "horas", "dias"] as const;
+export const SEGUNDOS_DA_UNIDADE: Record<(typeof UNIDADES_DE_ESPERA)[number], number> = {
+  segundos: 1,
+  minutos: 60,
+  horas: 3600,
+  dias: 86400,
+};
+/** Mínimo 10 s (menos que isso não dá tempo de o lead responder); máximo 31 dias. */
+export const MIN_ESPERA_SEGUNDOS = 10;
+export const MAX_ESPERA_SEGUNDOS = 31 * 86400;
+export const segundosDaEspera = (valor: number, unidade: (typeof UNIDADES_DE_ESPERA)[number]) =>
+  valor * SEGUNDOS_DA_UNIDADE[unidade];
 
 export const aguardarRespostaConfigSchema = z
   .strictObject({
@@ -99,8 +108,12 @@ export const aguardarRespostaConfigSchema = z
     message: "defina o tempo máximo ou marque 'aguardar indefinidamente'",
     path: ["tempo"],
   })
-  .refine((c) => !c.tempo || minutosDe(c.tempo.valor, c.tempo.unidade) <= MAX_ESPERA_MIN, {
+  .refine((c) => !c.tempo || segundosDaEspera(c.tempo.valor, c.tempo.unidade) <= MAX_ESPERA_SEGUNDOS, {
     message: "o tempo máximo é 31 dias",
+    path: ["tempo"],
+  })
+  .refine((c) => !c.tempo || segundosDaEspera(c.tempo.valor, c.tempo.unidade) >= MIN_ESPERA_SEGUNDOS, {
+    message: "o tempo mínimo é 10 segundos",
     path: ["tempo"],
   });
 

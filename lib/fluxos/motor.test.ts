@@ -354,6 +354,13 @@ describe("motor dos fluxos — Aguardar resposta", () => {
     expect(await m.passo(tempo.motivo)).toMatchObject({ tipo: "ignorado" });
   });
 
+  it("tempo máximo em SEGUNDOS (fork jhoow): 30 s agendam o tempo esgotado 30 s depois", async () => {
+    const m = mundo(fluxoDePergunta({ tempo: { valor: 30, unidade: "segundos" } }));
+    await m.passo();
+    const tempo = m.agendados.at(-1)!;
+    expect(tempo.quando.getTime() - new Date("2026-10-03T12:00:00Z").getTime()).toBe(30_000);
+  });
+
   it("tempo esgotado sem resposta segue por 'Não respondeu'", async () => {
     const m = mundo(fluxoDePergunta({}));
     await m.passo();

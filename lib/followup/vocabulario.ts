@@ -634,6 +634,7 @@ export const OPERACOES_DE_ETIQUETA_NA_TELA: Record<(typeof OPERACOES_DE_ETIQUETA
 };
 
 export const UNIDADES_DE_ESPERA_NA_TELA: Record<(typeof UNIDADES_DE_ESPERA)[number], string> = {
+  segundos: "Segundos",
   minutos: "Minutos",
   horas: "Horas",
   dias: "Dias",

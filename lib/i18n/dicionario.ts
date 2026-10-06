@@ -14470,6 +14470,8 @@ export const DICIONARIO: Traducoes = {
   // Credenciais de IA: falha específica (fork jhoow)
   "A chave de criptografia do servidor (AI_CRED_AES_KEY) está ausente ou em formato inválido, então nenhuma chave de API pode ser guardada. Isso é configuração da instalação — avise o administrador.": { es: "La clave de cifrado del servidor (AI_CRED_AES_KEY) falta o tiene un formato inválido, así que no se puede guardar ninguna clave de API. Es configuración de la instalación — avisa al administrador." },
   "Não foi possível gravar a chave no banco. Tente de novo; se continuar, informe o ID abaixo ao suporte.": { es: "No se pudo guardar la clave en la base de datos. Intenta de nuevo; si continúa, informa el ID de abajo al soporte." },
+  // Aguardar em segundos (fork jhoow)
+  "O tempo mínimo é 10 segundos.": { es: "El tiempo mínimo es de 10 segundos." },
 };
 
 /**

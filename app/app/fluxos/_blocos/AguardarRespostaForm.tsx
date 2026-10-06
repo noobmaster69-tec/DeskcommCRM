@@ -5,7 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { aguardarRespostaConfigSchema, UNIDADES_DE_ESPERA } from "@/lib/followup/blocos-do-fluxo";
+import {
+  aguardarRespostaConfigSchema,
+  MIN_ESPERA_SEGUNDOS,
+  segundosDaEspera,
+  UNIDADES_DE_ESPERA,
+} from "@/lib/followup/blocos-do-fluxo";
 import { useT } from "@/hooks/i18n/useT";
 import type { ConfigOf } from "@/app/app/ai/followups/[id]/_components/forms/shared";
 import { CampoDeTexto } from "./CampoDeTexto";
@@ -20,6 +25,7 @@ import { useCamposDaFicha } from "./useCamposDaFicha";
 type Config = ConfigOf<"aguardar_resposta">;
 
 const ROTULO_DA_UNIDADE: Record<(typeof UNIDADES_DE_ESPERA)[number], string> = {
+  segundos: "Segundos",
   minutos: "Minutos",
   horas: "Horas",
   dias: "Dias",
@@ -90,6 +96,11 @@ export function AguardarRespostaForm({ config, onChange }: { config: Config; onC
               </SelectContent>
             </Select>
           </div>
+        )}
+        {!c.sem_limite && segundosDaEspera(tempo.valor, tempo.unidade) < MIN_ESPERA_SEGUNDOS && (
+          <p className="text-xs text-error-fg" role="alert">
+            {t("O tempo mínimo é 10 segundos.")}
+          </p>
         )}
         <p className="text-xs text-text-muted">
           {c.sem_limite

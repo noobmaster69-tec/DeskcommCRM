@@ -202,7 +202,7 @@ export const MAX_INTERVALO_INLINE_MS = 300_000;
  */
 export const MAX_ESPERA_POR_JOB_MS = 240_000;
 
-const UNIDADE_EM_MS = { minutos: 60_000, horas: 3_600_000, dias: 86_400_000 } as const;
+const UNIDADE_EM_MS = { segundos: 1_000, minutos: 60_000, horas: 3_600_000, dias: 86_400_000 } as const;
 
 function proximaAresta(edges: FlowEdge[], origem: string, ramo: string | null): FlowEdge | undefined {
   const saem = edges.filter((e) => e.source === origem).sort((a, b) => a.priority - b.priority);
