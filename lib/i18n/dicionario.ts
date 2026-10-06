@@ -14480,6 +14480,12 @@ export const DICIONARIO: Traducoes = {
   "Preferência salva.": { es: "Preferencia guardada." },
   "Não foi possível salvar a preferência.": { es: "No se pudo guardar la preferencia." },
   "Como o CRM se comporta na conversa: marcar as mensagens do contato como lidas ao responder.": { es: "Cómo se comporta el CRM en la conversación: marcar los mensajes del contacto como leídos al responder." },
+  // Delay do digitando (fork jhoow)
+  "Delay do “digitando”": { es: "Retraso del “escribiendo”" },
+  "Tempo que o WhatsApp ficará “digitando” antes de enviar esta mensagem.": { es: "Tiempo que WhatsApp quedará “escribiendo” antes de enviar este mensaje." },
+  "Tempo que o WhatsApp ficará “gravando áudio” antes de enviar esta mensagem.": { es: "Tiempo que WhatsApp quedará “grabando audio” antes de enviar este mensaje." },
+  "Tempo aleatório": { es: "Tiempo aleatorio" },
+  "Máximo do digitando (segundos)": { es: "Máximo del escribiendo (segundos)" },
 };
 
 /**

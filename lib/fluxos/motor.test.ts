@@ -60,6 +60,8 @@ function mundo(g: FlowGraph, inicio = "t") {
   let nome: string | null = "Maria Silva";
   const respostas: RespostaDoLead[] = [];
   const presencas: string[] = [];
+  /** A ordem do que aconteceu no canal (digitando, espera, envio) — fork jhoow. */
+  const linha: string[] = [];
   const reacoes: string[] = [];
   let bloquear = false;
   let recusar: string | null = null;
@@ -120,17 +122,20 @@ function mundo(g: FlowGraph, inicio = "t") {
       if (bloquear) return "bloqueada";
       if (recusar) return { recusada: recusar };
       enviadas.push({ ...msg, seq });
+      linha.push(`enviar:${msg.type === "text" ? msg.body : msg.type}`);
       return "enviada";
     },
     copiarMidia: async (_o, conv, path) => ({ storage_path: `${ORG}/${conv}/copia-${path.split("/").pop()}`, mime: "image/png" }),
     presenca: async (_o, _c, tipo) => {
       presencas.push(tipo);
+      linha.push(`presenca:${tipo}`);
     },
     reagir: async (_o, _c, m, emoji) => {
       reacoes.push(`${m.id}:${emoji}`);
     },
     dormir: async (ms) => {
       relogio += ms;
+      linha.push(`dormir:${ms}`);
     },
     salvarCampo: async (_o, _c, k, v) => {
       campos[k] = v;
@@ -161,6 +166,7 @@ function mundo(g: FlowGraph, inicio = "t") {
     agendados,
     campos,
     presencas,
+    linha,
     reacoes,
     get tags() {
       return tags;
@@ -230,6 +236,45 @@ describe("motor dos fluxos — Mensagem", () => {
     expect(m.enviadas.map((e) => e.seq)).toEqual([1, 2]);
     expect(m.presencas).toContain("typing");
     expect(m.enrollment.status).toBe("completed");
+  });
+
+  it("digitando (fork jhoow): padrão 6 s no texto — digita, espera, envia e para", async () => {
+    const m = mundo(
+      grafo(
+        [no("t", "trigger"), no("m", "mensagem", { itens: [{ id: "a", tipo: "texto", texto: "Oi" }] }), no("f", "end", { outcome: "exhausted" })],
+        [sempre("t", "m"), sempre("m", "f")],
+      ),
+    );
+    await m.passo();
+    expect(m.linha).toEqual(["presenca:typing", "dormir:6000", "enviar:Oi", "presenca:paused"]);
+  });
+
+  it("digitando: tempo do item, renovado a cada 20 s; áudio = gravando", async () => {
+    const m = mundo(
+      grafo(
+        [
+          no("t", "trigger"),
+          no("m", "mensagem", { itens: [{ id: "a", tipo: "texto", texto: "Oi", typing_delay_seconds: 45 }] }),
+          no("f", "end", { outcome: "exhausted" }),
+        ],
+        [sempre("t", "m"), sempre("m", "f")],
+      ),
+    );
+    await m.passo();
+    expect(m.linha).toEqual([
+      "presenca:typing", "dormir:20000",
+      "presenca:typing", "dormir:20000",
+      "presenca:typing", "dormir:5000",
+      "enviar:Oi", "presenca:paused",
+    ]);
+  });
+
+  it("digitando: passou do teto de espera do job — o MESMO item vai para um job novo", async () => {
+    const itens = Array.from({ length: 6 }, (_, i) => ({ id: `i${i}`, tipo: "texto", texto: `m${i}`, typing_delay_seconds: 60 }));
+    const m = mundo(grafo([no("t", "trigger"), no("m", "mensagem", { itens }), no("f", "end", { outcome: "exhausted" })], [sempre("t", "m"), sempre("m", "f")]));
+    expect(await m.passo()).toEqual({ tipo: "continua_depois" });
+    expect(m.enviadas.map((e) => e.body)).toEqual(["m0", "m1", "m2", "m3"]); // 4 × 60 s = o teto de 240 s
+    expect(m.agendados.at(-1)!.motivo).toEqual({ tipo: "seguir", noId: "m", item: 4 });
   });
 
   it("mídia do Storage é copiada para a conversa antes de sair", async () => {

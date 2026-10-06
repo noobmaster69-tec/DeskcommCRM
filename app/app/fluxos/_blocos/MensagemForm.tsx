@@ -4,7 +4,16 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { mensagemConfigSchema, type ItemDaMensagem } from "@/lib/followup/blocos-do-fluxo";
+import {
+  DIGITANDO_MAX,
+  DIGITANDO_MIN,
+  DIGITANDO_PADRAO,
+  mensagemConfigSchema,
+  type ItemDaMensagem,
+  type TipoComDigitando,
+} from "@/lib/followup/blocos-do-fluxo";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { useT } from "@/hooks/i18n/useT";
 import {
   CaretDown,
@@ -73,14 +82,91 @@ function novoId(itens: readonly Rascunho[]): string {
 function itemNovo(tipo: Tipo, id: string): Rascunho {
   switch (tipo) {
     case "texto":
-      return { id, tipo, texto: "" };
+      return { id, tipo, texto: "", typing_delay_seconds: DIGITANDO_PADRAO.texto };
     case "contato":
       return { id, tipo, nome: "", telefone: "" };
     case "intervalo":
       return { id, tipo, modo: "fixo", segundos: 3 };
     default:
-      return { id, tipo, midia: null } as Rascunho;
+      return { id, tipo, midia: null, typing_delay_seconds: DIGITANDO_PADRAO[tipo as TipoComDigitando] } as Rascunho;
   }
+}
+
+type ItemComDigitando = Extract<Rascunho, { tipo: TipoComDigitando }>;
+
+/**
+ * "Delay do digitando" (fork jhoow): quanto tempo o WhatsApp fica digitando
+ * (gravando, no áudio) antes de enviar ESTE item. Opcional: tempo aleatório
+ * entre o mínimo (o slider) e um máximo.
+ */
+function EditorDoDigitando({ item, onChange }: { item: ItemComDigitando; onChange: (i: Rascunho) => void }) {
+  const t = useT();
+  const segundos = item.typing_delay_seconds ?? DIGITANDO_PADRAO[item.tipo];
+  const max = item.typing_delay_random_max ?? null;
+  const aleatorio = max !== null;
+  return (
+    <div className="space-y-2 border-t border-border pt-2" data-testid={`digitando-${item.id}`}>
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="text-text-muted">{t("Delay do “digitando”")}</span>
+        <span className="text-sm font-semibold text-text" data-testid={`digitando-valor-${item.id}`}>
+          {aleatorio ? `${segundos}–${max}` : segundos} {t("segundos")}
+        </span>
+        <span className="text-text-muted">
+          {DIGITANDO_MAX} {t("segundos")}
+        </span>
+      </div>
+      <Slider
+        aria-label={t("Delay do “digitando”")}
+        min={DIGITANDO_MIN}
+        max={DIGITANDO_MAX}
+        value={[segundos]}
+        onValueChange={([v]) =>
+          onChange({
+            ...item,
+            typing_delay_seconds: v,
+            ...(aleatorio && max !== null && max < (v ?? 1) ? { typing_delay_random_max: v } : {}),
+          } as Rascunho)
+        }
+      />
+      <p className="text-[11px] text-text-muted">
+        {item.tipo === "audio"
+          ? t("Tempo que o WhatsApp ficará “gravando áudio” antes de enviar esta mensagem.")
+          : t("Tempo que o WhatsApp ficará “digitando” antes de enviar esta mensagem.")}
+      </p>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <Switch
+          id={`aleatorio-${item.id}`}
+          checked={aleatorio}
+          onCheckedChange={(on) =>
+            onChange({ ...item, typing_delay_seconds: segundos, typing_delay_random_max: on ? Math.min(DIGITANDO_MAX, segundos + 4) : null } as Rascunho)
+          }
+        />
+        <label htmlFor={`aleatorio-${item.id}`} className="text-text-muted">
+          {t("Tempo aleatório")}
+        </label>
+        {aleatorio && (
+          <span className="flex items-center gap-1">
+            {t("de")} {segundos} {t("até")}
+            <Input
+              type="number"
+              className="h-7 w-16"
+              aria-label={t("Máximo do digitando (segundos)")}
+              min={segundos}
+              max={DIGITANDO_MAX}
+              value={max ?? segundos}
+              onChange={(e) =>
+                onChange({
+                  ...item,
+                  typing_delay_random_max: Math.max(segundos, Math.min(DIGITANDO_MAX, Math.round(Number(e.target.value) || segundos))),
+                } as Rascunho)
+              }
+            />
+            {t("segundos")}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function MensagemForm({
@@ -158,6 +244,9 @@ export function MensagemForm({
                 </button>
               </div>
               <EditorDoItem item={item} onChange={(it) => trocar(idx, it)} variaveis={variaveis} flowId={flowId} aceita={meta.aceita} />
+              {item.tipo in DIGITANDO_PADRAO && (
+                <EditorDoDigitando item={item as ItemComDigitando} onChange={(it) => trocar(idx, it)} />
+              )}
             </li>
           );
         })}

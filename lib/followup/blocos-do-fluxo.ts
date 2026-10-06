@@ -37,13 +37,28 @@ export const midiaDoFluxoSchema = z
   });
 
 // ── #1 Mensagem ─────────────────────────────────────────────────────────────
+/**
+ * O "digitando…" de CADA item de conteúdo (fork jhoow): o WhatsApp fica
+ * digitando (gravando, no áudio) por `typing_delay_seconds` antes de enviar;
+ * com `typing_delay_random_max`, cada envio sorteia entre os dois. Ausente =
+ * o padrão do tipo (`DIGITANDO_PADRAO`) — o mesmo que o slider mostra.
+ */
+export const DIGITANDO_MIN = 1;
+export const DIGITANDO_MAX = 60;
+export const DIGITANDO_PADRAO = { texto: 6, imagem: 6, arquivo: 6, sticker: 6, audio: 15, video: 10 } as const;
+export type TipoComDigitando = keyof typeof DIGITANDO_PADRAO;
+const digitando = {
+  typing_delay_seconds: z.number().int().min(DIGITANDO_MIN).max(DIGITANDO_MAX).optional(),
+  typing_delay_random_max: z.number().int().min(DIGITANDO_MIN).max(DIGITANDO_MAX).nullable().optional(),
+};
+
 export const itemDaMensagemSchema = z.discriminatedUnion("tipo", [
-  z.strictObject({ id: idDeItem, tipo: z.literal("texto"), texto: textoComVariaveis(4000) }),
-  z.strictObject({ id: idDeItem, tipo: z.literal("imagem"), midia: midiaDoFluxoSchema, legenda: z.string().max(1000).optional() }),
-  z.strictObject({ id: idDeItem, tipo: z.literal("video"), midia: midiaDoFluxoSchema, legenda: z.string().max(1000).optional() }),
-  z.strictObject({ id: idDeItem, tipo: z.literal("audio"), midia: midiaDoFluxoSchema }),
-  z.strictObject({ id: idDeItem, tipo: z.literal("arquivo"), midia: midiaDoFluxoSchema }),
-  z.strictObject({ id: idDeItem, tipo: z.literal("sticker"), midia: midiaDoFluxoSchema }),
+  z.strictObject({ id: idDeItem, tipo: z.literal("texto"), texto: textoComVariaveis(4000), ...digitando }),
+  z.strictObject({ id: idDeItem, tipo: z.literal("imagem"), midia: midiaDoFluxoSchema, legenda: z.string().max(1000).optional(), ...digitando }),
+  z.strictObject({ id: idDeItem, tipo: z.literal("video"), midia: midiaDoFluxoSchema, legenda: z.string().max(1000).optional(), ...digitando }),
+  z.strictObject({ id: idDeItem, tipo: z.literal("audio"), midia: midiaDoFluxoSchema, ...digitando }),
+  z.strictObject({ id: idDeItem, tipo: z.literal("arquivo"), midia: midiaDoFluxoSchema, ...digitando }),
+  z.strictObject({ id: idDeItem, tipo: z.literal("sticker"), midia: midiaDoFluxoSchema, ...digitando }),
   z.strictObject({
     id: idDeItem,
     tipo: z.literal("contato"),
@@ -65,9 +80,31 @@ export const itemDaMensagemSchema = z.discriminatedUnion("tipo", [
 ]);
 export type ItemDaMensagem = z.infer<typeof itemDaMensagemSchema>;
 
-export const mensagemConfigSchema = z.strictObject({
-  itens: z.array(itemDaMensagemSchema).min(1).max(30),
-});
+export const mensagemConfigSchema = z
+  .strictObject({
+    itens: z.array(itemDaMensagemSchema).min(1).max(30),
+  })
+  .superRefine((c, ctx) => {
+    c.itens.forEach((item, i) => {
+      if (!("typing_delay_random_max" in item) || item.typing_delay_random_max == null) return;
+      const min = item.typing_delay_seconds ?? DIGITANDO_PADRAO[item.tipo as TipoComDigitando];
+      if (item.typing_delay_random_max < min)
+        ctx.addIssue({ code: "custom", path: ["itens", i, "typing_delay_random_max"], message: "o máximo do digitando não pode ser menor que o mínimo" });
+    });
+  });
+
+/** O item tem "digitando"? (os de conteúdo: não o contato nem o intervalo) */
+export function temDigitando(item: ItemDaMensagem): item is Extract<ItemDaMensagem, { tipo: TipoComDigitando }> {
+  return item.tipo in DIGITANDO_PADRAO;
+}
+
+/** Segundos do "digitando" deste envio — sorteado entre mínimo e máximo quando aleatório. */
+export function segundosDoDigitando(item: Extract<ItemDaMensagem, { tipo: TipoComDigitando }>, aleatorio = Math.random): number {
+  const min = Math.min(DIGITANDO_MAX, Math.max(DIGITANDO_MIN, item.typing_delay_seconds ?? DIGITANDO_PADRAO[item.tipo]));
+  const max = item.typing_delay_random_max;
+  if (max == null || max <= min) return min;
+  return min + Math.round(aleatorio() * (Math.min(DIGITANDO_MAX, max) - min));
+}
 
 // ── #2 Etiquetas ────────────────────────────────────────────────────────────
 export const OPERACOES_DE_ETIQUETA = ["adicionar", "remover"] as const;

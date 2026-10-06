@@ -26,7 +26,7 @@ import {
   type FlowGraph,
   type FlowNode,
 } from "@/lib/followup/graph-schema";
-import type { ItemDaMensagem } from "@/lib/followup/blocos-do-fluxo";
+import { segundosDoDigitando, temDigitando, type ItemDaMensagem } from "@/lib/followup/blocos-do-fluxo";
 import { interpolar, type ContextoDeVariaveis } from "./variaveis";
 import { avaliarCondicional } from "./condicao";
 import { fimDoIntervalo } from "./intervalo";
@@ -210,6 +210,20 @@ function proximaAresta(edges: FlowEdge[], origem: string, ramo: string | null): 
   return saem.find((e) => e.condition.type === "branch" && e.condition.branch_id === ramo);
 }
 
+/** O WhatsApp apaga o "digitando…" depois de ~25 s: renova a cada 20 s enquanto espera. */
+const RENOVAR_PRESENCA_MS = 20_000;
+
+/** "digitando…"/"gravando…" por `ms`, renovando o indicador; o envio vem logo depois. */
+async function digitarPor(deps: DepsDoMotor, org: string, conversa: string, tipo: "typing" | "recording", ms: number): Promise<void> {
+  let falta = ms;
+  while (falta > 0) {
+    await deps.presenca(org, conversa, tipo);
+    const passo = Math.min(falta, RENOVAR_PRESENCA_MS);
+    await deps.dormir(passo);
+    falta -= passo;
+  }
+}
+
 /** Atraso de um item Intervalo, em ms (aleatório inclusive nas pontas). */
 export function atrasoDoIntervalo(item: Extract<ItemDaMensagem, { tipo: "intervalo" }>, aleatorio = Math.random): number {
   const s = item.modo === "fixo" ? item.segundos : item.min_segundos + Math.round(aleatorio() * (item.max_segundos - item.min_segundos));
@@ -382,8 +396,21 @@ export async function executarPasso(
             saida.reply_to_message_id = citar.id;
             citar = null;
           }
-          await deps.presenca(org, conversa, "paused");
+          // Fork jhoow: o "digitando…" (gravando, no áudio) ANTES de cada item de
+          // conteúdo, pelo tempo do item. Passou do teto de espera do job? Agenda
+          // este MESMO item para já, num job novo (que começa com o teto zerado).
+          if (temDigitando(item)) {
+            const atraso = segundosDoDigitando(item) * 1000;
+            if (dormido > 0 && dormido + atraso > MAX_ESPERA_POR_JOB_MS) {
+              await deps.atualizar(org, enrollment.id, { current_node_id: no.id, steps_taken: enrollment.steps_taken + passos });
+              await deps.agendar(org, enrollment, { tipo: "seguir", noId: no.id, item: i }, deps.agora());
+              return { tipo: "continua_depois" };
+            }
+            await digitarPor(deps, org, conversa, item.tipo === "audio" ? "recording" : "typing", atraso);
+            dormido += atraso;
+          }
           const r = await deps.enviar(org, conversa, saida, ++seq);
+          await deps.presenca(org, conversa, "paused");
           const parada = await pararSeNaoSaiu(deps, enrollment, r);
           if (parada) return parada;
         }
