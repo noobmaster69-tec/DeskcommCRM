@@ -5,6 +5,7 @@
  */
 import { CAMPOS_DO_CONTATO, campoDoCatalogo } from "@/lib/variables/campos-do-contato";
 import { CHAVE_DE_VARIAVEL, NOMES_RESERVADOS } from "@/lib/variables/sistema";
+import { destinoDoModelo, fusoFinal, idiomaBcp47, inteiro, paisIso } from "./import-xlsx";
 
 /** Teto de linhas por importação: o mesmo limite de contatos de uma campanha. */
 export const MAX_LINHAS_IMPORTADAS = 5000;
@@ -16,6 +17,10 @@ export type DestinoDaColuna =
   | "numero_contato"
   | "email"
   | "comentarios_google_maps"
+  /** Modelo de 18 colunas: idioma (contacts.locale), tratamento confirmado e a campanha. */
+  | "idioma_contato"
+  | "tratamento_confirmado"
+  | "campanha_id"
   | "ignorar"
   | `var:${string}`;
 
@@ -25,6 +30,9 @@ export const DESTINOS_FIXOS: ReadonlyArray<{ valor: DestinoDaColuna; rotulo: str
   { valor: "numero_contato", rotulo: "Número do contato" },
   { valor: "email", rotulo: "E-mail" },
   { valor: "comentarios_google_maps", rotulo: "Avaliações no Google Maps" },
+  { valor: "idioma_contato", rotulo: "Idioma do contato" },
+  { valor: "tratamento_confirmado", rotulo: "Tratamento confirmado (Dr., Dra.…)" },
+  { valor: "campanha_id", rotulo: "Campanha (reconhecida, não gravada)" },
   { valor: "ignorar", rotulo: "Ignorar esta coluna" },
 ];
 
@@ -76,6 +84,9 @@ export function chaveDoCabecalho(cabecalho: string): string {
 
 /** O destino sugerido para cada cabeçalho — o operador confere e troca no mapeamento visual. */
 export function sugerirDestino(cabecalho: string, variaveisExistentes: readonly string[] = []): DestinoDaColuna {
+  // O MODELO de 18 colunas: nome exato manda (fork jhoow).
+  const doModelo = destinoDoModelo(cabecalho);
+  if (doModelo) return doModelo;
   const c = semAcento(cabecalho);
   // Os sinônimos do catálogo primeiro: "Google Maps URL" e "Nota Google" não são avaliações.
   for (const [rx, campo] of SINONIMOS) if (rx.test(c)) return `var:${campo}`;
@@ -118,14 +129,23 @@ export interface LinhaImportada {
   empresa: string | null;
   telefone: string | null;
   email: string | null;
+  /** `contacts.locale` (BCP 47), da coluna idioma_contato. */
+  locale?: string | null;
   /** Variáveis (custom_fields) — inclui nome_empresa e comentarios_google_maps. */
   campos: Record<string, string>;
 }
 
+/** Motivos de linha fora da lista — os MESMOS textos da prévia de campanha. */
+export const MOTIVO_SEM_TELEFONE = "Sem telefone no cadastro";
+export const MOTIVO_TELEFONE_INVALIDO = "Telefone fora do formato de envio";
+export const MOTIVO_SEM_NOME = "Sem nome_completo";
+
 export interface ResultadoDaLeitura {
   validas: LinhaImportada[];
-  /** Linhas sem telefone válido — destacadas em vermelho na prévia. */
-  invalidas: Array<{ linha: number; valor: string }>;
+  /** Linhas fora da lista (telefone ausente/inválido, sem nome) — vermelho na prévia, com o motivo. */
+  invalidas: Array<{ linha: number; valor: string; motivo: string }>;
+  /** Linhas totalmente vazias — ignoradas sem contar como erro. */
+  vazias?: number;
   /** Linhas com o mesmo telefone de uma linha anterior (fica a primeira). */
   duplicadas: Array<{ linha: number; telefone: string }>;
 }
@@ -140,8 +160,14 @@ export function lerLinhas(
   const invalidas: ResultadoDaLeitura["invalidas"] = [];
   const duplicadas: ResultadoDaLeitura["duplicadas"] = [];
   const vistos = new Set<string>();
+  const exigeNome = destinos.includes("nome_profissional");
+  let vazias = 0;
   linhas.slice(0, MAX_LINHAS_IMPORTADAS).forEach((celulas, i) => {
     const numero = i + 1;
+    if (celulas.every((x) => (x ?? "").trim() === "")) {
+      vazias++;
+      return;
+    }
     const l: LinhaImportada = { linha: numero, nome: null, empresa: null, telefone: null, email: null, campos: {} };
     let telefoneBruto = "";
     cabecalho.forEach((_, c) => {
@@ -155,15 +181,37 @@ export function lerLinhas(
       } else if (destino === "numero_contato") telefoneBruto = valor;
       else if (destino === "email") l.email = valor.slice(0, 254);
       // Fonte única: as avaliações vão para `n_avaliacoes_gg` (o `{comentarios_google_maps}` lê o mesmo valor).
-      else if (destino === "comentarios_google_maps") l.campos.n_avaliacoes_gg = valor.replace(/[^\d]/g, "") || valor;
+      // Inteiro: "237 avaliações" → 237; sem número = fica vazio.
+      else if (destino === "comentarios_google_maps") {
+        const n = inteiro(valor.replace(/[^\d\s.,]/g, "").trim());
+        if (n !== null) l.campos.n_avaliacoes_gg = String(n);
+      } else if (destino === "idioma_contato") l.locale = idiomaBcp47(valor);
+      // "Dr." numa coluna de tratamento CONFIRMADO: o tratamento e a confirmação.
+      else if (destino === "tratamento_confirmado") {
+        l.campos.tratamento = valor.slice(0, 40);
+        l.campos.tratamento_confirmado = "true";
+      } else if (destino === "campanha_id") return; // a lista entra na campanha em que se importa
       else if (destino.startsWith("var:")) {
-        const k = destino.slice(4);
-        l.campos[campoDoCatalogo(k)?.chave ?? k] = valor.slice(0, 1000);
+        const k = campoDoCatalogo(destino.slice(4))?.chave ?? destino.slice(4);
+        if (k === "pais") {
+          const p = paisIso(valor);
+          if (p) l.campos.pais = p;
+        } else l.campos[k] = valor.slice(0, 1000);
       }
     });
+    // Fuso: o da coluna se for IANA válido; senão o do país; senão UTC — só
+    // quando a planilha traz fuso ou país (sem os dois, a ficha fica como está).
+    if (l.campos.fuso_horario !== undefined || l.campos.pais !== undefined) {
+      l.campos.fuso_horario = fusoFinal(l.campos.fuso_horario, l.campos.pais);
+    }
+    // O telefone vai para o parser E.164 que já existe — sem regra nova.
     const tel = telefoneE164(telefoneBruto);
     if (!tel) {
-      invalidas.push({ linha: numero, valor: telefoneBruto });
+      invalidas.push({ linha: numero, valor: telefoneBruto, motivo: telefoneBruto.trim() ? MOTIVO_TELEFONE_INVALIDO : MOTIVO_SEM_TELEFONE });
+      return;
+    }
+    if (exigeNome && !l.nome) {
+      invalidas.push({ linha: numero, valor: telefoneBruto, motivo: MOTIVO_SEM_NOME });
       return;
     }
     if (vistos.has(tel)) {
@@ -174,7 +222,7 @@ export function lerLinhas(
     l.telefone = tel;
     validas.push(l);
   });
-  return { validas, invalidas, duplicadas };
+  return { validas, invalidas, duplicadas, vazias };
 }
 
 /** O que fazer quando o telefone já é de um contato do CRM. */

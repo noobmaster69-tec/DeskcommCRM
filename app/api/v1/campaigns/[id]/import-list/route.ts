@@ -4,33 +4,41 @@ import type { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
-import { ROLE_RANK } from "@/lib/auth/types";
 import { ImportacaoDesfeita, importacaoSchema, importarAudiencia } from "@/lib/campanhas/importar-audiencia";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 300;
-
 const MAX_BYTES = 10 * 1024 * 1024;
 
 /**
- * POST /api/v1/contacts/import/mapeado — importa uma planilha (CSV/XLSX) para
- * os CONTATOS com o mapeamento visual das colunas (fork jhoow). O mesmo motor da
- * lista de campanha, sem gravar audiência: cria quem não existe, aplica a
- * política de duplicata (pular / atualizar / manter) a quem já existe — célula
- * vazia nunca apaga valor, nome editado à mão não é trocado. Agent+ (o mesmo
- * papel do import de CSV); criar VARIÁVEIS novas da empresa é de manager+ — o
- * agent importa os valores mesmo assim. Admin client SEMPRE com a organização
- * da sessão no filtro.
+ * POST /api/v1/campaigns/:id/import-list — importa a planilha (modelo de 18
+ * colunas ou mapeamento livre) DIRETO numa campanha que já existe e ainda é
+ * rascunho (fork jhoow): grava os contatos (tudo ou nada), a lista
+ * (`campaign_audience_sources`, ligada a esta campanha) e troca o público da
+ * campanha para "Importar lista". Multipart: `dados` (JSON mapeado) e
+ * `arquivo`. Manager+.
  */
-export async function POST(req: NextRequest): Promise<Response> {
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
   const denied = await requireSupportWrite();
   if (denied) return denied;
   const requestId = randomUUID();
-  const authz = await requireRole("agent", { requestId, resource: "contacts" });
+  const { id } = await ctx.params;
+  const authz = await requireRole("manager", { requestId, resource: "campaigns" });
   if (!authz.ok) return authz.response;
-  const t = (texto: string) => traduzir(texto, authz.user.idioma);
+  const t = (x: string) => traduzir(x, authz.user.idioma);
+  const admin = createAdminClient();
+
+  const { data: campanha } = await admin
+    .from("campaigns")
+    .select("id, status, audience_filter")
+    .eq("organization_id", authz.org.orgId)
+    .eq("id", id)
+    .maybeSingle();
+  if (!campanha) return fail("not_found", t("Campanha não encontrada."), 404, { requestId });
+  if ((campanha as { status: string }).status !== "draft")
+    return fail("campanha_nao_editavel", t("Só um rascunho aceita mudar o texto e o público. O ritmo você pode ajustar a qualquer momento."), 409, { requestId });
 
   const form = await req.formData().catch(() => null);
   if (!form) return fail("validation_failed", t("Envie a lista no formato esperado."), 422, { requestId });
@@ -46,7 +54,6 @@ export async function POST(req: NextRequest): Promise<Response> {
       requestId,
       details: parsed.error.flatten(),
     });
-
   let arquivo: { bytes: Uint8Array; tipo: string; extensao: string } | null = null;
   const f = form.get("arquivo");
   if (f && typeof f === "object" && "arrayBuffer" in f) {
@@ -56,29 +63,35 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   try {
-    const resumo = await importarAudiencia(
-      createAdminClient(),
-      { organizationId: authz.org.orgId, userId: authz.user.id },
-      parsed.data,
-      arquivo,
-      {
-        gravarLista: false,
-        podeCriarVariaveis: ROLE_RANK[authz.org.role] >= ROLE_RANK.manager,
-        origem: "importacao_planilha",
-      },
-    );
+    const resumo = await importarAudiencia(admin, { organizationId: authz.org.orgId, userId: authz.user.id }, parsed.data, arquivo);
+    if (resumo.fonteId) {
+      await admin.from("campaign_audience_sources").update({ campaign_id: id }).eq("organization_id", authz.org.orgId).eq("id", resumo.fonteId);
+      const filtro = ((campanha as { audience_filter?: Record<string, unknown> }).audience_filter ?? {}) as Record<string, unknown>;
+      const total = resumo.criados + resumo.atualizados + resumo.mantidos;
+      await admin
+        .from("campaigns")
+        .update({
+          audience_filter: {
+            fonte: "importacao",
+            lista_importada: resumo.fonteId,
+            limite: Math.min(5000, Math.max(Number(filtro.limite) || 0, total || 1)),
+          },
+        })
+        .eq("organization_id", authz.org.orgId)
+        .eq("id", id)
+        .eq("status", "draft");
+    }
     void audit({
-      action: "contacts.imported",
+      action: "campaign.audience_imported",
       organizationId: authz.org.orgId,
       actorUserId: authz.user.id,
-      resourceType: "contact",
-      resourceId: null,
+      resourceType: "campaign",
+      resourceId: id,
       requestId,
-      metadata: { ...resumo, arquivo: parsed.data.nome_do_arquivo, via: "planilha_mapeada" },
+      metadata: { ...resumo, arquivo: parsed.data.nome_do_arquivo },
     });
     return ok(resumo, { requestId, status: 201 });
   } catch (e) {
-    // Tudo ou nada: uma linha que o banco recusou desfaz a importação inteira.
     if (e instanceof ImportacaoDesfeita)
       return fail("validation_failed", `${t("Nada foi importado: a linha")} ${e.linha} ${t("falhou")} (${e.motivo}).`, 422, {
         requestId,

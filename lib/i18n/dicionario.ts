@@ -14486,6 +14486,24 @@ export const DICIONARIO: Traducoes = {
   "Tempo que o WhatsApp ficará “gravando áudio” antes de enviar esta mensagem.": { es: "Tiempo que WhatsApp quedará “grabando audio” antes de enviar este mensaje." },
   "Tempo aleatório": { es: "Tiempo aleatorio" },
   "Máximo do digitando (segundos)": { es: "Máximo del escribiendo (segundos)" },
+  // Importação com o modelo de 18 colunas (fork jhoow)
+  "colunas do modelo reconhecidas — mapeadas sozinhas": { es: "columnas del modelo reconocidas — mapeadas automáticamente" },
+  "Colunas fora do modelo — crie como variável personalizada ou ignore:": { es: "Columnas fuera del modelo — créalas como variable personalizada o ignóralas:" },
+  "Avançar": { es: "Avanzar" },
+  "Repetido na planilha": { es: "Repetido en la planilla" },
+  "Já é contato do CRM": { es: "Ya es contacto del CRM" },
+  "fora da lista": { es: "fuera de la lista" },
+  "já são contatos do CRM — escolha abaixo o que fazer com eles": { es: "ya son contactos del CRM — elige abajo qué hacer con ellos" },
+  "linhas vazias ignoradas": { es: "filas vacías ignoradas" },
+  "Baixar modelo de planilha": { es: "Descargar modelo de planilla" },
+  "Entra na lista e recebe o nome e as variáveis da planilha (célula vazia não apaga nada).": { es: "Entra en la lista y recibe el nombre y las variables de la planilla (una celda vacía no borra nada)." },
+  "Entra na lista com o cadastro que já existe. Não se cria um contato duplicado: o mesmo número é a mesma pessoa no WhatsApp.": { es: "Entra en la lista con el registro que ya existe. No se crea un contacto duplicado: el mismo número es la misma persona en WhatsApp." },
+  "Sem nome_completo": { es: "Sin nome_completo" },
+  "País (ISO, ex.: BR, PT)": { es: "País (ISO, ej.: BR, PT)" },
+  "Fuso horário (IANA)": { es: "Huso horario (IANA)" },
+  "Tratamento confirmado (Dr., Dra.…)": { es: "Tratamiento confirmado (Dr., Dra.…)" },
+  "Campanha (reconhecida, não gravada)": { es: "Campaña (reconocida, no guardada)" },
+  "Nada foi importado: a linha": { es: "No se importó nada: la fila" },
 };
 
 /**

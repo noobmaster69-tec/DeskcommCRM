@@ -1,7 +1,7 @@
 import { strFromU8, unzipSync } from "fflate";
 
 /**
- * Lê a PRIMEIRA planilha de um .xlsx como matriz de textos (fork jhoow,
+ * Lê a aba "Contatos" (ou a primeira com dados) de um .xlsx como matriz de textos (fork jhoow,
  * Campanhas › item 1). Sem biblioteca nova: o .xlsx é um zip de XMLs, e o
  * `fflate` (já instalado) abre o zip. Suporta strings compartilhadas, inline e
  * números; fórmulas entram pelo VALOR em cache. Células vazias viram "".
@@ -33,13 +33,19 @@ export function lerXlsx(bytes: Uint8Array): string[][] {
 
   const compartilhadas = [...texto("xl/sharedStrings.xml").matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => textoDoNo(m[1] ?? ""));
 
-  // A primeira aba do workbook → o arquivo dela (via rels); senão sheet1.xml.
-  let caminho = "xl/worksheets/sheet1.xml";
-  const primeira = /<sheet\b[^>]*\br:id="([^"]+)"/.exec(texto("xl/workbook.xml"));
-  if (primeira) {
-    const rel = new RegExp(`<Relationship\\b[^>]*Id="${primeira[1]}"[^>]*Target="([^"]+)"`).exec(texto("xl/_rels/workbook.xml.rels"));
-    if (rel?.[1]) caminho = `xl/${rel[1].replace(/^\/?xl\//, "")}`;
-  }
+  // A aba "Contatos" (o modelo); sem ela, a PRIMEIRA aba com dados (fork jhoow).
+  const rels = texto("xl/_rels/workbook.xml.rels");
+  const caminhoDe = (rid: string) => {
+    const rel = new RegExp(`<Relationship\\b[^>]*Id="${rid}"[^>]*Target="([^"]+)"`).exec(rels);
+    return rel?.[1] ? `xl/${rel[1].replace(/^\/?xl\//, "")}` : null;
+  };
+  const abas = [...texto("xl/workbook.xml").matchAll(/<sheet\b[^>]*\bname="([^"]*)"[^>]*\br:id="([^"]+)"/g)].map((m) => ({
+    nome: decodificar(m[1] ?? ""),
+    caminho: caminhoDe(m[2] ?? ""),
+  }));
+  const comDados = (c: string | null) => !!c && /<row\b[^>]*>[\s\S]*?<c\b/.test(texto(c));
+  const contatos = abas.find((a) => a.nome.trim().toLowerCase() === "contatos" && comDados(a.caminho));
+  const caminho = contatos?.caminho ?? abas.find((a) => comDados(a.caminho))?.caminho ?? "xl/worksheets/sheet1.xml";
   const folha = texto(caminho);
   if (!folha) throw new Error("planilha vazia ou formato não reconhecido");
 

@@ -18,6 +18,7 @@ import {
   sugerirDestino,
 } from "@/lib/campanhas/importacao";
 import { lerXlsx } from "@/lib/campanhas/xlsx";
+import { COLUNAS_DO_MODELO, destinoDoModelo } from "@/lib/campanhas/import-xlsx";
 import { NOMES_RESERVADOS } from "@/lib/variables/sistema";
 import { campoDoCatalogo } from "@/lib/variables/campos-do-contato";
 
@@ -37,8 +38,11 @@ const MAX_BYTES = 10 * 1024 * 1024;
 
 const ROTULO_DA_POLITICA: Record<PoliticaDeDuplicata, { titulo: string; dica: string }> = {
   pular: { titulo: "Pular", dica: "Quem já é contato fica fora desta lista." },
-  atualizar: { titulo: "Atualizar", dica: "Entra na lista e recebe o nome e as variáveis da planilha." },
-  manter: { titulo: "Manter como está", dica: "Entra na lista sem mudar nada no contato." },
+  atualizar: { titulo: "Atualizar", dica: "Entra na lista e recebe o nome e as variáveis da planilha (célula vazia não apaga nada)." },
+  manter: {
+    titulo: "Manter como está",
+    dica: "Entra na lista com o cadastro que já existe. Não se cria um contato duplicado: o mesmo número é a mesma pessoa no WhatsApp.",
+  },
 };
 
 const ERRO_DE_LEITURA = {
@@ -79,6 +83,10 @@ export function ImportarLista({
   const [etapa, setEtapa] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erroDoEnvio, setErroDoEnvio] = useState<string | null>(null);
+  /** O mapeamento foi confirmado ("Avançar") — aí vêm a prévia e as opções. */
+  const [avancou, setAvancou] = useState(false);
+  /** Telefones (E.164) que JÁ são contatos do CRM — amarelo na prévia. */
+  const [noCrm, setNoCrm] = useState<Set<string>>(new Set());
   const variaveis = useVariaveisDaOrganizacao();
   // As da organização que NÃO são campos do catálogo (esses aparecem no grupo próprio).
   const personalizadas = useMemo(() => (variaveis.data ?? []).filter((p) => !campoDoCatalogo(p.key)), [variaveis.data]);
@@ -89,6 +97,8 @@ export function ImportarLista({
 
   async function escolher(f: File | null) {
     setArquivo(f);
+    setAvancou(false);
+    setNoCrm(new Set());
     setTabela(null);
     setErro(null);
     setErroDoEnvio(null);
@@ -121,8 +131,30 @@ export function ImportarLista({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tabela, destinos],
   );
-  const invalidas = new Set(leitura?.invalidas.map((x) => x.linha));
+  const invalidas = new Map(leitura?.invalidas.map((x) => [x.linha, x.motivo]));
+  const repetidas = new Set(leitura?.duplicadas.map((x) => x.linha));
+  const telefoneDaLinha = new Map(leitura?.validas.map((x) => [x.linha, x.telefone]));
+  const jaNoCrm = (leitura?.validas ?? []).filter((x) => x.telefone && noCrm.has(x.telefone)).length;
   const temTelefone = destinos.includes("numero_contato");
+  const reconhecidas = cabecalho.filter((c) => destinoDoModelo(c) !== null);
+
+  /** Confirma o mapeamento e pergunta ao CRM quem já existe (amarelo na prévia). */
+  async function avancar() {
+    setAvancou(true);
+    const telefones = (leitura?.validas ?? []).map((x) => x.telefone).filter((x): x is string => !!x);
+    if (telefones.length === 0) return;
+    try {
+      const r = await fetch("/api/v1/contacts/existentes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telefones }),
+      });
+      const j = (await r.json().catch(() => null)) as { data?: { existentes: string[] } } | null;
+      setNoCrm(new Set(j?.data?.existentes ?? []));
+    } catch {
+      setNoCrm(new Set());
+    }
+  }
 
   // Variáveis que a planilha cria (as personalizadas que ainda não existem).
   const novas = destinos.flatMap((d, i) => {
@@ -221,14 +253,41 @@ export function ImportarLista({
           onChange={(e) => void escolher(e.target.files?.[0] ?? null)}
         />
         {erro && <p className="text-sm text-destructive">{t(ERRO_DE_LEITURA[erro])}</p>}
+        <a
+          href="/api/v1/campaigns/import-template"
+          download="modelo-importacao-contatos.xlsx"
+          className="inline-block text-xs text-accent-500 underline"
+          data-testid="baixar-modelo"
+        >
+          {t("Baixar modelo de planilha")}
+        </a>
       </div>
 
       {tabela && leitura && (
         <>
           <div className="space-y-2">
             <p className="text-sm font-medium">{t("O que cada coluna é")}</p>
+            {reconhecidas.length > 0 && (
+              <div className="space-y-1 rounded-md border border-border p-2" data-testid="colunas-do-modelo">
+                <p className="text-xs font-medium text-success-fg">
+                  ✅ {reconhecidas.length} {t("de")} {COLUNAS_DO_MODELO.length} {t("colunas do modelo reconhecidas — mapeadas sozinhas")}
+                </p>
+                <ul className="flex flex-wrap gap-1.5 text-xs">
+                  {reconhecidas.map((c) => (
+                    <li key={c} className="rounded-md bg-surface-elevated px-1.5 py-0.5" data-testid={`modelo-${c.trim().toLowerCase()}`}>
+                      ✅ <span className="font-mono">{c}</span> → {t(COLUNAS_DO_MODELO.find((x) => x.coluna === c.trim().toLowerCase())!.rotulo)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {cabecalho.some((c) => destinoDoModelo(c) === null) && reconhecidas.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                ⚠️ {t("Colunas fora do modelo — crie como variável personalizada ou ignore:")}
+              </p>
+            )}
             <div className="grid gap-2 sm:grid-cols-2">
-              {cabecalho.map((c, i) => (
+              {cabecalho.map((c, i) => destinoDoModelo(c) !== null ? null : (
                 <div key={`${c}-${i}`} className="space-y-1">
                   <Label htmlFor={`col-${i}`} className="block truncate text-xs text-muted-foreground">
                     {c || `${t("Coluna")} ${i + 1}`}
@@ -278,13 +337,22 @@ export function ImportarLista({
                 {t("Variáveis novas que serão criadas")}: {novas.map((n) => `{${n.key}}`).join(", ")}
               </p>
             )}
+            {!avancou && (
+              <Button type="button" variant="outline" disabled={!temTelefone} onClick={() => void avancar()} data-testid="avancar-mapeamento">
+                {t("Avançar")}
+              </Button>
+            )}
           </div>
+
+          {avancou && (
+            <>
 
           <div className="overflow-x-auto rounded-md border border-border">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-muted/50">
                   <th className="px-2 py-1 text-left">#</th>
+                  <th className="px-2 py-1 text-left">{t("Situação")}</th>
                   {cabecalho.map((c, i) => (
                     <th key={i} className="px-2 py-1 text-left">
                       {c}
@@ -293,16 +361,30 @@ export function ImportarLista({
                 </tr>
               </thead>
               <tbody>
-                {dados.slice(0, 8).map((l, i) => (
-                  <tr key={i} className={invalidas.has(i + 1) ? "bg-destructive/10 text-destructive" : ""}>
-                    <td className="px-2 py-1">{i + 1}</td>
+                {dados.slice(0, 10).map((l, i) => {
+                  const n = i + 1;
+                  const motivo = invalidas.get(n);
+                  const tel = telefoneDaLinha.get(n);
+                  const doCrm = !!tel && noCrm.has(tel);
+                  const amarelo = repetidas.has(n) || doCrm;
+                  return (
+                  <tr
+                    key={i}
+                    data-testid={`previa-linha-${n}`}
+                    className={motivo ? "bg-destructive/10 text-destructive" : amarelo ? "bg-warning-bg text-warning-fg" : ""}
+                  >
+                    <td className="px-2 py-1">{n}</td>
+                    <td className="whitespace-nowrap px-2 py-1">
+                      {motivo ? t(motivo) : repetidas.has(n) ? t("Repetido na planilha") : doCrm ? t("Já é contato do CRM") : "✓"}
+                    </td>
                     {cabecalho.map((_, c) => (
                       <td key={c} className="max-w-48 truncate px-2 py-1">
                         {l[c] ?? ""}
                       </td>
                     ))}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -313,12 +395,22 @@ export function ImportarLista({
             </p>
             {leitura.invalidas.length > 0 && (
               <p className="text-destructive">
-                {leitura.invalidas.length} {t("sem telefone válido (ficam de fora)")}:{" "}
+                {leitura.invalidas.length} {t("fora da lista")}:{" "}
                 {leitura.invalidas
                   .slice(0, 15)
-                  .map((x) => `${t("linha")} ${x.linha}${x.valor ? ` (${x.valor})` : ""}`)
-                  .join(", ")}
+                  .map((x) => `${t("linha")} ${x.linha} — ${t(x.motivo)}${x.valor ? ` (${x.valor})` : ""}`)
+                  .join("; ")}
                 {leitura.invalidas.length > 15 ? "…" : ""}
+              </p>
+            )}
+            {jaNoCrm > 0 && (
+              <p className="text-warning-fg">
+                {jaNoCrm} {t("já são contatos do CRM — escolha abaixo o que fazer com eles")}
+              </p>
+            )}
+            {(leitura.vazias ?? 0) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {leitura.vazias} {t("linhas vazias ignoradas")}
               </p>
             )}
             {leitura.duplicadas.length > 0 && (
@@ -401,6 +493,8 @@ export function ImportarLista({
           >
             {enviando ? t("Importando…") : `${t("Importar")} ${leitura.validas.length} ${t("contatos")}`}
           </Button>
+            </>
+          )}
         </>
       )}
     </div>

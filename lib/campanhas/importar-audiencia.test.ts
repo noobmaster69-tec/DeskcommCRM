@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./card-da-campanha", () => ({ garantirCardNaEtapa: vi.fn(async () => "criado") }));
 
-import { importacaoSchema, importarAudiencia, type EntradaDaImportacao } from "./importar-audiencia";
+import { ImportacaoDesfeita, importacaoSchema, importarAudiencia, tiparCampos, type EntradaDaImportacao } from "./importar-audiencia";
 
 /**
  * Item 1 (fork jhoow): o lado do servidor da lista importada — política de
@@ -18,7 +18,10 @@ interface Chamada {
   filtros: Array<[string, unknown]>;
 }
 
-function falso(existentes: Array<{ id: string; phone_number: string; name: string | null; email: string | null }>) {
+function falso(
+  existentes: Array<{ id: string; phone_number: string; name: string | null; email: string | null }>,
+  opcoes: { falharInsertDoTelefone?: string } = {},
+) {
   const chamadas: Chamada[] = [];
   let seq = 0;
   const builder = (tabela: string) => {
@@ -29,13 +32,19 @@ function falso(existentes: Array<{ id: string; phone_number: string; name: strin
         const fones = (c.filtros.find(([k]) => k === "in:phone_number")?.[1] ?? []) as string[];
         return { data: existentes.filter((e) => fones.includes(e.phone_number)).map((e) => ({ ...e, custom_fields: {} })), error: null };
       }
-      if (c.op === "insert") return { data: { id: `novo-${++seq}` }, error: null };
+      if (c.op === "insert") {
+        const fone = (c.dados as { phone_number?: string } | undefined)?.phone_number;
+        if (opcoes.falharInsertDoTelefone && fone === opcoes.falharInsertDoTelefone)
+          return { data: null, error: { code: "23514", message: "check violado" } };
+        return { data: { id: `novo-${++seq}` }, error: null };
+      }
       return { data: null, error: null };
     };
     const q: Record<string, unknown> = {
       select: () => q,
       insert: (d: unknown) => ((c.op = "insert"), (c.dados = d), q),
       update: (d: unknown) => ((c.op = "update"), (c.dados = d), q),
+      delete: () => ((c.op = "delete"), q),
       upsert: (d: unknown) => ((c.op = "upsert"), (c.dados = d), q),
       eq: (k: string, v: unknown) => (c.filtros.push([k, v]), q),
       is: () => q,
@@ -51,7 +60,7 @@ function falso(existentes: Array<{ id: string; phone_number: string; name: strin
   const upload = vi.fn(async () => ({ error: null }));
   const admin = {
     from: builder,
-    storage: { from: () => ({ upload }) },
+    storage: { from: () => ({ upload, remove: vi.fn(async () => ({ error: null })) }) },
     rpc: () => Promise.resolve({ error: null }),
   } as unknown as SupabaseClient;
   return { admin, chamadas, upload };
@@ -146,5 +155,40 @@ describe("importarAudiencia", () => {
         novas_variaveis: [{ key: "primeiro_nome", label: "x" }],
       }).success,
     ).toBe(false);
+  });
+
+  it("TUDO OU NADA: uma linha que o banco recusa desfaz as criadas e as atualizadas", async () => {
+    const { admin, chamadas } = falso(ja, { falharInsertDoTelefone: "+5511999990009" });
+    await expect(
+      importarAudiencia(
+        admin,
+        { organizationId: ORG, userId: "u1" },
+        entrada({
+          politica: "atualizar",
+          linhas: [linha(1, "+5511999990001", "Ana"), linha(2, "11999990002", "Bia"), linha(3, "11999990009", "Quebra")],
+        }),
+        null,
+      ),
+    ).rejects.toThrow(ImportacaoDesfeita);
+    // a nova (Bia) é apagada e a atualizada (Ana) volta ao que era
+    expect(chamadas.some((c) => c.tabela === "contacts" && c.op === "delete" && c.filtros.some(([k, v]) => k === "id" && v === "novo-1"))).toBe(true);
+    const restaurou = chamadas.filter((c) => c.tabela === "contacts" && c.op === "update").at(-1)!;
+    expect(restaurou.dados).toMatchObject({ name: "Ana Antiga" });
+    expect(chamadas.some((c) => c.tabela === "campaign_audience_sources")).toBe(false);
+  });
+
+  it("valores tipados e idioma do contato", async () => {
+    const { admin, chamadas } = falso([]);
+    await importarAudiencia(
+      admin,
+      { organizationId: ORG, userId: "u1" },
+      entrada({
+        linhas: [{ ...linha(1, "+5511999990001", "Ana"), locale: "pt-PT", campos: { tratamento_confirmado: "true", n_avaliacoes_gg: "237", cidade: "Porto" } }],
+      }),
+      null,
+    );
+    const novo = chamadas.find((c) => c.tabela === "contacts" && c.op === "insert")!;
+    expect(novo.dados).toMatchObject({ locale: "pt-PT", custom_fields: { tratamento_confirmado: true, n_avaliacoes_gg: 237, cidade: "Porto" } });
+    expect(tiparCampos({ nao_contatar: "sim", nota_avaliacoes_gg: "4,8", cidade: "x" })).toEqual({ nao_contatar: true, nota_avaliacoes_gg: 4.8, cidade: "x" });
   });
 });

@@ -32,6 +32,8 @@ const linhaSchema = z.strictObject({
   empresa: z.string().max(200).nullable(),
   telefone: z.string().max(40).nullable(),
   email: z.string().max(254).nullable(),
+  /** `contacts.locale` (BCP 47) da coluna idioma_contato. */
+  locale: z.string().regex(/^[a-z]{2,3}(-[A-Z0-9]{2,3})?$/).nullable().optional(),
   campos: z.record(z.string().regex(/^[a-z][a-z0-9_]{0,39}$/), z.string().max(1000)),
 });
 
@@ -82,10 +84,40 @@ async function emParalelo<T>(itens: readonly T[], n: number, fazer: (x: T) => Pr
   );
 }
 
+/** Desfaz o que a importação já gravou quando uma linha falha (tudo ou nada). */
+type Desfazer =
+  | { tipo: "criado"; id: string }
+  | { tipo: "atualizado"; id: string; antes: Record<string, unknown> };
+
+/** Uma importação que NÃO gravou nada: o motivo e a linha que derrubou. */
+export class ImportacaoDesfeita extends Error {
+  constructor(
+    public readonly linha: number,
+    public readonly motivo: string,
+  ) {
+    super(`Nada foi importado: a linha ${linha} falhou (${motivo}).`);
+  }
+}
+
+/** Valores com o TIPO do catálogo: "true" → true, "237" → 237 (a ficha e as condições leem tipado). */
+export function tiparCampos(campos: Record<string, string>): Record<string, unknown> {
+  const saida: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(campos)) {
+    const tipo = campoDoCatalogo(k)?.tipo;
+    if (tipo === "booleano") saida[k] = /^(true|sim|s|1|yes|x)$/i.test(v.trim());
+    else if (tipo === "numero") {
+      const n = Number(v.replace(/\s/g, "").replace(",", "."));
+      saida[k] = Number.isFinite(n) ? n : v;
+    } else saida[k] = v;
+  }
+  return saida;
+}
+
 interface Existente {
   id: string;
   name: string | null;
   email: string | null;
+  locale?: string | null;
   custom_fields: Record<string, unknown> | null;
   /** `source_metadata.nome_manual` — nome digitado na ficha. */
   nomeManual?: boolean;
@@ -141,7 +173,7 @@ export async function importarAudiencia(
   for (let i = 0; i < variantes.length; i += LOTE) {
     const { data } = await admin
       .from("contacts")
-      .select("id, name, email, custom_fields, phone_number, source_metadata")
+      .select("id, name, email, locale, custom_fields, phone_number, source_metadata")
       .eq("organization_id", org)
       .is("is_merged_into", null)
       .in("phone_number", variantes.slice(i, i + LOTE));
@@ -160,7 +192,14 @@ export async function importarAudiencia(
   let pulados = 0;
 
   const politica: PoliticaDeDuplicata = entrada.politica;
+  // TUDO OU NADA (fork jhoow): cada gravação deixa como se desfaz; a primeira
+  // falha inesperada para as outras linhas e desfaz o que já foi gravado.
+  const desfazer: Desfazer[] = [];
+  const criadosParaEvento: Array<{ id: string; email: boolean }> = [];
+  let falha: { linha: number; motivo: string } | null = null;
   await emParalelo(linhas, PARALELO, async (l) => {
+    if (falha) return;
+    const camposTipados = tiparCampos(l.campos);
     const existente = phoneLookupVariants(l.telefone).map((v) => porVariante.get(v)).find(Boolean);
     if (existente) {
       if (politica === "pular") {
@@ -171,14 +210,24 @@ export async function importarAudiencia(
         // Célula vazia não apaga nada (`lerLinhas` só traz o que tem valor), e o
         // nome editado à mão na ficha não é trocado pelo da planilha.
         const campos = { ...(existente.custom_fields ?? {}) };
-        for (const [k, v] of Object.entries(l.campos)) {
+        for (const [k, v] of Object.entries(camposTipados)) {
           campos[k] = v;
           for (const antiga of chavesAntigasDe(k)) delete campos[antiga];
         }
         const patch: Record<string, unknown> = { custom_fields: campos };
         if (l.nome && !(existente.nomeManual && existente.name)) patch.name = l.nome;
         if (l.email && !existente.email) patch.email = l.email;
-        await admin.from("contacts").update(patch).eq("organization_id", org).eq("id", existente.id);
+        if (l.locale) patch.locale = l.locale;
+        const { error: erroUp } = await admin.from("contacts").update(patch).eq("organization_id", org).eq("id", existente.id);
+        if (erroUp) {
+          falha = { linha: l.linha, motivo: erroUp.message };
+          return;
+        }
+        desfazer.push({
+          tipo: "atualizado",
+          id: existente.id,
+          antes: { custom_fields: existente.custom_fields ?? {}, name: existente.name, email: existente.email, locale: existente.locale ?? null },
+        });
         atualizados++;
       } else mantidos++;
       if (!vistos.has(existente.id)) {
@@ -197,9 +246,10 @@ export async function importarAudiencia(
         display_name: l.nome ?? l.empresa,
         phone_number: l.telefone,
         email: l.email,
+        ...(l.locale ? { locale: l.locale } : {}),
         source: opcoes.origem ?? "campanha_importacao",
         source_metadata: { importacao: gravarLista ? "campanha" : "contatos", arquivo: entrada.nome_do_arquivo },
-        custom_fields: l.campos,
+        custom_fields: camposTipados,
         tags: [],
       })
       .select("id")
@@ -224,29 +274,48 @@ export async function importarAudiencia(
           return;
         }
       }
-      if (error?.code === "23505") pulados++;
-      else invalidos++;
+      if (error?.code === "23505") {
+        pulados++;
+        return;
+      }
+      falha = { linha: l.linha, motivo: error?.message ?? "insert sem linha" };
       return;
     }
     criados++;
     const id = (novo as { id: string }).id;
+    desfazer.push({ tipo: "criado", id });
+    criadosParaEvento.push({ id, email: !!l.email });
+    vistos.add(id);
+    contatos.push(id);
+    titulos.set(id, l.nome ?? l.empresa ?? "");
+    for (const v of phoneLookupVariants(l.telefone)) porVariante.set(v, { id, name: l.nome, email: l.email, custom_fields: camposTipados });
+  });
+
+  // Uma linha falhou: desfaz TUDO (apaga os criados, devolve os atualizados) e
+  // avisa qual linha derrubou. O relatório das inválidas a tela já mostrou.
+  if (falha) {
+    const f = falha as { linha: number; motivo: string };
+    for (const d of desfazer.reverse()) {
+      if (d.tipo === "criado") await admin.from("contacts").delete().eq("organization_id", org).eq("id", d.id);
+      else await admin.from("contacts").update(d.antes).eq("organization_id", org).eq("id", d.id);
+    }
+    if (caminho) await admin.storage.from(BUCKET).remove([caminho]).catch(() => undefined);
+    throw new ImportacaoDesfeita(f.linha, f.motivo);
+  }
+  for (const c of criadosParaEvento) {
     void admin
       .rpc("emit_event", {
         p_event_type: "contact.created",
         p_entity_kind: "contact",
-        p_entity_id: id,
-        p_payload: { source: opcoes.origem ?? "campanha_importacao", has_email: !!l.email, has_phone: true, has_cpf: false },
+        p_entity_id: c.id,
+        p_payload: { source: opcoes.origem ?? "campanha_importacao", has_email: c.email, has_phone: true, has_cpf: false },
         p_metadata: { actor_type: "user" },
         p_organization_id: org,
       })
       .then(({ error: e }) => {
         if (e) console.error("[campanhas.importar] emit_event failed", e.message);
       });
-    vistos.add(id);
-    contatos.push(id);
-    titulos.set(id, l.nome ?? l.empresa ?? "");
-    for (const v of phoneLookupVariants(l.telefone)) porVariante.set(v, { id, name: l.nome, email: l.email, custom_fields: l.campos });
-  });
+  }
 
   // 5. cards (opcional)
   let cards = 0;

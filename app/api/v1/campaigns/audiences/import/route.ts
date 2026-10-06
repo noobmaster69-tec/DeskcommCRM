@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { requireSupportWrite } from "@/lib/impersonate/support";
 import { requireRole } from "@/lib/auth/require-role";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { importacaoSchema, importarAudiencia } from "@/lib/campanhas/importar-audiencia";
+import { ImportacaoDesfeita, importacaoSchema, importarAudiencia } from "@/lib/campanhas/importar-audiencia";
 import { audit } from "@/lib/audit";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { ok, fail } from "@/lib/api/wrappers";
@@ -69,6 +69,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
     return ok(resumo, { requestId, status: 201 });
   } catch (e) {
+    // Tudo ou nada: uma linha que o banco recusou desfaz a importação inteira.
+    if (e instanceof ImportacaoDesfeita)
+      return fail("validation_failed", `${t("Nada foi importado: a linha")} ${e.linha} ${t("falhou")} (${e.motivo}).`, 422, {
+        requestId,
+        details: { linha: e.linha, motivo: e.motivo },
+      });
     return fail("internal_error", e instanceof Error ? e.message : t("Não foi possível importar a lista."), 500, { requestId });
   }
 }

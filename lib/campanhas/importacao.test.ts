@@ -59,7 +59,7 @@ describe("importar lista — linhas", () => {
       telefone: "+5511999990001",
       campos: { nome_empresa: "Studio A", cidade: "SP" },
     });
-    expect(r.invalidas).toEqual([{ linha: 2, valor: "xx" }]);
+    expect(r.invalidas).toEqual([{ linha: 2, valor: "xx", motivo: "Telefone fora do formato de envio" }]);
     expect(r.duplicadas).toEqual([{ linha: 3, telefone: "+5511999990001" }]);
   });
 
@@ -125,5 +125,64 @@ describe("importar lista — campos do contato (fork jhoow)", () => {
     expect(r.validas[0]).toMatchObject({ nome: "Ana Paula Ribeiro", campos: {} });
     const r2 = lerLinhas(["Nome", "Tel"], [["João Ávila", "11999990002"]], ["nome_profissional", "numero_contato"]);
     expect(r2.validas[0]!.nome).toBe("João Ávila");
+  });
+});
+
+describe("modelo de 18 colunas (fork jhoow)", () => {
+  const cab = [
+    "nome_completo", "nome_curto", "nome_empresa", "whatsapp", "profissao_codigo", "especialidade", "tratamento_confirmado",
+    "cidade", "pais", "idioma_contato", "site_atual", "origem_contato", "n_avaliacoes_gg", "nome_saudacao",
+    "profissao_singular", "profissao_plural", "fuso_horario", "campanha_id",
+  ];
+  const destinos = cab.map((c) => sugerirDestino(c));
+
+  it("as 18 colunas são reconhecidas pelo nome exato", () => {
+    expect(destinos).toEqual([
+      "nome_profissional", "var:nome_curto", "nome_empresa", "numero_contato", "var:profissao_codigo", "var:especialidade",
+      "tratamento_confirmado", "var:cidade", "var:pais", "idioma_contato", "var:site_atual", "var:origem_contato",
+      "comentarios_google_maps", "var:nome_saudacao", "var:profissao_singular", "var:profissao_plural", "var:fuso_horario",
+      "campanha_id",
+    ]);
+  });
+
+  it("linha completa: validações e conversões", () => {
+    const r = lerLinhas(cab, [[
+      "Jonatas Pereira Gomes", "Jonatas", "Studio Jonatas", "+351 912 345 678", "advogado", "direito tributário", "Dr.",
+      "Lisboa", "pt", "pt_pt", "https://x.pt", "google_maps", "1.237", "Dr. Jonatas", "advogado", "advogados", "", "c-1",
+    ]], destinos);
+    expect(r.invalidas).toEqual([]);
+    expect(r.validas[0]).toMatchObject({
+      nome: "Jonatas Pereira Gomes",
+      telefone: "+351912345678",
+      locale: "pt-PT",
+      campos: {
+        nome_curto: "Jonatas",
+        nome_empresa: "Studio Jonatas",
+        tratamento: "Dr.",
+        tratamento_confirmado: "true",
+        pais: "PT",
+        n_avaliacoes_gg: "1237",
+        // fuso vazio → o do país
+        fuso_horario: "Europe/Lisbon",
+      },
+    });
+    expect(r.validas[0]!.campos).not.toHaveProperty("campanha_id");
+  });
+
+  it("obrigatórios com o motivo do parser; inválidos opcionais ficam vazios", () => {
+    const r = lerLinhas(cab, [
+      ["", "", "", "+5511999990001", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+      ["Ana", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+      ["Bia", "", "", "123", "", "", "", "", "Brasil", "português", "", "", "muitas", "", "", "", "Lua/Marte", ""],
+      ["Caio", "", "", "+5511999990003", "", "", "", "", "XX", "", "", "", "", "", "", "", "Lua/Marte", ""],
+      Array(18).fill(""),
+    ], destinos);
+    expect(r.invalidas.map((x) => [x.linha, x.motivo])).toEqual([
+      [1, "Sem nome_completo"],
+      [2, "Sem telefone no cadastro"],
+      [3, "Telefone fora do formato de envio"],
+    ]);
+    expect(r.validas[0]!.campos).toMatchObject({ pais: "XX", fuso_horario: "UTC" });
+    expect(r.vazias).toBe(1);
   });
 });
