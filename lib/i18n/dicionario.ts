@@ -14472,6 +14472,14 @@ export const DICIONARIO: Traducoes = {
   "Não foi possível gravar a chave no banco. Tente de novo; se continuar, informe o ID abaixo ao suporte.": { es: "No se pudo guardar la clave en la base de datos. Intenta de nuevo; si continúa, informa el ID de abajo al soporte." },
   // Aguardar em segundos (fork jhoow)
   "O tempo mínimo é 10 segundos.": { es: "El tiempo mínimo es de 10 segundos." },
+  // Preferências: marcar como lidas (fork jhoow)
+  "Preferências": { es: "Preferencias" },
+  "Como o CRM se comporta na conversa com o contato.": { es: "Cómo se comporta el CRM en la conversación con el contacto." },
+  "Marcar mensagens como lidas ao responder": { es: "Marcar mensajes como leídos al responder" },
+  "Quando o CRM responde — fluxo, follow-up, IA ou atendente — as mensagens do contato aparecem como lidas (dois tiques azuis) no WhatsApp dele. No Inbox, também ao abrir a conversa ou começar a digitar.": { es: "Cuando el CRM responde — flujo, seguimiento, IA o agente — los mensajes del contacto aparecen como leídos (dos tildes azules) en su WhatsApp. En el Inbox, también al abrir la conversación o empezar a escribir." },
+  "Preferência salva.": { es: "Preferencia guardada." },
+  "Não foi possível salvar a preferência.": { es: "No se pudo guardar la preferencia." },
+  "Como o CRM se comporta na conversa: marcar as mensagens do contato como lidas ao responder.": { es: "Cómo se comporta el CRM en la conversación: marcar los mensajes del contacto como leídos al responder." },
 };
 
 /**

@@ -918,6 +918,16 @@ export const NAV_CATALOG = [
     minRole: "manager",
   },
   {
+    // Fork jhoow: comportamentos da conversa (marcar como lidas ao responder).
+    href: "/app/settings/preferencias",
+    label: "Preferências",
+    description: "Como o CRM se comporta na conversa: marcar as mensagens do contato como lidas ao responder.",
+    icon: "Signpost",
+    group: "organizacao",
+    section: "Sua empresa",
+    minRole: "agent",
+  },
+  {
     // Fork jhoow (Campanhas › item 2): as variáveis {chave} das mensagens.
     href: "/app/settings/variaveis",
     label: "Variáveis",

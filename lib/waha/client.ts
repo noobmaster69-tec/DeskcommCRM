@@ -705,6 +705,20 @@ export class WahaClient {
    * recurso que carrega o valor: o "digitando…" é bônus quando o engine
    * coopera, nunca a condição do conserto.
    */
+  /**
+   * Marca a conversa como LIDA no aparelho do contato (os dois tiques azuis) —
+   * fork jhoow. Sem `messageIds`, o WAHA marca o chat inteiro: todas as
+   * mensagens recebidas até agora.
+   */
+  async sendSeen(session: string, chatId: string): Promise<void> {
+    const res = await this.fetchComTeto(`${this.baseUrl}/api/sendSeen`, {
+      method: "POST",
+      headers: { "X-Api-Key": this.apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ session, chatId }),
+    });
+    if (!res.ok) throw new Error(`waha_${res.status}`);
+  }
+
   async setPresence(
     session: string,
     chatId: string,

@@ -351,6 +351,12 @@ export interface ChannelAdapter {
    * lead"). Opcional: canal sem reação não implementa, e quem chama testa a
    * presença do método.
    */
+  /**
+   * Marca as mensagens recebidas do chat como LIDAS (tiques azuis) — fork
+   * jhoow. Opcional: quem chama testa a presença do método.
+   */
+  markSeen?(input: ChannelTenantScope & { sessionRef: string; recipient: string }): Promise<void>;
+
   reactToMessage?(input: ChannelTenantScope & {
     sessionRef: string;
     recipient: string | null;

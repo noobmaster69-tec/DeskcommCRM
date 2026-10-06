@@ -51,6 +51,7 @@ import { emitirFalhaDeEntrega } from "@/lib/messaging/falha-de-entrega";
 import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aplicarEfeitosPosSaida } from "@/lib/channels/pos-saida";
+import { marcarComoLidas } from "@/lib/messaging/lidas";
 import type { Message } from "@/lib/types/messaging";
 
 type SB = SupabaseClient;
@@ -865,6 +866,17 @@ export async function sendMessageHandler(
       .maybeSingle();
     if (updated) message = updated as unknown as Message;
   } else {
+    // Fork jhoow: as mensagens do contato ficam LIDAS (tiques azuis) quando o
+    // CRM responde — fluxo, follow-up, IA ou atendente, todos passam por aqui.
+    // Fire-and-forget: decorativo, nunca atrasa nem derruba o envio.
+    void marcarComoLidas(supabase, {
+      organizationId: ctx.organization_id,
+      conversationId: c.id,
+      canal: adapter,
+      sessionRef: resolveSessionRef(c.channel_sessions),
+      recipient: chatId,
+      ignorarMensagemId: message.id,
+    });
     try {
       // O que separa mídia de texto é a presença de `media` no envelope — o
       const checkBoundary = async () => {

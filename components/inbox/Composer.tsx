@@ -34,6 +34,7 @@ import {
   type MotivoDeRecusa,
 } from "@/lib/inbox/rascunho-sugerido";
 import { apiClient } from "@/lib/api/client";
+import { useMarcarComoLidas } from "@/hooks/inbox/useMarcarComoLidas";
 import { cn } from "@/lib/utils";
 
 export interface ComposerHandle {
@@ -155,6 +156,8 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
   const [menuForcado, setMenuForcado] = useState(false);
   const menuOpen = mode === "reply" && ((slash.open && !menuDismissed) || menuForcado);
   const sugestao = useSugestaoDoAgente(conversationId);
+  // Fork jhoow: abrir a conversa e começar a responder deixam as mensagens do contato lidas.
+  const marcarLidas = useMarcarComoLidas(conversationId);
 
   useImperativeHandle(ref, () => ({
     focus: () => taRef.current?.focus(),
@@ -425,6 +428,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             value={text}
             onChange={(e) => {
               setText(e.target.value);
+              if (mode === "reply") marcarLidas();
               if (!resolveSlash(e.target.value).open) setMenuDismissed(false);
               setMenuForcado(false);
             }}

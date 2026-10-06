@@ -109,7 +109,7 @@ export async function sinalizarDigitando(
 // ── Fluxos (fork jhoow): presença com tipo e reação ─────────────────────────
 
 /** O endereço da conversa no canal — `null` quando a sessão não está no ar. */
-async function enderecoDaConversa(supabase: SupabaseClient, organizationId: string, conversationId: string) {
+export async function enderecoDaConversa(supabase: SupabaseClient, organizationId: string, conversationId: string) {
   const { data } = await supabase
     .from("conversations")
     .select(
