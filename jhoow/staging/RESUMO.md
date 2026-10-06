@@ -1,6 +1,6 @@
 # 5 melhorias (6 out): credenciais, segundos, lidas, digitando, importação
 
-Branch `jhoow/main`. Imagem `da66c92` no ar no staging. A correção `00c4378` (marcar como lidas no NOWEB + linha vazia) está pushada e espera o próximo workflow. Produção não foi tocada. Sem migrations novas.
+Branch `jhoow/main`. Imagem `5c29dbd` no ar no staging (inclui a correção `00c4378`). Prova pela tela: **17/17 PASS** (WAHA aceitou o marcar como lida: `marcadas: true`). Produção não foi tocada. Sem migrations novas.
 
 | Item | Commit | Prova pela tela (staging) |
 |---|---|---|
