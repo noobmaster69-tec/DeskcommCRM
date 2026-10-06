@@ -17,6 +17,7 @@ import { z } from "zod";
 import { ok, fail } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
 import { guardarCredencial } from "@/lib/ai/credenciais/guardar";
+import { respostaDeFalhaAoGuardar } from "@/lib/ai/credenciais/resposta-de-falha";
 import { IDS_COM_CHAVE } from "@/lib/ai/pontos/provedores";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         { requestId },
       );
     }
-    return fail("internal_error", "Erro ao criar credential.", 500, { requestId });
+    return respostaDeFalhaAoGuardar(guardado.motivo, guardado.detalhe, { requestId, t, operacao: "criar" });
   }
 
   // A resposta continua saindo da view segura: ela é quem garante que nenhum

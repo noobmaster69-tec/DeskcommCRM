@@ -14467,6 +14467,9 @@ export const DICIONARIO: Traducoes = {
   "Data da última interação (DD/MM/AAAA)": { es: "Fecha de la última interacción (DD/MM/AAAA)" },
   "A campanha que está enviando (ou a última que falou com o contato)": { es: "La campaña que está enviando (o la última que habló con el contacto)" },
   "Bom dia / Boa tarde / Boa noite, no fuso e no idioma da conversa": { es: "Buenos días / Buenas tardes / Buenas noches, en el huso y el idioma de la conversación" },
+  // Credenciais de IA: falha específica (fork jhoow)
+  "A chave de criptografia do servidor (AI_CRED_AES_KEY) está ausente ou em formato inválido, então nenhuma chave de API pode ser guardada. Isso é configuração da instalação — avise o administrador.": { es: "La clave de cifrado del servidor (AI_CRED_AES_KEY) falta o tiene un formato inválido, así que no se puede guardar ninguna clave de API. Es configuración de la instalación — avisa al administrador." },
+  "Não foi possível gravar a chave no banco. Tente de novo; se continuar, informe o ID abaixo ao suporte.": { es: "No se pudo guardar la clave en la base de datos. Intenta de nuevo; si continúa, informa el ID de abajo al soporte." },
 };
 
 /**

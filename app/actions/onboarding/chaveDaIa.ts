@@ -104,6 +104,12 @@ export async function salvarChaveDaIa(formData: FormData): Promise<ResultadoDaCh
         erro: "Já existe uma chave cadastrada com esse nome. Veja em IA › Credenciais.",
       };
     }
+    if (r.motivo === "cifragem") {
+      return {
+        ok: false,
+        erro: "A chave de criptografia do servidor (AI_CRED_AES_KEY) está ausente ou em formato inválido. Avise o administrador da instalação.",
+      };
+    }
     return { ok: false, erro: "Não consegui guardar a chave agora. Tente de novo." };
   }
 

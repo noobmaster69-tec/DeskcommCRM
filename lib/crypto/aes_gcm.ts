@@ -29,13 +29,21 @@ function getKey(): Buffer {
   }
   let buf: Buffer;
   try {
-    buf = Buffer.from(raw, "base64");
+    buf = Buffer.from(raw.trim(), "base64");
   } catch {
     throw new Error("AI_CRED_AES_KEY inválida: base64 malformado.");
   }
+  // HEX também vale (64 caracteres = 32 bytes, o `openssl rand -hex 32`). Antes
+  // só base64 passava: a chave em hex decodificava como 48 bytes, TODA gravação
+  // de credencial lançava aqui e a tela só via "Erro interno". Uma chave hex
+  // nunca decodifica como 32 bytes em base64, então não há ambiguidade — e nada
+  // cifrado com ela existia (toda cifragem falhava).
+  if (buf.length !== KEY_LENGTH_BYTES && /^[0-9a-f]{64}$/i.test(raw.trim())) {
+    buf = Buffer.from(raw.trim(), "hex");
+  }
   if (buf.length !== KEY_LENGTH_BYTES) {
     throw new Error(
-      `AI_CRED_AES_KEY deve ter exatamente 32 bytes (lido: ${buf.length}). Gere com: openssl rand -base64 32`,
+      `AI_CRED_AES_KEY deve ter exatamente 32 bytes, em base64 (44 caracteres) ou hex (64) — lido: ${buf.length}. Gere com: openssl rand -base64 32`,
     );
   }
   cachedKey = buf;

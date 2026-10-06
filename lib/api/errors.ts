@@ -144,6 +144,8 @@ export const ApiErrorCodes = {
   external_db_label_em_uso: "external_db_label_em_uso",
   external_db_desativada: "external_db_desativada",
   external_db_sem_chave: "external_db_sem_chave",
+  /** A chave de cifragem da INSTALAÇÃO (AI_CRED_AES_KEY) falta ou está em formato inválido. */
+  credencial_cifra_indisponivel: "credencial_cifra_indisponivel",
 
   // ─── CHAMADA DE VOZ (spec 18, migration 0234) ───
   //

@@ -80,6 +80,8 @@ const COPY: Record<string, { variant: Variant; msg?: string }> = {
     variant: "error",
     msg: "Erro interno. Tente de novo em instantes.",
   },
+  // Configuração da instalação: a rota diz qual variável e o que fazer.
+  credencial_cifra_indisponivel: { variant: "error" },
 
   // ---- Agenda ----
   //

@@ -49,6 +49,7 @@ import {
 } from "@/lib/ai/credenciais/uso";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { respostaDeFalhaAoGuardar } from "@/lib/ai/credenciais/resposta-de-falha";
 
 export const dynamic = "force-dynamic";
 
@@ -197,7 +198,7 @@ export async function PATCH(
     if (resultado.motivo === "nao_encontrada") {
       return fail("not_found", t("Credential não encontrada."), 404, { requestId });
     }
-    return fail("internal_error", "Erro ao atualizar credential.", 500, { requestId });
+    return respostaDeFalhaAoGuardar(resultado.motivo, resultado.detalhe, { requestId, t, operacao: "atualizar" });
   }
 
   // Como no POST: a resposta sai da view segura, que nunca expõe campo cifrado.
