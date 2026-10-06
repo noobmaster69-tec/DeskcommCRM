@@ -355,7 +355,7 @@ export interface ChannelAdapter {
    * Marca as mensagens recebidas do chat como LIDAS (tiques azuis) — fork
    * jhoow. Opcional: quem chama testa a presença do método.
    */
-  markSeen?(input: ChannelTenantScope & { sessionRef: string; recipient: string }): Promise<void>;
+  markSeen?(input: ChannelTenantScope & { sessionRef: string; recipient: string; messageIds?: readonly string[] }): Promise<void>;
 
   reactToMessage?(input: ChannelTenantScope & {
     sessionRef: string;

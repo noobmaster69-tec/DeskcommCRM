@@ -706,15 +706,16 @@ export class WahaClient {
    * coopera, nunca a condição do conserto.
    */
   /**
-   * Marca a conversa como LIDA no aparelho do contato (os dois tiques azuis) —
-   * fork jhoow. Sem `messageIds`, o WAHA marca o chat inteiro: todas as
-   * mensagens recebidas até agora.
+   * Marca mensagens como LIDAS no aparelho do contato (os dois tiques azuis) —
+   * fork jhoow. COM `messageIds` (os ids que o WAHA nos deu na entrada) funciona
+   * em qualquer engine; SEM eles, o NOWEB só marca o chat inteiro se a sessão
+   * tiver o "store" ligado — medido no staging: 400 "Enable NOWEB store".
    */
-  async sendSeen(session: string, chatId: string): Promise<void> {
+  async sendSeen(session: string, chatId: string, messageIds?: readonly string[]): Promise<void> {
     const res = await this.fetchComTeto(`${this.baseUrl}/api/sendSeen`, {
       method: "POST",
       headers: { "X-Api-Key": this.apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ session, chatId }),
+      body: JSON.stringify({ session, chatId, ...(messageIds && messageIds.length > 0 ? { messageIds } : {}) }),
     });
     if (!res.ok) throw new Error(`waha_${res.status}`);
   }

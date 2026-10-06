@@ -40,26 +40,37 @@ export function esquecerPreferencia(organizationId: string): void {
 }
 
 export interface CanalQueMarca {
-  markSeen?: (input: { organizationId: string; sessionRef: string; recipient: string }) => Promise<void>;
+  markSeen?: (input: { organizationId: string; sessionRef: string; recipient: string; messageIds?: readonly string[] }) => Promise<void>;
 }
 
-/** Há mensagem do contato ainda não respondida? (a mais recente, fora a que está saindo, é de entrada) */
-async function temRecebidaPendente(
+/**
+ * As mensagens do contato ainda não respondidas: as RECEBIDAS do topo da
+ * conversa, até a última nossa (fora a que está saindo). Devolve os ids do
+ * canal (`external_id`) — é com eles que o WAHA marca sem depender do "store".
+ */
+async function recebidasPendentes(
   db: SupabaseClient,
   organizationId: string,
   conversationId: string,
   ignorarMensagemId?: string,
-): Promise<boolean> {
+): Promise<{ ha: boolean; ids: string[] }> {
   let q = db
     .from("messages")
-    .select("direction")
+    .select("direction, external_id")
     .eq("organization_id", organizationId)
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: false })
-    .limit(1);
+    .limit(50);
   if (ignorarMensagemId) q = q.neq("id", ignorarMensagemId);
   const { data } = await q;
-  return ((data ?? []) as Array<{ direction: string }>)[0]?.direction === "inbound";
+  const ids: string[] = [];
+  let ha = false;
+  for (const m of (data ?? []) as Array<{ direction: string; external_id: string | null }>) {
+    if (m.direction !== "inbound") break;
+    ha = true;
+    if (m.external_id) ids.push(m.external_id);
+  }
+  return { ha, ids: ids.reverse() };
 }
 
 /**
@@ -80,8 +91,14 @@ export async function marcarComoLidas(
   try {
     if (!e.canal.markSeen || !e.sessionRef || !e.recipient) return false;
     if (!(await preferenciaLigada(db, e.organizationId))) return false;
-    if (!(await temRecebidaPendente(db, e.organizationId, e.conversationId, e.ignorarMensagemId))) return false;
-    await e.canal.markSeen({ organizationId: e.organizationId, sessionRef: e.sessionRef, recipient: e.recipient });
+    const pendentes = await recebidasPendentes(db, e.organizationId, e.conversationId, e.ignorarMensagemId);
+    if (!pendentes.ha) return false;
+    await e.canal.markSeen({
+      organizationId: e.organizationId,
+      sessionRef: e.sessionRef,
+      recipient: e.recipient,
+      ...(pendentes.ids.length > 0 ? { messageIds: pendentes.ids } : {}),
+    });
     return true;
   } catch (err) {
     logger.warn("[lidas] não marcou como lidas", { conversationId: e.conversationId, motivo: err instanceof Error ? err.message : String(err) });

@@ -8,7 +8,8 @@ import { WahaClient } from "@/lib/waha/client";
 import { esquecerPreferencia, lerPreferencias, marcarComoLidas } from "./lidas";
 
 /** Marcar como lidas ao responder (fork jhoow): só quando ligado e quando há recebida pendente. */
-function falso(settings: Record<string, unknown>, ultima: "inbound" | "outbound" | null) {
+function falso(settings: Record<string, unknown>, ultima: "inbound" | "outbound" | null, historico?: Array<{ direction: string; external_id: string | null }>) {
+  const linhas = historico ?? (ultima ? [{ direction: ultima, external_id: null }] : []);
   const filtros: Array<[string, unknown]> = [];
   const db = {
     from: (tabela: string) => {
@@ -19,8 +20,8 @@ function falso(settings: Record<string, unknown>, ultima: "inbound" | "outbound"
         eq: chain,
         order: chain,
         limit: () =>
-          Object.assign(Promise.resolve({ data: tabela === "messages" && ultima ? [{ direction: ultima }] : [] }), {
-            neq: (k: string, v: unknown) => (filtros.push([k, v]), Promise.resolve({ data: ultima ? [{ direction: ultima }] : [] })),
+          Object.assign(Promise.resolve({ data: tabela === "messages" ? linhas : [] }), {
+            neq: (k: string, v: unknown) => (filtros.push([k, v]), Promise.resolve({ data: linhas })),
           }),
         maybeSingle: async () => ({ data: { settings } }),
       });
@@ -40,6 +41,19 @@ describe("marcarComoLidas", () => {
     expect(await marcarComoLidas(db, { ...base, organizationId: "o1", canal: { markSeen }, ignorarMensagemId: "m-saindo" })).toBe(true);
     expect(markSeen).toHaveBeenCalledWith({ organizationId: "o1", sessionRef: "s1", recipient: "5511999990001@c.us" });
     expect(filtros).toEqual([["id", "m-saindo"]]);
+  });
+
+  it("manda os ids das recebidas pendentes (o NOWEB sem store só marca assim)", async () => {
+    esquecerPreferencia("o5");
+    const markSeen = vi.fn(async () => {});
+    const { db } = falso({}, null, [
+      { direction: "inbound", external_id: "false_x@c.us_C" },
+      { direction: "inbound", external_id: "false_x@c.us_B" },
+      { direction: "outbound", external_id: "true_x@c.us_Z" },
+      { direction: "inbound", external_id: "false_x@c.us_A" },
+    ]);
+    expect(await marcarComoLidas(db, { ...base, organizationId: "o5", canal: { markSeen } })).toBe(true);
+    expect(markSeen).toHaveBeenCalledWith(expect.objectContaining({ messageIds: ["false_x@c.us_B", "false_x@c.us_C"] }));
   });
 
   it("nada pendente (última é nossa) = não chama o canal", async () => {
@@ -91,8 +105,12 @@ describe("WAHA sendSeen", () => {
   });
   afterAll(() => servidor.close());
 
-  it("POST /api/sendSeen com sessão e chat (o chat inteiro fica lido)", async () => {
+  it("POST /api/sendSeen com sessão, chat e os ids das mensagens", async () => {
+    await new WahaClient(url, "chave").sendSeen("sessao-1", "5511999990001@c.us", ["false_5511999990001@c.us_ABC"]);
     await new WahaClient(url, "chave").sendSeen("sessao-1", "5511999990001@c.us");
-    expect(pedidos).toEqual([{ url: "/api/sendSeen", corpo: { session: "sessao-1", chatId: "5511999990001@c.us" }, chave: "chave" }]);
+    expect(pedidos).toEqual([
+      { url: "/api/sendSeen", corpo: { session: "sessao-1", chatId: "5511999990001@c.us", messageIds: ["false_5511999990001@c.us_ABC"] }, chave: "chave" },
+      { url: "/api/sendSeen", corpo: { session: "sessao-1", chatId: "5511999990001@c.us" }, chave: "chave" },
+    ]);
   });
 });

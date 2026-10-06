@@ -117,7 +117,12 @@ export function ImportarLista({
       if ("erro" in d) return setErro("binario");
       linhas = parseCsv(d.texto);
     }
-    linhas = linhas.filter((l) => l.some((c) => c.trim() !== ""));
+    // Só as pontas vazias saem aqui; a linha vazia NO MEIO é ignorada (e contada) pela leitura.
+    const cheia = (l: string[]) => l.some((c) => c.trim() !== "");
+    const primeira = linhas.findIndex(cheia);
+    let fim = linhas.length;
+    while (fim > primeira + 1 && !cheia(linhas[fim - 1]!)) fim--;
+    linhas = primeira < 0 ? [] : linhas.slice(primeira, fim);
     if (linhas.length < 2) return setErro("vazio");
     if (linhas.length - 1 > MAX_LINHAS_IMPORTADAS) return setErro("muitas");
     setTabela(linhas);

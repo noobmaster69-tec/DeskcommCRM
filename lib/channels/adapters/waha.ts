@@ -160,10 +160,10 @@ export const wahaAdapter: ChannelAdapter = {
     await client.setPresence(input.sessionRef, input.recipient, input.presence);
   },
 
-  async markSeen(input: { sessionRef: string; recipient: string }): Promise<void> {
+  async markSeen(input: { sessionRef: string; recipient: string; messageIds?: readonly string[] }): Promise<void> {
     const client = getWahaClient();
     if (!client) return;
-    await client.sendSeen(input.sessionRef, input.recipient);
+    await client.sendSeen(input.sessionRef, input.recipient, input.messageIds);
   },
 
   async reactToMessage(input: {
