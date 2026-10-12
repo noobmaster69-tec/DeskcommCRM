@@ -25,6 +25,12 @@ import { enviarPixelDoFluxo } from "./pixel";
 import { chamarBlocoDeIa } from "./bloco-ia";
 import { chaveDeArmazenamento } from "@/lib/variables/campos-do-contato";
 import { chaveCanonica } from "@/lib/variables/sistema";
+import { mesmaLingua } from "@/lib/translation/idiomas";
+import { resolveContactLocale } from "@/lib/translation/locale";
+import { traduzirTextoDeSaida } from "@/lib/translation/saida";
+
+/** O idioma em que os fluxos são escritos (o texto que vai para o modelo traduzir). */
+const IDIOMA_DOS_FLUXOS = "pt-BR";
 
 /** Campo nativo salvo pelo fluxo → coluna de `contacts`. O WhatsApp não se troca por resposta. */
 async function salvarCampoNativo(
@@ -171,6 +177,13 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
               ...(msg.media_url ? { media_url: msg.media_url } : {}),
               ...(msg.media_mime ? { media_mime: msg.media_mime } : {}),
               ...(msg.reply_to_message_id ? { reply_to_message_id: msg.reply_to_message_id } : {}),
+              ...(msg.content_original && msg.translated_to
+                ? {
+                    content_original: msg.content_original,
+                    content_locale: msg.content_locale ?? IDIOMA_DOS_FLUXOS,
+                    translated_to: msg.translated_to,
+                  }
+                : {}),
               metadata: {
                 idempotency_key: key,
                 origem_do_fluxo: true,
@@ -330,6 +343,25 @@ export function criarDepsDoMotor(admin: SupabaseClient, ctx: { jobId: string }):
     async fusoDaOrganizacao(org) {
       const { data } = await admin.from("organizations").select("timezone").eq("id", org).maybeSingle();
       return fusoUtilizavel(data?.timezone as string | null | undefined);
+    },
+
+    // Fork jhoow (9022): "Traduzir mensagens para o idioma do contato".
+    async idiomaDoFluxo(org, enrollment) {
+      const { data } = await admin
+        .from("followup_flow_pointers")
+        .select("translate_to_contact_locale")
+        .eq("organization_id", org)
+        .eq("id", enrollment.pointer_id)
+        .maybeSingle();
+      if (!(data as { translate_to_contact_locale?: boolean } | null)?.translate_to_contact_locale) return null;
+      // Sem detecção aqui: o fluxo não espera o modelo para começar; o idioma
+      // vem da ficha, do DDI ou da detecção já feita na chegada da mensagem.
+      const { locale } = await resolveContactLocale(admin, enrollment.contact_id, { detectar: false });
+      return locale && !mesmaLingua(locale, IDIOMA_DOS_FLUXOS) ? locale : null;
+    },
+
+    async traduzirTexto(org, conversationId, texto, para) {
+      return traduzirTextoDeSaida(admin, { organizationId: org, conversationId, texto, de: IDIOMA_DOS_FLUXOS, para });
     },
 
     async distribuicoes(org, pointerId, noId, contactId) {

@@ -17,6 +17,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/hooks/i18n/useT", () => ({ useT: () => (texto: string) => texto }));
+// O selo de idiomas tem teste próprio (traducao-ponta-a-ponta); aqui ele só ocuparia a rede.
+vi.mock("@/components/inbox/SeloDeIdiomas", () => ({ SeloDeIdiomas: () => null }));
 vi.mock("@/hooks/i18n/useLocaleDeData", () => ({ useLocaleDeData: () => ptBR }));
 
 const usuario = vi.hoisted(() => ({ atual: { id: "u1", support: null as null | { access_mode: string } } }));

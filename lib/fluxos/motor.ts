@@ -83,6 +83,10 @@ export interface MensagemDeSaida {
   media_mime?: string;
   shared_contact?: { name: string; phone_number: string };
   reply_to_message_id?: string;
+  /** Traduzida para o idioma do contato (9022): o texto do fluxo como foi escrito. */
+  content_original?: string;
+  content_locale?: string;
+  translated_to?: string;
 }
 
 export interface OrigemDoFluxo {
@@ -121,6 +125,13 @@ export interface DepsDoMotor {
     conversationId: string,
   ): Promise<{ status: string | null; atendente: string | null; ultimaEntradaEm: string | null }>;
   fusoDaOrganizacao(org: string): Promise<string>;
+  /**
+   * Fork jhoow (9022): o idioma do contato quando o fluxo tem "Traduzir mensagens
+   * para o idioma do contato" ligado e ele fala outra língua; senão `null`.
+   */
+  idiomaDoFluxo?(org: string, enrollment: EnrollmentDoFluxo): Promise<string | null>;
+  /** Traduz um texto do fluxo para `para`. `null` = indisponível (sai o original). */
+  traduzirTexto?(org: string, conversationId: string, texto: string, para: string): Promise<string | null>;
   /** Quantas vezes o Distribuidor `noId` deste fluxo já distribuiu, e a última saída deste contato. */
   distribuicoes(
     org: string,
@@ -342,6 +353,9 @@ export async function executarPasso(
   let etiquetasAtuais = contato.etiquetas;
   // O relógio das variáveis de tempo: o da organização, e o do contato quando conhecido.
   const fusoDasVariaveis = await deps.fusoDaOrganizacao(org).catch(() => undefined);
+  // Fluxo que traduz: as variáveis de tempo já saem no idioma do contato, e
+  // cada texto do bloco Mensagem é traduzido antes do envio.
+  const idiomaAlvo = deps.idiomaDoFluxo ? await deps.idiomaDoFluxo(org, enrollment).catch(() => null) : null;
   const contexto = (): ContextoDeVariaveis => ({
     nome: contato.nome,
     telefone: contato.telefone,
@@ -352,6 +366,7 @@ export async function executarPasso(
     origem: contato.origem ?? null,
     ultimaInteracao: contato.ultimaInteracao ?? null,
     ...(fusoDasVariaveis ? { fuso: fusoDasVariaveis } : {}),
+    ...(idiomaAlvo ? { idioma: idiomaAlvo } : {}),
   });
 
   // ── O laço: executa blocos até parar ─────────────────────────────────────
@@ -392,6 +407,15 @@ export async function executarPasso(
           }
           const saida = await montarSaida(deps, org, conversa, item, contexto());
           if (!saida) continue;
+          if (idiomaAlvo && saida.body && deps.traduzirTexto) {
+            const traduzido = await deps.traduzirTexto(org, conversa, saida.body, idiomaAlvo).catch(() => null);
+            // Sem tradução sai o original: o fluxo não para por causa do provedor de IA.
+            if (traduzido) {
+              saida.content_original = saida.body;
+              saida.translated_to = idiomaAlvo;
+              saida.body = traduzido;
+            }
+          }
           if (citar && saida.type === "text") {
             saida.reply_to_message_id = citar.id;
             citar = null;

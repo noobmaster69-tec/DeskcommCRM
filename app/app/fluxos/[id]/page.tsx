@@ -6,11 +6,12 @@ import { ROLE_RANK } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
 import type { FollowupFlowDetailRow } from "@/hooks/followup/useFollowupFlow";
 import { FlowBuilder } from "@/app/app/ai/followups/[id]/_components/FlowBuilder";
+import { TraduzirFluxo } from "./_traduzir-fluxo";
 
 export const dynamic = "force-dynamic";
 
 const DETAIL_COLUMNS =
-  "id, name, status, active_version_id, draft_graph, handoff_policy, trigger_config, surface, created_at, updated_at";
+  "id, name, status, active_version_id, draft_graph, handoff_policy, trigger_config, surface, created_at, updated_at, translate_to_contact_locale";
 
 /**
  * Editor de um FLUXO (fork jhoow, Etapa 2). É o editor de follow-up — canvas,
@@ -61,6 +62,10 @@ export default async function FluxoEditorPage({ params }: { params: Promise<{ id
   // canvas ficava preso no `min-h-[600px]`.
   return (
     <div className="-m-6 flex h-[calc(100dvh-3.5rem)] min-h-[420px] flex-col" data-testid="fluxo-editor-tela">
+      <TraduzirFluxo
+        flowId={id}
+        inicial={Boolean((pointer as { translate_to_contact_locale?: boolean }).translate_to_contact_locale)}
+      />
       <FlowBuilder flowId={id} initialData={flow} />
     </div>
   );

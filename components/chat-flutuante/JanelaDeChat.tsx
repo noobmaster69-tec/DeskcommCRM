@@ -19,6 +19,7 @@ import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatThread } from "@/components/inbox/ChatThread";
 import { Composer } from "@/components/inbox/Composer";
+import { SeloDeIdiomas } from "@/components/inbox/SeloDeIdiomas";
 import { useUser } from "@/hooks/auth/AuthProvider";
 import type { NegocioDoChat } from "@/hooks/chat-flutuante/ChatsFlutuantesProvider";
 import { useT } from "@/hooks/i18n/useT";
@@ -103,6 +104,8 @@ export function JanelaDeChat({ conversationId, minimizado, negocio, onAlternarMi
             <Kanban size={16} aria-hidden />
           </Link>
         )}
+        {/* O MESMO selo de idiomas do Inbox: sem duplicar regra nem tela. */}
+        {!minimizado && conversa && !conversa.is_group && <SeloDeIdiomas conversationId={conversationId} />}
         <Link
           href={`/app/inbox/${conversationId}`}
           className={BOTAO}

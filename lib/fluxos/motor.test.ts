@@ -350,6 +350,51 @@ describe("motor dos fluxos — Mensagem", () => {
   });
 });
 
+describe("motor dos fluxos — traduzir para o idioma do contato (9022)", () => {
+  const fluxo = () =>
+    grafo(
+      [
+        no("t", "trigger"),
+        no("m", "mensagem", { itens: [{ id: "a", tipo: "texto", texto: "{saudacao_horario}, {primeiro_nome}!" }] }),
+        no("f", "end", { outcome: "exhausted" }),
+      ],
+      [sempre("t", "m"), sempre("m", "f")],
+    );
+
+  it("ligado: a saudação já sai no idioma do contato e o texto é traduzido antes do envio", async () => {
+    const m = mundo(fluxo());
+    const traduzidos: string[] = [];
+    m.deps.idiomaDoFluxo = async () => "en-US";
+    m.deps.traduzirTexto = async (_o, _c, texto, para) => {
+      traduzidos.push(`${para}:${texto}`);
+      return `[EN] ${texto}`;
+    };
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    // A variável de tempo já veio em inglês ("Good …"), antes de ir para o modelo.
+    expect(traduzidos[0]).toMatch(/^en-US:Good (morning|afternoon|evening), Maria!$/);
+    expect(m.enviadas[0]).toMatchObject({
+      body: expect.stringMatching(/^\[EN\] Good /),
+      content_original: expect.stringMatching(/^Good /),
+      translated_to: "en-US",
+    });
+  });
+
+  it("modelo indisponível: sai o original, o fluxo não para", async () => {
+    const m = mundo(fluxo());
+    m.deps.idiomaDoFluxo = async () => "en-US";
+    m.deps.traduzirTexto = async () => null;
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    expect(m.enviadas[0]!.body).toMatch(/^Good .*, Maria!$/);
+    expect(m.enviadas[0]!.content_original).toBeUndefined();
+  });
+
+  it("desligado (padrão): nada muda", async () => {
+    const m = mundo(fluxo());
+    expect(await m.passo()).toEqual({ tipo: "concluido" });
+    expect(m.enviadas[0]!.body).toMatch(/^(Bom dia|Boa tarde|Boa noite), Maria!$/);
+  });
+});
+
 describe("motor dos fluxos — Etiquetas", () => {
   it("adiciona e remove etiquetas do contato", async () => {
     const m = mundo(

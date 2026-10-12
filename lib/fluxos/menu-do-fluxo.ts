@@ -10,6 +10,8 @@ export const patchDoFluxoSchema = z
     pasta_id: z.string().uuid().nullable().optional(),
     arquivado: z.boolean().optional(),
     ativo: z.boolean().optional(),
+    /** "Traduzir mensagens para o idioma do contato ao enviar" (9022). */
+    traduzir_para_o_contato: z.boolean().optional(),
   })
   .refine((o) => Object.keys(o).length > 0, { message: "nada para mudar" });
 export type PatchDoFluxo = z.infer<typeof patchDoFluxoSchema>;
@@ -67,6 +69,7 @@ export function planoDoPatch(atual: EstadoDoFluxo, pedido: PatchDoFluxo, agora: 
     update.archived_at = null;
     eventos.push("fluxo.desarquivado");
   }
+  if (pedido.traduzir_para_o_contato !== undefined) update.translate_to_contact_locale = pedido.traduzir_para_o_contato;
   if (update.status !== undefined || update.archived_at !== undefined) update.updated_at = agora;
   return { ok: true, update, eventos };
 }

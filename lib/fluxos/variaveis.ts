@@ -28,6 +28,11 @@ export interface ContextoDeVariaveis {
   ultimaInteracao?: string | null;
   /** Fuso da organização — o do contato (ficha/DDI) manda quando é conhecido. */
   fuso?: string;
+  /**
+   * Idioma das variáveis de tempo (`{saudacao_horario}` → "Good morning").
+   * Só vem quando o fluxo traduz para o idioma do contato (9022).
+   */
+  idioma?: string;
 }
 
 const FUSO_PADRAO = "America/Sao_Paulo";
@@ -44,7 +49,11 @@ function paraResolver(ctx: ContextoDeVariaveis) {
     ultimaInteracao: ctx.ultimaInteracao ?? null,
     // Saudação/dia/data no relógio do CONTATO (campo fuso_horario ou DDI de
     // fuso único), senão no da organização; o idioma é o da conversa (ficha).
-    quando: { agora: new Date(), fuso: fusoDoContato(ctx.telefone, ctx.campos, ctx.fuso ?? FUSO_PADRAO) },
+    quando: {
+      agora: new Date(),
+      fuso: fusoDoContato(ctx.telefone, ctx.campos, ctx.fuso ?? FUSO_PADRAO),
+      ...(ctx.idioma ? { idioma: ctx.idioma } : {}),
+    },
   };
 }
 
