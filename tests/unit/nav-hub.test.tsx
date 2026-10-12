@@ -144,19 +144,19 @@ describe("NavHub", () => {
     );
   });
 
-  it("a porta de Propostas no hub do CRM some com a capacidade desligada e volta ligada", () => {
+  it("a porta de Propostas no hub de Operações some com a capacidade desligada e volta ligada", () => {
     render(
-      <NavHub group="crm" isPlatformAdmin={false} role="admin" title="CRM" subtitle="" modulosLigados={[]} capacidadesLigadas={[]} />,
+      <NavHub group="operacoes" isPlatformAdmin={false} role="admin" title="Operações" subtitle="" modulosLigados={[]} capacidadesLigadas={[]} />,
     );
     expect(screen.queryByRole("link", { name: /Propostas/ })).toBeNull();
     cleanup();
 
     render(
       <NavHub
-        group="crm"
+        group="operacoes"
         isPlatformAdmin={false}
         role="admin"
-        title="CRM"
+        title="Operações"
         subtitle=""
         modulosLigados={[]}
         capacidadesLigadas={["propostas"]}

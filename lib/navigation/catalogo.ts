@@ -95,7 +95,9 @@ export const NAV_GROUPS: NavGroup[] = [
   // Fork jhoow (Etapa 2): o construtor de FLUXOS — conversa automatizada
   // conduzida pelo grafo, sem IA obrigatória. Grupo próprio, pedido do dono.
   { id: "operacoes", label: "Operações" },
-  { id: "crm", label: "CRM" },
+  // Fork jhoow: o grupo CRM foi desmontado — CRMs, Contatos (e a gente/empresas/
+  // chamadas) foram para Atendimento; Campanhas, Tarefas e o preparo da venda
+  // para Operações. O id "crm" segue no tipo para o hub antigo (/app/crm).
   { id: "ia", label: "Agente de IA" },
   { id: "canais", label: "Canais" },
   { id: "analise", label: "Análise" },
@@ -148,7 +150,7 @@ export const NAV_CATALOG = [
     label: "Prospecção",
     description: "Busque empresas e conduza abordagens graduais com IA.",
     icon: "Funnel",
-    group: "crm",
+    group: "operacoes",
     minRole: "admin",
     section: "O dia a dia da venda",
   },
@@ -225,7 +227,7 @@ export const NAV_CATALOG = [
     label: "CRMs",
     description: "Cada CRM agrupa seus funis e os leads que passam por eles.",
     icon: "Kanban",
-    group: "crm",
+    group: "atendimento",
     section: "O dia a dia da venda",
     sidebar: true,
   },
@@ -237,7 +239,7 @@ export const NAV_CATALOG = [
     label: "Campanhas",
     description: "Fale com uma lista de contatos que você escolhe, no ritmo do número.",
     icon: "Megaphone",
-    group: "crm",
+    group: "operacoes",
     section: "O dia a dia da venda",
     // SÓ NO HUB, como as demais telas de preparação: o quinto item do sidebar do
     // CRM já fez o menu rolar 13px em 900px (e2e `navegacao.spec.ts`), e a
@@ -248,7 +250,7 @@ export const NAV_CATALOG = [
     label: "Contatos",
     description: "As pessoas do outro lado da conversa e seu histórico.",
     icon: "Users",
-    group: "crm",
+    group: "atendimento",
     section: "O dia a dia da venda",
     sidebar: true,
   },
@@ -257,7 +259,7 @@ export const NAV_CATALOG = [
     label: "Empresas",
     description: "Cadastro B2B — razão social, CNPJ e decisores.",
     icon: "Buildings",
-    group: "crm",
+    group: "atendimento",
     section: "O dia a dia da venda",
     // SEM sidebar: o CRM já tem Funis/Contatos/Tarefas no menu diário; este trio
     // mora no hub "Ver tudo em CRM" para não reabrir a corrida por pixel.
@@ -270,7 +272,7 @@ export const NAV_CATALOG = [
     label: "Pessoas",
     description: "Decisores e contatos ligados a empresas, com vários telefones.",
     icon: "UserCircle",
-    group: "crm",
+    group: "atendimento",
     section: "O dia a dia da venda",
     minRole: "viewer",
     // Módulo opcional da instalação, desligado por padrão (doc 68, #1621).
@@ -286,7 +288,7 @@ export const NAV_CATALOG = [
     label: "Tarefas",
     description: "O que ficou combinado, com prazo — e o que já venceu sem ninguém fazer.",
     icon: "ListChecks",
-    group: "crm",
+    group: "operacoes",
     section: "O dia a dia da venda",
     sidebar: true,
   },
@@ -319,7 +321,7 @@ export const NAV_CATALOG = [
     label: "Chamadas",
     description: "Histórico de ligações (voz por IA) com transcrição.",
     icon: "Phone",
-    group: "crm",
+    group: "atendimento",
     section: "O dia a dia da venda",
     minRole: "manager",
   },
@@ -341,7 +343,7 @@ export const NAV_CATALOG = [
     label: "Produtos",
     description: "O catálogo da loja, com o preço que o atendente de IA responde.",
     icon: "Storefront",
-    group: "crm",
+    group: "operacoes",
     section: "Preparar a venda",
     // SEM `sidebar`: mora atrás de "Ver tudo em CRM".
     //
@@ -356,7 +358,7 @@ export const NAV_CATALOG = [
     label: "Importações",
     description: "Lotes CSV/XLSX de empresas, pessoas e telefones.",
     icon: "FileText",
-    group: "crm",
+    group: "operacoes",
     section: "Preparar a venda",
     minRole: "manager",
     // Módulo opcional da instalação, desligado por padrão (doc 68, #1621).
@@ -367,7 +369,7 @@ export const NAV_CATALOG = [
     label: "Propostas",
     description: "Rascunhe, revise e envie propostas comerciais — do orçamento ao aceite.",
     icon: "FileText",
-    group: "crm",
+    group: "operacoes",
     section: "Fechar a venda",
     capacidade: "propostas",
   },
@@ -430,7 +432,7 @@ export const NAV_CATALOG = [
     label: "Comandas",
     description: "O que foi feito, por quem, e quanto o cliente paga.",
     icon: "Receipt",
-    group: "crm",
+    group: "operacoes",
     section: "O dia a dia da venda",
     // ⚠️ FORA do sidebar, e isto foi MEDIDO, não escolhido por gosto. Com
     // `sidebar: true` o menu passou a rolar em 1280×900 e o e2e
@@ -478,7 +480,7 @@ export const NAV_CATALOG = [
     label: "Etapas do funil",
     description: "As colunas de cada funil, o vocabulário do negócio e os motivos de perda.",
     icon: "Funnel",
-    group: "crm",
+    group: "operacoes",
     section: "Preparar a venda",
     minRole: "manager",
     // SEM `sidebar`: mora atrás de "Ver tudo em CRM".

@@ -92,32 +92,23 @@ describe("sidebarGroups", () => {
     expect(sidebarGroups(true, null).find((g) => g.group.id === "organizacao")?.items).toEqual([]);
   });
 
-  it("Etapas do funil é CRM, não Configurações — o achado que originou esta mudança", () => {
-    // ⚠️ ESTA ASSERÇÃO MUDOU DE SUPERFÍCIE, e a propriedade guardada é a mesma.
-    // Ela cobrava presença no SIDEBAR, que era só o jeito de a tela deixar de
-    // ser "um card perdido em Configurações". Com o hub do CRM (`/app/crm`),
-    // ela mora atrás de "Ver tudo em CRM" — continua sendo CRM, continua fora
-    // de Configurações, e o caminho tem um clique a mais porque desenhar as
-    // colunas do funil é trabalho de montagem, não de todo dia.
-    //
-    // O que NÃO pode voltar é o destino trocar de grupo: é isso que a primeira
-    // asserção prende, e ela não depende de onde o item é desenhado.
-    expect(dest("/app/settings/tenant/pipelines").group).toBe("crm");
-    const hub = hubSections("crm", true, null).flatMap((s) => s.items.map((i) => i.href));
-    expect(hub).toContain("/app/settings/tenant/pipelines");
+  it("Etapas do funil fica em Operações, não em Configurações (fork jhoow: grupo CRM desmontado)", () => {
+    // A propriedade guardada continua: o desenho do funil é trabalho de
+    // montagem da operação, nunca um card perdido em Configurações.
+    expect(dest("/app/settings/tenant/pipelines").group).toBe("operacoes");
+    const op = sidebarGroups(true, null).find((g) => g.group.id === "operacoes");
+    expect(op?.items.map((i) => i.href)).toContain("/app/settings/tenant/pipelines");
   });
 
-  it("o CRM lista todas as telas, com o uso diário no topo — fork jhoow (P5)", () => {
-    // O upstream escondia o resto do CRM atrás de "Ver tudo em CRM" para o menu
-    // caber em 900px. O dono do fork pediu o contrário: tudo no menu, e quem
-    // poda é a preferência de cada pessoa. O que se mantém é o TOPO do grupo:
-    // os três destinos de uso diário, na ordem de sempre.
-    const crm = sidebarGroups(true, null).find((g) => g.group.id === "crm");
-    const hrefs = crm?.items.map((i) => i.href) ?? [];
-    expect(hrefs.slice(0, 3)).toEqual(["/app/crms", "/app/contacts", "/app/tasks"]);
-    expect(hrefs).toContain("/app/comandas");
-    expect(hrefs).toContain("/app/settings/tenant/pipelines");
-    expect(NAV_GROUPS.find((g) => g.id === "crm")?.hub).toBeUndefined();
+  it("grupo CRM desmontado: CRMs e Contatos em Atendimento; Campanhas e Tarefas em Operações (fork jhoow)", () => {
+    const grupos = sidebarGroups(true, null);
+    expect(grupos.map((g) => g.group.id)).not.toContain("crm");
+    expect(NAV_GROUPS.map((g) => g.id)).not.toContain("crm");
+    const atendimento = grupos.find((g) => g.group.id === "atendimento")!.items.map((i) => i.href);
+    expect(atendimento[0]).toBe("/app/inbox");
+    expect(atendimento).toEqual(expect.arrayContaining(["/app/crms", "/app/contacts"]));
+    const operacoes = grupos.find((g) => g.group.id === "operacoes")!.items.map((i) => i.href);
+    expect(operacoes).toEqual(expect.arrayContaining(["/app/campaigns", "/app/tasks", "/app/comandas"]));
   });
 
   it("omite o grupo inteiro quando o papel não vê nenhum item dele", () => {
@@ -138,35 +129,14 @@ describe("sidebarGroups", () => {
 });
 
 describe("hubSections", () => {
-  it("o hub do CRM é inventário: as telas do grupo, nas duas seções", () => {
-    // As seções são a régua do sidebar escrita por extenso — o que se abre todo
-    // dia contra o que se define uma vez. Lista EXATA: `toContain` deixaria uma
-    // tela nova entrar sem que ninguém decidisse de que lado dela ela cai.
-    const secoes = hubSections("crm", true, null);
-    expect(secoes.map((s) => s.section)).toEqual(["O dia a dia da venda", "Preparar a venda", "Fechar a venda"]);
-    expect(secoes.flatMap((s) => s.items.map((i) => i.href))).toEqual([
-      "/app/prospecting",
-      "/app/crms",
-      "/app/campaigns",
-      "/app/contacts",
-      "/app/companies",
-      "/app/people",
-      "/app/tasks",
-      "/app/calls",
-      "/app/comandas",
-      "/app/products",
-      "/app/imports",
-      "/app/settings/tenant/pipelines",
-      "/app/proposals",
-    ]);
-  });
-
   it("empresas, pessoas e importação só existem com o módulo crm_b2b ligado (doc 68)", () => {
     const B2B = ["/app/companies", "/app/people", "/app/imports"];
     const hrefs = (modulos: readonly ModuloOpcional[]) =>
-      hubSections("crm", true, null, undefined, modulos).flatMap((s) => s.items.map((i) => i.href));
+      (["atendimento", "operacoes"] as const).flatMap((g) =>
+        hubSections(g, true, null, undefined, modulos).flatMap((s) => s.items.map((i) => i.href)),
+      );
     expect(hrefs([]).filter((h) => B2B.includes(h))).toEqual([]);
-    expect(hrefs(["crm_b2b"]).filter((h) => B2B.includes(h))).toEqual(B2B);
+    expect(hrefs(["crm_b2b"]).filter((h) => B2B.includes(h)).sort()).toEqual([...B2B].sort());
   });
 
   it("agrupa a IA nas três etapas da jornada, na ordem", () => {
