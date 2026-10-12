@@ -14504,6 +14504,22 @@ export const DICIONARIO: Traducoes = {
   "Tratamento confirmado (Dr., Dra.…)": { es: "Tratamiento confirmado (Dr., Dra.…)" },
   "Campanha (reconhecida, não gravada)": { es: "Campaña (reconocida, no guardada)" },
   "Nada foi importado: a linha": { es: "No se importó nada: la fila" },
+  // Campanhas: cota por período e verificação de WhatsApp (fork jhoow)
+  "Informe quantos contatos chamar (1 ou mais) e o período.": { es: "Indica cuántos contactos llamar (1 o más) y el período." },
+  "Quantos contatos chamar": { es: "Cuántos contactos llamar" },
+  "ex.: 3": { es: "ej.: 3" },
+  "Sem cota (só o intervalo)": { es: "Sin cuota (solo el intervalo)" },
+  "por hora": { es: "por hora" },
+  "por dia": { es: "por día" },
+  "por semana": { es: "por semana" },
+  "por mês": { es: "por mes" },
+  "A ferramenta divide sozinha: cerca de 1 a cada": { es: "La herramienta lo divide sola: cerca de 1 cada" },
+  "dentro da janela diária": { es: "dentro de la franja diaria" },
+  "nunca mais que": { es: "nunca más de" },
+  "Ex.: 3 por dia numa janela de 9 horas = um contato a cada 3 horas.": { es: "Ej.: 3 por día en una franja de 9 horas = un contacto cada 3 horas." },
+  "Chegou à cota de contatos do período desta campanha.": { es: "Llegó a la cuota de contactos del período de esta campaña." },
+  "O número não tem WhatsApp (fixo ou sem conta) — nada foi enviado": { es: "El número no tiene WhatsApp (fijo o sin cuenta) — no se envió nada" },
+  "Este número não tem WhatsApp — nada foi enviado (protege o seu número contra bloqueio).": { es: "Este número no tiene WhatsApp — no se envió nada (protege tu número contra bloqueos)." },
 };
 
 /**

@@ -1,5 +1,5 @@
 import type { CampanhaDetalhada } from "@/hooks/campanhas/useCampanhas";
-import { corpoDaJanela, errosDoRitmo, instanteAgendado, programacaoDaCampanha } from "@/components/campanhas/CamposDeRitmo";
+import { corpoDaCota, corpoDaJanela, errosDoRitmo, instanteAgendado, programacaoDaCampanha } from "@/components/campanhas/CamposDeRitmo";
 import type { ResumoDaLista } from "@/components/campanhas/ImportarLista";
 
 /** Item 1: de onde vem o público. A consulta avançada ficou de fora (RESUMO.md). */
@@ -64,6 +64,9 @@ export interface ValoresDaCampanha {
   inicioModo: "agora" | "agendar";
   inicioData: string;
   inicioHora: string;
+  /** 9020: cota por período. */
+  cotaQuantidade: string;
+  cotaPeriodo: "" | "hora" | "dia" | "semana" | "mes";
   /** 9019: o idioma da campanha ("" = sem idioma próprio). */
   idioma: string;
   tetoDiario: string;
@@ -135,7 +138,17 @@ export function valoresDaCampanha(c?: CampanhaDetalhada | null): ValoresDaCampan
       janela_fim_minuto: c?.janela_fim_minuto,
       scheduled_at: c?.status === "draft" || !c ? c?.scheduled_at : null,
       timezone: c?.timezone,
-    }) as { janelaInicio: string; janelaFim: string; inicioModo: "agora" | "agendar"; inicioData: string; inicioHora: string },
+      cota_quantidade: c?.cota_quantidade,
+      cota_periodo: c?.cota_periodo,
+    }) as {
+      janelaInicio: string;
+      janelaFim: string;
+      inicioModo: "agora" | "agendar";
+      inicioData: string;
+      inicioHora: string;
+      cotaQuantidade: string;
+      cotaPeriodo: "" | "hora" | "dia" | "semana" | "mes";
+    },
     tetoDiario: num(c?.teto_diario),
     tetoHorario: num(c?.teto_horario),
   };
@@ -208,6 +221,7 @@ export function corpoDaCampanha(v: ValoresDaCampanha): Record<string, unknown> {
     audience_filter: filtroDoFormulario(v),
     intervalo_segundos: ouNulo(v.intervalo),
     ...corpoDaJanela(v),
+    ...corpoDaCota(v),
     scheduled_at: instanteAgendado(v),
     teto_diario: ouNulo(v.tetoDiario),
     teto_horario: ouNulo(v.tetoHorario),

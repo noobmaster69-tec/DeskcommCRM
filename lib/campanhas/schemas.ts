@@ -34,6 +34,9 @@ export const ritmoSchema = z.object({
   /** 9018: janela diária em minutos do dia (HH:mm). Manda sobre a de horas. */
   janela_inicio_minuto: z.number().int().min(0).max(1439).nullable().optional(),
   janela_fim_minuto: z.number().int().min(1).max(1440).nullable().optional(),
+  /** 9020: "chamar N por período" — a rodada espaça pela janela. */
+  cota_quantidade: z.number().int().min(1).max(10_000).nullable().optional(),
+  cota_periodo: z.enum(["hora", "dia", "semana", "mes"]).nullable().optional(),
   /** Item 7: intervalo SORTEADO entre min e max (segundos). */
   min_interval_seconds: z.number().int().min(10).max(86_400).optional(),
   max_interval_seconds: z.number().int().min(10).max(86_400).optional(),

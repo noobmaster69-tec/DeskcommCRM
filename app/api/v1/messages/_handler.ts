@@ -52,6 +52,7 @@ import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aplicarEfeitosPosSaida } from "@/lib/channels/pos-saida";
 import { marcarComoLidas } from "@/lib/messaging/lidas";
+import { contatoJaFalou, verificarWhatsapp } from "@/lib/channels/verificar-whatsapp";
 import type { Message } from "@/lib/types/messaging";
 
 type SB = SupabaseClient;
@@ -798,6 +799,27 @@ export async function sendMessageHandler(
     channelSessionId: c.channel_session_id,
     contactPhoneNumber: c.contacts?.phone_number ?? "",
   }).catch(() => ({ permite: false, motivo: "pre_go_live_indisponivel" }));
+  // Fork jhoow (9020): número SEM WhatsApp não recebe a primeira mensagem — a
+  // tentativa para fixo/número sem conta pesa contra o número que envia (a
+  // suspensão de 06/10). Só para quem nunca falou com a gente; quem já mandou
+  // mensagem tem WhatsApp por definição.
+  const semWhatsapp =
+    !!chatId &&
+    !c.is_group &&
+    !!c.contact_id &&
+    !!adapter.checkRecipient &&
+    adapter.isConfigured() &&
+    c.channel_sessions?.status === "WORKING" &&
+    !c.last_inbound_at &&
+    !(await contatoJaFalou(supabase, ctx.organization_id, c.contact_id)) &&
+    (await verificarWhatsapp(supabase, {
+      organizationId: ctx.organization_id,
+      contactId: c.contact_id,
+      telefone: c.contacts?.phone_number,
+      canal: adapter,
+      sessionRef: resolveSessionRef(c.channel_sessions),
+    })) === false;
+
   if (acessoAtual && !acessoAtual.permite) {
     const { data: updated, error } = await supabase.from("messages").update({
       status: "failed",
@@ -848,6 +870,19 @@ export async function sendMessageHandler(
         error_code: "missing_phone_number",
         error_message: "Contato sem telefone para envio WhatsApp.",
       })
+      .eq("id", message.id)
+      .select(MSG_COLS)
+      .maybeSingle();
+    if (updated) message = updated as unknown as Message;
+  } else if (semWhatsapp) {
+    const { data: updated } = await supabase
+      .from("messages")
+      .update({
+        status: "failed",
+        error_code: "numero_sem_whatsapp",
+        error_message: "Este número não tem WhatsApp — nada foi enviado (protege o seu número contra bloqueio).",
+      })
+      .eq("organization_id", ctx.organization_id)
       .eq("id", message.id)
       .select(MSG_COLS)
       .maybeSingle();

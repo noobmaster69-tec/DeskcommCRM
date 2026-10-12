@@ -65,6 +65,8 @@ export interface CampanhaCarregada {
   recipients_pipeline_id?: string | null;
   recipients_stage_id?: string | null;
   language?: string | null;
+  cota_quantidade?: number | null;
+  cota_periodo?: string | null;
 }
 
 export type Recusa = { ok: false; codigo: ApiErrorCode; mensagem: string; status: number };
@@ -75,7 +77,7 @@ const COLUNAS =
   "audience_filter, audience_version, content_version, scheduled_at, description, " +
   "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
   "timezone, min_interval_seconds, max_interval_seconds, janela_inicio_minuto, janela_fim_minuto, " +
-  "pipeline_id, stage_id, agent_id, recipients_pipeline_id, recipients_stage_id, language";
+  "pipeline_id, stage_id, agent_id, recipients_pipeline_id, recipients_stage_id, language, cota_quantidade, cota_periodo";
 
 export async function carregarCampanha(
   admin: SupabaseClient,
@@ -433,6 +435,8 @@ export async function duplicarAcao(
       recipients_pipeline_id: c.recipients_pipeline_id ?? null,
       recipients_stage_id: c.recipients_stage_id ?? null,
       language: c.language ?? null,
+      cota_quantidade: c.cota_quantidade ?? null,
+      cota_periodo: c.cota_periodo ?? null,
       created_by: autorId,
       // Nada de destinatário, resultado, agenda ou carimbo de execução: a cópia
       // é uma INTENÇÃO nova, e herdar números faria a tela mostrar entrega de

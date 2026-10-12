@@ -156,3 +156,25 @@ describe("9019 — idioma da campanha", () => {
     expect(sql(`select count(*) from public.campaigns where id = '${CAMP}'`)).toBe("1");
   });
 });
+
+describe("9020 — cota por período e verificação de WhatsApp", () => {
+  const r9020 = "-- ---- cota da campanha e verificação de WhatsApp (migration 9020) ----";
+  it("cota: quantidade e período juntos, no vocabulário", () => {
+    // O teste da 9018 reaplica o bloco dela (que recria o CHECK do motivo sem
+    // os motivos novos); aqui a 9020 volta a ser a última aplicada, como em produção.
+    sql(blocoDoBaseline(r9020));
+    sql(`update public.campaigns set cota_quantidade = 3, cota_periodo = 'dia' where id = '${CAMP}'`);
+    expect(sqlstate(`update public.campaigns set cota_quantidade = 3, cota_periodo = null where id = '${CAMP}'`)).toBe("23514");
+    expect(sqlstate(`update public.campaigns set cota_quantidade = 3, cota_periodo = 'ano' where id = '${CAMP}'`)).toBe("23514");
+    expect(sqlstate(`update public.campaigns set cota_quantidade = 0, cota_periodo = 'dia' where id = '${CAMP}'`)).toBe("23514");
+    sql(`update public.campaigns set wait_reason = 'cota_do_periodo' where id = '${CAMP}'`);
+    sql(`update public.campaigns set wait_reason = 'sem_whatsapp' where id = '${CAMP}'`);
+  });
+
+  it("contato guarda a verificação; reaplicar não muda nada", () => {
+    sql(`update public.contacts set wa_existe = false, wa_verificado_em = now() where organization_id = '${ORG_A}'`);
+    sql(blocoDoBaseline(r9020));
+    sql(blocoDoBaseline(r9020));
+    expect(sql(`select cota_periodo from public.campaigns where id = '${CAMP}'`)).toBe("dia");
+  });
+});

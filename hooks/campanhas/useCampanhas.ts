@@ -70,6 +70,9 @@ export interface CampanhaDetalhada extends CampanhaDaLista {
   wait_until?: string | null;
   /** 9019: idioma da campanha. */
   language?: string | null;
+  /** 9020: cota por período. */
+  cota_quantidade?: number | null;
+  cota_periodo?: "hora" | "dia" | "semana" | "mes" | null;
 }
 
 export interface Destinatario {

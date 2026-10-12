@@ -48,7 +48,10 @@ import { consentiuMarketing, marcadoNaoContatar, motivoParaExcluir, recusouMarke
 import { hashDoEndereco } from "./exclusoes";
 import { renderizar } from "./renderizador";
 import { escolherNumero, poolDaCampanha, type NumeroDisponivel } from "./rodizio";
-import { podeMandarAgora, proximaTentativa, type RitmoDaCampanha } from "./ritmo";
+import { janelaEmMinutos, podeMandarAgora, proximaTentativa, type RitmoDaCampanha } from "./ritmo";
+import { contatoJaFalou, verificarWhatsapp } from "@/lib/channels/verificar-whatsapp";
+import { CHANNEL_SESSION_REF_COLUMNS, DEFAULT_CHANNEL_PROVIDER, getAdapter, resolveSessionRef, type ChannelSessionRef } from "@/lib/channels";
+import { inicioDoPeriodo, intervaloComVariacao, intervaloDaCota, proximoPeriodo, type PeriodoDaCota } from "./cota";
 import { fusoDoContato, fusoValido, proximoEnvioAleatorio } from "./fuso";
 import { garantirCardNaEtapa } from "./card-da-campanha";
 import { idiomaDoEnvio as idiomaDaExecucao, iniciarIdiomaDaExecucao } from "./idioma";
@@ -110,13 +113,16 @@ interface CampanhaRow {
   wait_reason?: string | null;
   /** O idioma da campanha (9019): inicia o idioma da prospecção/conversa. */
   language?: string | null;
+  /** 9020: "chamar N por hora/dia/semana/mês". */
+  cota_quantidade?: number | null;
+  cota_periodo?: PeriodoDaCota | null;
 }
 
 const COLUNAS_DA_CAMPANHA =
   "id, organization_id, channel_session_id, name, message_body, content_version, base_legal, " +
   "intervalo_segundos, janela_inicio_hora, janela_fim_hora, teto_diario, teto_horario, mode, flow_id, " +
   "min_interval_seconds, max_interval_seconds, next_send_at, timezone, recipients_pipeline_id, recipients_stage_id, " +
-  "janela_inicio_minuto, janela_fim_minuto, wait_reason, language";
+  "janela_inicio_minuto, janela_fim_minuto, wait_reason, language, cota_quantidade, cota_periodo";
 
 export async function rodarUmaRodadaDeCampanha(
   admin: SupabaseClient,
@@ -386,6 +392,25 @@ async function rodarUmaCampanha(
     await registrarEspera(admin, campanha, "intervalo_aleatorio", new Date(campanha.next_send_at));
     return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "ritmo:intervalo_aleatorio" };
   }
+  // 9020: a COTA do período (no fuso da campanha) — passou de N, espera o próximo.
+  if (campanha.cota_quantidade && campanha.cota_periodo) {
+    const desde = inicioDoPeriodo(agora, fusoDaCampanha, campanha.cota_periodo);
+    const { count } = await admin
+      .from("campaign_recipients")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", campanha.id)
+      .gte("sent_at", desde.toISOString());
+    if ((count ?? 0) >= campanha.cota_quantidade) {
+      const renova = proximoPeriodo(agora, fusoDaCampanha, campanha.cota_periodo);
+      await admin
+        .from("campaign_recipients")
+        .update({ next_attempt_at: renova.toISOString() })
+        .eq("id", alvo.id)
+        .eq("status", "pending");
+      await registrarEspera(admin, campanha, "cota_do_periodo", renova);
+      return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "ritmo:cota_do_periodo" };
+    }
+  }
   const estado = await estadoDeEnvio(admin, campanha.id, agora, fusoDaCampanha);
   const doRitmo = podeMandarAgora(ritmo, estado, agora, fusoDoDestinatario);
   if (!doRitmo.pode) {
@@ -454,6 +479,37 @@ async function rodarUmaCampanha(
     return { enviadas: 0, pulados: 0, concluidas: 0, detalhe: "canal:sem_numero_livre" };
   }
   const sessionEscolhida = escolha.sessionId;
+
+  // 9020: este número TEM WhatsApp? Perguntado antes da 1ª mensagem a quem
+  // nunca falou com a gente — fixo ou número sem conta sai da fila com o motivo,
+  // e NADA é enviado (protege o número da campanha).
+  {
+    const { data: sessao } = await admin
+      .from("channel_sessions")
+      .select(CHANNEL_SESSION_REF_COLUMNS)
+      .eq("organization_id", campanha.organization_id)
+      .eq("id", sessionEscolhida)
+      .maybeSingle();
+    const linhaSessao = sessao as unknown as ChannelSessionRef | null;
+    if (linhaSessao && !(await contatoJaFalou(admin, campanha.organization_id, alvo.contact_id))) {
+      const tem = await verificarWhatsapp(admin, {
+        organizationId: campanha.organization_id,
+        contactId: alvo.contact_id,
+        telefone: contato?.phone_number ?? alvo.recipient_address,
+        canal: getAdapter(linhaSessao.provider ?? DEFAULT_CHANNEL_PROVIDER),
+        sessionRef: resolveSessionRef(linhaSessao),
+        agora,
+      });
+      if (tem === false) {
+        await admin
+          .from("campaign_recipients")
+          .update({ status: "skipped", eligibility_status: "excluded", exclusion_reason: "sem_whatsapp" })
+          .eq("id", alvo.id)
+          .eq("status", "pending");
+        return { enviadas: 0, pulados: 1, concluidas: 0, detalhe: "pulado:sem_whatsapp" };
+      }
+    }
+  }
 
   // ─── O envio ───
   // O id da mensagem nasce AQUI, e não do insert: com ele, o destinatário já
@@ -653,7 +709,25 @@ async function cardDeQuemRecebe(admin: SupabaseClient, campanha: CampanhaRow, al
 }
 
 async function agendarProximoEnvio(admin: SupabaseClient, campanha: CampanhaRow, agora: Date): Promise<void> {
-  const proximo = proximoEnvioAleatorio(agora, campanha.min_interval_seconds ?? 60, campanha.max_interval_seconds ?? 180);
+  let proximo = proximoEnvioAleatorio(agora, campanha.min_interval_seconds ?? 60, campanha.max_interval_seconds ?? 180);
+  // 9020: com cota, o intervalo é o período útil dividido por ela (3 por dia
+  // numa janela de 9 h = ~3 h), com ±10% — o maior dos dois vale.
+  if (campanha.cota_quantidade && campanha.cota_periodo) {
+    const janela = janelaEmMinutos({
+      intervaloSegundos: null,
+      janelaInicioHora: campanha.janela_inicio_hora,
+      janelaFimHora: campanha.janela_fim_hora,
+      janelaInicioMinuto: campanha.janela_inicio_minuto ?? null,
+      janelaFimMinuto: campanha.janela_fim_minuto ?? null,
+      tetoDiario: null,
+      tetoHorario: null,
+    });
+    const segundos = intervaloComVariacao(
+      intervaloDaCota({ quantidade: campanha.cota_quantidade, periodo: campanha.cota_periodo }, janela),
+    );
+    const pelaCota = new Date(agora.getTime() + segundos * 1000);
+    if (pelaCota.getTime() > proximo.getTime()) proximo = pelaCota;
+  }
   const { error } = await admin
     .from("campaigns")
     .update({ next_send_at: proximo.toISOString(), wait_reason: null, wait_until: null })

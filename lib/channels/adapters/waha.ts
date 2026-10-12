@@ -160,6 +160,13 @@ export const wahaAdapter: ChannelAdapter = {
     await client.setPresence(input.sessionRef, input.recipient, input.presence);
   },
 
+  async checkRecipient(input: { sessionRef: string; phone: string }): Promise<boolean | null> {
+    const client = getWahaClient();
+    if (!client) return null;
+    const r = await client.checkContactExists(input.sessionRef, input.phone);
+    return typeof r.numberExists === "boolean" ? r.numberExists : null;
+  },
+
   async markSeen(input: { sessionRef: string; recipient: string; messageIds?: readonly string[] }): Promise<void> {
     const client = getWahaClient();
     if (!client) return;

@@ -43,6 +43,7 @@ import {
   CamposDeInicio,
   CamposDeRitmo,
   FraseDoInicio,
+  corpoDaCota,
   corpoDaJanela,
   errosDoRitmo,
   instanteAgendado,
@@ -469,6 +470,8 @@ function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
     janelaInicio: prog.janelaInicio,
     janelaFim: prog.janelaFim,
     fuso: campanha.timezone ?? "",
+    cotaQuantidade: prog.cotaQuantidade,
+    cotaPeriodo: prog.cotaPeriodo,
   });
 
   const encerrada = campanha.status === "completed" || campanha.status === "cancelled";
@@ -497,6 +500,7 @@ function RitmoDaCampanha({ campanha }: { campanha: CampanhaDetalhada }) {
               teto_diario: numero(v.tetoDiario),
               teto_horario: numero(v.tetoHorario),
               ...corpoDaJanela(v),
+              ...corpoDaCota(v),
             })
           }
         >
@@ -518,6 +522,7 @@ const TEXTO_DA_ESPERA: Record<string, string> = {
   intervalo: "Aguardando o intervalo entre envios.",
   intervalo_aleatorio: "Aguardando o intervalo sorteado entre envios.",
   sem_numero_livre: "Nenhum número pode enviar agora (proteção de envio da conexão, limite do número ou número fora do ar).",
+  cota_do_periodo: "Chegou à cota de contatos do período desta campanha.",
 };
 
 /**

@@ -172,6 +172,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       janela_fim_minuto: entrada.janela_fim_minuto ?? null,
       scheduled_at: entrada.scheduled_at ?? null,
       language: entrada.language ?? null,
+      cota_quantidade: entrada.cota_quantidade ?? null,
+      cota_periodo: entrada.cota_quantidade ? (entrada.cota_periodo ?? null) : null,
       recipients_pipeline_id: entrada.recipients_pipeline_id ?? null,
       recipients_stage_id: entrada.recipients_stage_id ?? null,
       flow_id: entrada.flow_id ?? null,

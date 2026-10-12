@@ -16,6 +16,7 @@ import {
   resumoDoInicio,
 } from "@/lib/campanhas/agendamento";
 import { FUSOS_PRINCIPAIS, fusoValido, todosOsFusos } from "@/lib/campanhas/fuso";
+import { descricaoDoIntervalo, intervaloDaCota, PERIODOS_DA_COTA, type PeriodoDaCota } from "@/lib/campanhas/cota";
 
 export interface ValoresDeRitmo {
   minIntervalo: string;
@@ -27,6 +28,9 @@ export interface ValoresDeRitmo {
   janelaFim: string;
   /** "" = o fuso do número. */
   fuso: string;
+  /** 9020: "chamar N por hora/dia/semana/mês" ("" = sem cota). */
+  cotaQuantidade?: string;
+  cotaPeriodo?: "" | PeriodoDaCota;
   /** Início da campanha (só na criação/edição do rascunho). */
   inicioModo?: "agora" | "agendar";
   /** "AAAA-MM-DD" e "HH:mm", no fuso da campanha. */
@@ -34,7 +38,7 @@ export interface ValoresDeRitmo {
   inicioHora?: string;
 }
 
-export type ErroDoRitmo = "minimo" | "maximo" | "fuso" | "janela" | "agenda_sem_fuso" | "agenda_invalida" | "agenda_passado";
+export type ErroDoRitmo = "minimo" | "maximo" | "fuso" | "janela" | "cota" | "agenda_sem_fuso" | "agenda_invalida" | "agenda_passado";
 
 /** A frase de cada erro — tabela constante, para o t() achar no dicionário. */
 export const TEXTO_DO_ERRO_DO_RITMO: Record<ErroDoRitmo, string> = {
@@ -42,6 +46,7 @@ export const TEXTO_DO_ERRO_DO_RITMO: Record<ErroDoRitmo, string> = {
   maximo: "O intervalo máximo não pode ser menor que o mínimo.",
   fuso: "Fuso horário desconhecido.",
   janela: "A janela diária precisa de início e fim (HH:mm), e o fim depois do início.",
+  cota: "Informe quantos contatos chamar (1 ou mais) e o período.",
   agenda_sem_fuso: "Para agendar, escolha o fuso horário da campanha.",
   agenda_invalida: "Escolha uma data e um horário válidos — esse horário não existe nesse dia no fuso escolhido (mudança de horário de verão).",
   agenda_passado: "O horário agendado já passou. Escolha uma data e hora no futuro.",
@@ -64,6 +69,8 @@ export function errosDoRitmo(v: ValoresDeRitmo, agora: Date = new Date()): ErroD
   if (v.fuso && !fusoValido(v.fuso)) erros.push("fuso");
   const algumaJanela = v.janelaInicio.trim() !== "" || v.janelaFim.trim() !== "";
   if (algumaJanela && !janelaDosValores(v)) erros.push("janela");
+  const q = (v.cotaQuantidade ?? "").trim();
+  if ((q !== "" || v.cotaPeriodo) && !(Number(q) >= 1 && Number.isInteger(Number(q)) && v.cotaPeriodo)) erros.push("cota");
   if (v.inicioModo === "agendar") {
     if (!v.fuso || !fusoValido(v.fuso)) erros.push("agenda_sem_fuso");
     else {
@@ -77,13 +84,15 @@ export function errosDoRitmo(v: ValoresDeRitmo, agora: Date = new Date()): ErroD
 
 /** Os valores de janela e início de uma campanha gravada. */
 export function programacaoDaCampanha(c: {
+  cota_quantidade?: number | null;
+  cota_periodo?: string | null;
   janela_inicio_hora?: number | null;
   janela_fim_hora?: number | null;
   janela_inicio_minuto?: number | null;
   janela_fim_minuto?: number | null;
   scheduled_at?: string | null;
   timezone?: string | null;
-}): Pick<ValoresDeRitmo, "janelaInicio" | "janelaFim" | "inicioModo" | "inicioData" | "inicioHora"> {
+}): Pick<ValoresDeRitmo, "janelaInicio" | "janelaFim" | "inicioModo" | "inicioData" | "inicioHora" | "cotaQuantidade" | "cotaPeriodo"> {
   const ini = c.janela_inicio_minuto ?? (c.janela_inicio_hora != null ? c.janela_inicio_hora * 60 : null);
   const fim = c.janela_fim_minuto ?? (c.janela_fim_hora != null ? c.janela_fim_hora * 60 : null);
   const agendada = !!c.scheduled_at && fusoValido(c.timezone);
@@ -94,6 +103,8 @@ export function programacaoDaCampanha(c: {
     inicioModo: agendada ? "agendar" : "agora",
     inicioData: campos.data,
     inicioHora: campos.hora,
+    cotaQuantidade: c.cota_quantidade ? String(c.cota_quantidade) : "",
+    cotaPeriodo: (PERIODOS_DA_COTA as readonly string[]).includes(c.cota_periodo ?? "") ? (c.cota_periodo as PeriodoDaCota) : "",
   };
 }
 
@@ -106,6 +117,66 @@ export function corpoDaJanela(v: Pick<ValoresDeRitmo, "janelaInicio" | "janelaFi
     janela_inicio_hora: null,
     janela_fim_hora: null,
   };
+}
+
+/** O corpo da cota para a API (9020). */
+export function corpoDaCota(v: Pick<ValoresDeRitmo, "cotaQuantidade" | "cotaPeriodo">) {
+  const n = Number((v.cotaQuantidade ?? "").trim());
+  return n >= 1 && v.cotaPeriodo ? { cota_quantidade: Math.round(n), cota_periodo: v.cotaPeriodo } : { cota_quantidade: null, cota_periodo: null };
+}
+
+const ROTULO_DO_PERIODO: Record<PeriodoDaCota, string> = { hora: "por hora", dia: "por dia", semana: "por semana", mes: "por mês" };
+const UNIDADE_DO_INTERVALO: Record<"s" | "min" | "h" | "dias", string> = { s: "segundos", min: "minutos", h: "horas", dias: "dias" };
+
+/** "Quantos contatos chamar": N por período — a ferramenta divide sozinha pela janela. */
+function CamposDaCota({
+  v,
+  onChange,
+  prefixo,
+}: {
+  v: ValoresDeRitmo;
+  onChange: (campo: keyof ValoresDeRitmo, valor: string) => void;
+  prefixo: string;
+}) {
+  const t = useT();
+  const n = Number((v.cotaQuantidade ?? "").trim());
+  const janela = janelaDosValores(v);
+  const divisao =
+    n >= 1 && v.cotaPeriodo ? descricaoDoIntervalo(intervaloDaCota({ quantidade: n, periodo: v.cotaPeriodo }, janela)) : null;
+  return (
+    <div className="space-y-2" data-testid={`${prefixo}-cota`}>
+      <Label htmlFor={`${prefixo}-cota-n`}>{t("Quantos contatos chamar")}</Label>
+      <div className="flex gap-2">
+        <Input
+          id={`${prefixo}-cota-n`}
+          type="number"
+          min={1}
+          className="w-28"
+          placeholder={t("ex.: 3")}
+          value={v.cotaQuantidade ?? ""}
+          onChange={(e) => onChange("cotaQuantidade", e.target.value)}
+        />
+        <select
+          aria-label={t("Período")}
+          className={SELECT}
+          value={v.cotaPeriodo ?? ""}
+          onChange={(e) => onChange("cotaPeriodo", e.target.value)}
+        >
+          <option value="">{t("Sem cota (só o intervalo)")}</option>
+          {PERIODOS_DA_COTA.map((p) => (
+            <option key={p} value={p}>
+              {t(ROTULO_DO_PERIODO[p])}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="text-xs text-muted-foreground" data-testid={`${prefixo}-cota-divisao`}>
+        {divisao
+          ? `${t("A ferramenta divide sozinha: cerca de 1 a cada")} ${divisao.valor} ${t(UNIDADE_DO_INTERVALO[divisao.unidade])}${janela ? ` ${t("dentro da janela diária")}` : ""} — ${t("nunca mais que")} ${n} ${t(ROTULO_DO_PERIODO[v.cotaPeriodo as PeriodoDaCota])}.`
+          : t("Ex.: 3 por dia numa janela de 9 horas = um contato a cada 3 horas.")}
+      </p>
+    </div>
+  );
 }
 
 /** O instante agendado (ISO) — `null` em "Iniciar agora" ou quando inválido. */
@@ -429,6 +500,7 @@ export function CamposDeRitmo({
         <p className="text-sm text-muted-foreground">
           {t("Cada envio aguarda um tempo aleatório entre esses valores. Evita o padrão robótico que o WhatsApp detecta.")}
         </p>
+        <CamposDaCota v={v} onChange={onChange} prefixo={prefixo} />
       </fieldset>
 
       <fieldset className="space-y-3">

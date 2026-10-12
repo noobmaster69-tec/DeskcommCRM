@@ -32,7 +32,7 @@ const COLUNAS =
   "cancelled_at, failure_code, intervalo_segundos, janela_inicio_hora, janela_fim_hora, " +
   "teto_diario, teto_horario, pipeline_id, stage_id, agent_id, mode, flow_id, " +
   "min_interval_seconds, max_interval_seconds, timezone, next_send_at, " +
-  "janela_inicio_minuto, janela_fim_minuto, wait_reason, wait_until, language, " +
+  "janela_inicio_minuto, janela_fim_minuto, wait_reason, wait_until, language, cota_quantidade, cota_periodo, " +
   "recipients_pipeline_id, recipients_stage_id, created_at, created_by";
 
 export async function GET(
@@ -116,6 +116,8 @@ export async function PATCH(
     "min_interval_seconds",
     "max_interval_seconds",
     "timezone",
+    "cota_quantidade",
+    "cota_periodo",
   ] as const;
   const mexeEmConteudo = Object.entries(entrada).some(
     ([campo, valor]) =>
@@ -191,6 +193,8 @@ export async function PATCH(
     "janela_fim_minuto",
     "scheduled_at",
     "language",
+    "cota_quantidade",
+    "cota_periodo",
   ] as const) {
     if (entrada[campo] !== undefined) mudanca[campo] = entrada[campo];
   }

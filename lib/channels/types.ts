@@ -355,6 +355,13 @@ export interface ChannelAdapter {
    * Marca as mensagens recebidas do chat como LIDAS (tiques azuis) — fork
    * jhoow. Opcional: quem chama testa a presença do método.
    */
+  /**
+   * Este número TEM WhatsApp? (fork jhoow, 9020) — perguntado antes da 1ª
+   * mensagem a quem nunca falou com a gente. Mandar para fixo ou número sem
+   * conta pesa contra o número que envia. `null` = o canal não soube dizer.
+   */
+  checkRecipient?(input: ChannelTenantScope & { sessionRef: string; phone: string }): Promise<boolean | null>;
+
   markSeen?(input: ChannelTenantScope & { sessionRef: string; recipient: string; messageIds?: readonly string[] }): Promise<void>;
 
   reactToMessage?(input: ChannelTenantScope & {

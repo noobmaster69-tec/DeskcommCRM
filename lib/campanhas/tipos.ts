@@ -79,6 +79,8 @@ export const MOTIVOS_DE_EXCLUSAO = [
   "sem_consentimento",
   // Campo "Não contatar" marcado na ficha do contato.
   "nao_contatar",
+  // 9020: o número não tem WhatsApp (fixo ou sem conta) — verificado antes do envio.
+  "sem_whatsapp",
 ] as const;
 
 export type MotivoDeExclusao = (typeof MOTIVOS_DE_EXCLUSAO)[number];
@@ -98,4 +100,5 @@ export const TEXTO_DA_EXCLUSAO: Record<MotivoDeExclusao, string> = {
   ja_em_fluxo: "Já está em outro fluxo; a campanha não o tira de lá",
   sem_consentimento: "Sem consentimento registrado no perfil (a base legal é consentimento)",
   nao_contatar: "Marcado como “Não contatar” na ficha",
+  sem_whatsapp: "O número não tem WhatsApp (fixo ou sem conta) — nada foi enviado",
 };
