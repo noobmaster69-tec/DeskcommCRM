@@ -1,5 +1,6 @@
 "use client";
 
+import { estadoDaTraducao, LinhaDaTraducao, textoDaBolha } from "./TraducaoDaMensagem";
 import { Check as LucideCheck, CheckCheck } from "./icones";
 import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
 import { format } from "date-fns";
@@ -83,6 +84,8 @@ export function MessageBubble({
   agrupadaComAnterior,
 }: Props) {
   const [editando, setEditando] = useState(false);
+  // "Ver original": a bolha traduzida (entrada ou saída) alterna com o texto de origem.
+  const [verOriginal, setVerOriginal] = useState(false);
   const [texto, setTexto] = useState(message.body ?? "");
   const [apagando, setApagando] = useState(false);
   const [ocultando, setOcultando] = useState(false);
@@ -115,11 +118,13 @@ export function MessageBubble({
   // Imagem sem legenda: sem bolha, a foto É a bolha, e a hora vai por cima
   // dela num degradê (padrão WhatsApp).
   const isBareImage = hasMedia && message.type === "image" && !message.body;
+  const traducao = estadoDaTraducao(message);
+  const textoExibido = textoDaBolha(message, verOriginal);
   // Texto puro: a hora entra na última linha, à direita (o espaço é reservado
   // por um espaçador do tamanho dela no fim do parágrafo).
   const horaNaLinha =
     Boolean(message.body) && !hasMedia && message.type !== "contact" && !message.revoked_at &&
-    !message.metadata?.crm_hidden_at && !localizacaoDaMensagem(message) && !editando;
+    !message.metadata?.crm_hidden_at && !localizacaoDaMensagem(message) && !editando && !traducao;
   const larguraDaHora =
     40 + (isOutbound ? 18 : 0) + (message.edited_at ? 44 : 0) + (message.status === "failed" ? 48 : 0);
   // Apagada pelo autor ("apagar para todos"). A linha continua no histórico —
@@ -411,11 +416,14 @@ export function MessageBubble({
 
             {message.body && !isContact && !localizacao && (
               <p className={cn("whitespace-pre-wrap wrap-anywhere", hasMedia && message.type === "image" && "px-2.5 pb-1 pt-0.5")}>
-                {message.body}
+                {textoExibido}
                 {/* Reserva o canto da hora na última linha: a hora fica NA
                     linha do texto, à direita, sem ganhar uma linha só sua. */}
                 {horaNaLinha && <span className="inline-block" style={{ width: larguraDaHora }} aria-hidden />}
               </p>
+            )}
+            {message.body && !isContact && !localizacao && traducao && (
+              <LinhaDaTraducao message={message} verOriginal={verOriginal} onAlternar={() => setVerOriginal((v) => !v)} />
             )}
           </>
         )}

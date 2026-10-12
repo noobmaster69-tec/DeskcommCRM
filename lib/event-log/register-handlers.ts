@@ -29,6 +29,7 @@ import { avisoDeEtapaHandler } from "@/lib/leads/aviso-de-etapa.handler";
 import { avisoDeCasoAoSuporteHandler } from "@/lib/escalacao/aviso-ao-suporte.handler";
 import { avisoDePropostaNoWhatsAppHandler } from "@/lib/propostas/aviso-no-whatsapp.handler";
 import { idiomaDoContatoHandler } from "@/lib/translation/idioma-do-contato.handler";
+import { traducaoHandler } from "@/lib/translation/traducao.handler";
 import { registerHandler } from "@/lib/event-log/dispatcher";
 
 let _registered = false;
@@ -68,6 +69,8 @@ export function ensureHandlersRegistered(): void {
   // ficha nem o DDI respondem, uma chamada ao modelo da empresa. Depois de
   // quem só escreve no banco, antes de quem sai por rede de terceiro.
   registerHandler(idiomaDoContatoHandler);
+  // A tradução lê o idioma que o handler de cima acabou de gravar.
+  registerHandler(traducaoHandler);
   registerHandler(mediaPersistHandler);
   registerHandler(mediaDeriveHandler);
   registerHandler(webPushInboundHandler);

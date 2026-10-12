@@ -299,7 +299,7 @@ describe("MessageBubble — contenção de layout e quebra de palavras (#1451)",
     // juntas, vence o break-word e a quebra forçada fica sem efeito.
     expect(p.className).not.toContain("break-words");
 
-    const bolha = p.closest(".max-w-\\[75\\%\\]");
+    const bolha = p.closest(".max-w-\\[60\\%\\]");
     expect(bolha).not.toBeNull();
     expect(bolha?.className).toContain("min-w-0");
 

@@ -3,6 +3,8 @@ import { traduzir } from "@/lib/i18n/dicionario";
 import { normalizarIdioma } from "@/lib/i18n/idiomas";
 import { SEM_PREFERENCIA_DE_IDIOMA } from "@/lib/schemas/settings";
 import { ProfileForm } from "./_form";
+import { MeuIdioma } from "./_meu-idioma";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,13 @@ export default async function ProfilePage() {
   //                    uma preferência que ela nunca escolheu — e daí em diante
   //                    a troca de idioma da empresa passaria por cima dela.
   const idioma = user.idioma;
+  // "Meu idioma" (tradução automática do Inbox): sem linha gravada, pt-BR.
+  const supabase = await createClient();
+  const { data: preferencias } = await supabase
+    .from("user_preferences")
+    .select("operating_locale")
+    .eq("user_id", user.id)
+    .maybeSingle();
   return (
     <div className="flex h-full flex-col gap-6 p-6">
       <header>
@@ -41,6 +50,7 @@ export default async function ProfilePage() {
         initialLocale={user.locale ? normalizarIdioma(user.locale) : SEM_PREFERENCIA_DE_IDIOMA}
         initialTimezone={meta.timezone ?? "America/Sao_Paulo"}
       />
+      <MeuIdioma inicial={preferencias?.operating_locale ?? "pt-BR"} />
     </div>
   );
 }

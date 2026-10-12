@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { avisarTrocaDeIdioma } from "@/lib/translation/avisar-troca-de-idioma";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -119,6 +120,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return fail(error.code === "23505" ? "conflict" : "internal_error", msg, error.code === "23505" ? 409 : 500, { requestId });
   }
   const alterados = Object.keys(parsed.data.valores);
+  // Idioma trocado à mão: as mensagens já traduzidas do jeito antigo passam de
+  // novo (Fase B da tradução automática).
+  if ("locale" in alt.colunas && alt.colunas.locale !== (atual as { locale?: string | null }).locale) {
+    await avisarTrocaDeIdioma(authz.org.orgId, id, (alt.colunas.locale as string | null) ?? null);
+  }
   void audit({
     action: "contact.updated",
     organizationId: authz.org.orgId,

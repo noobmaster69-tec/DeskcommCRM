@@ -115,6 +115,18 @@ export interface Message {
    * combinado sem saber que ele mudou é como o erro começa.
    */
   edited_at: string | null;
+  /**
+   * Tradução automática (9022). Entrada: `body` é o original do cliente e
+   * `content_translated` a versão no idioma de quem atende (`translated_to`).
+   * Saída: `content_original` é o que o atendente escreveu; `body`, o que foi.
+   * Opcionais: linhas anteriores à 9022 e dublês de teste não os trazem.
+   */
+  content_original?: string | null;
+  content_locale?: string | null;
+  content_translated?: string | null;
+  translated_to?: string | null;
+  translated_at?: string | null;
+  translation_status?: "pending" | "done" | "failed" | "skipped" | null;
   /** Quando o AUTOR apagou para todos. A linha fica; o texto não é mostrado. */
   revoked_at: string | null;
   /** A mensagem que esta responde (citação). `null` = envio solto. */
