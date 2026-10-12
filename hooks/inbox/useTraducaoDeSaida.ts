@@ -24,9 +24,11 @@ interface Previa {
 export function useTraducaoDeSaida(conversationId: string, texto: string, habilitada: boolean) {
   const idiomas = useIdiomasDaConversa(conversationId);
   const d = idiomas.data;
-  const ativa = habilitada && !!d && d.idiomas_diferentes && d.traducao.saida && !!d.contato.locale;
+  // Leitura defensiva: dado incompleto (rota antiga, cache velho) desliga a
+  // tradução em vez de derrubar a conversa inteira.
+  const ativa = habilitada && !!d?.idiomas_diferentes && d?.traducao?.saida !== false && !!d?.contato?.locale;
   const [paraEscolhido, setPara] = useState<string | null>(null);
-  const para = paraEscolhido ?? d?.contato.locale ?? null;
+  const para = paraEscolhido ?? d?.contato?.locale ?? null;
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [editada, setEditada] = useState<{ texto: string; traducao: string } | null>(null);
   const [carregando, setCarregando] = useState(false);
@@ -35,11 +37,11 @@ export function useTraducaoDeSaida(conversationId: string, texto: string, habili
 
   const pedir = useCallback(
     async (alvo: string, destino: string): Promise<string | null> => {
-      const r = await apiClient.post<{ traducao: string }>(`/api/v1/conversations/${conversationId}/traducao-de-saida`, {
-        texto: alvo,
-        para: destino,
-      });
-      return r.traducao;
+      const r = await apiClient.post<{ data: { traducao: string } }>(
+        `/api/v1/conversations/${conversationId}/traducao-de-saida`,
+        { texto: alvo, para: destino },
+      );
+      return r.data?.traducao ?? null;
     },
     [conversationId],
   );

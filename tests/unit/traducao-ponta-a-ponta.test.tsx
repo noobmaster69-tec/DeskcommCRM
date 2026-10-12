@@ -31,15 +31,21 @@ import type { Message } from "@/lib/types/messaging";
 get.mockImplementation(async (url: string) =>
   url.endsWith("/idiomas")
     ? {
-        contato: { locale: "en-US", source: "ddi" },
-        meu_idioma: "pt-BR",
-        traducao: { entrada: true, saida: true },
-        idiomas_diferentes: true,
+        // O envelope REAL das rotas v1 — o teste anterior devolvia o miolo e
+        // deixou passar exatamente o defeito que derrubou o Inbox.
+        data: {
+          contato: { locale: "en-US", source: "ddi" },
+          meu_idioma: "pt-BR",
+          traducao: { entrada: true, saida: true },
+          idiomas_diferentes: true,
+        },
       }
     : { data: { drafts: [] } },
 );
 post.mockImplementation(async (url: string, corpo: { texto: string }) =>
-  url.endsWith("/traducao-de-saida") ? { traducao: corpo.texto === "Sim, ainda está disponível." ? "Yes, it is still available." : "?" } : {},
+  url.endsWith("/traducao-de-saida")
+    ? { data: { traducao: corpo.texto === "Sim, ainda está disponível." ? "Yes, it is still available." : "?" } }
+    : {},
 );
 
 const recebida = {

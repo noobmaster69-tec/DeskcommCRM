@@ -32,7 +32,7 @@ export function SeloDeIdiomas({ conversationId }: { conversationId: string }) {
   const [aberto, setAberto] = useState(false);
   const [rascunho, setRascunho] = useState<{ contato: string; meu: string; entrada: boolean; saida: boolean } | null>(null);
   const d = q.data;
-  if (!d || !d.contato.locale || !d.idiomas_diferentes) return null;
+  if (!d?.contato?.locale || !d.idiomas_diferentes || !d.traducao) return null;
 
   const r = rascunho ?? { contato: d.contato.locale, meu: d.meu_idioma, entrada: d.traducao.entrada, saida: d.traducao.saida };
   const select =

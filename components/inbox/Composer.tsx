@@ -413,7 +413,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
               </button>
             )}
             <ResumirConversa conversationId={conversationId} disabled={isDisabled} />
-            {mode === "reply" && idiomas.data?.idiomas_diferentes && (
+            {mode === "reply" && idiomas.data?.idiomas_diferentes && idiomas.data.traducao && (
               <button
                 type="button"
                 className={cn(CHIP, idiomas.data.traducao.saida && "bg-ibx-accent-active-bg text-ibx-accent-text")}

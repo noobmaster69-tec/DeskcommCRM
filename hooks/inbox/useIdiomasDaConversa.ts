@@ -25,15 +25,17 @@ export function useIdiomasDaConversa(conversationId: string | null) {
     queryKey: chaveDosIdiomas(conversationId),
     enabled: !!conversationId,
     staleTime: 60_000,
-    queryFn: () => apiClient.get<IdiomasDaConversa>(`/api/v1/conversations/${conversationId}/idiomas`),
+    // O apiClient devolve o envelope `{ data }` das rotas v1 — o hook entrega o miolo.
+    queryFn: async () =>
+      (await apiClient.get<{ data: IdiomasDaConversa }>(`/api/v1/conversations/${conversationId}/idiomas`)).data,
   });
 }
 
 export function useMudarIdiomasDaConversa(conversationId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (m: MudancaDeIdiomas) =>
-      apiClient.patch<IdiomasDaConversa>(`/api/v1/conversations/${conversationId}/idiomas`, m),
+    mutationFn: async (m: MudancaDeIdiomas) =>
+      (await apiClient.patch<{ data: IdiomasDaConversa }>(`/api/v1/conversations/${conversationId}/idiomas`, m)).data,
     onSuccess: async (dados) => {
       qc.setQueryData(chaveDosIdiomas(conversationId), dados);
       await qc.invalidateQueries({ queryKey: ["messages", conversationId] });
