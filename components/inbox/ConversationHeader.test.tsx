@@ -44,6 +44,8 @@ vi.mock("@/components/kanban/OwnerBadge", () => ({ OwnerBadge: () => null }));
 vi.mock("@/components/inbox/ReassignDialog", () => ({ ReassignDialog: () => null }));
 vi.mock("@/components/inbox/SnoozeButton", () => ({ SnoozeButton: () => null }));
 vi.mock("@/components/inbox/JanelaSelo", () => ({ JanelaSelo: () => null }));
+// O selo de idiomas tem teste próprio (traducao-ponta-a-ponta); aqui ele só ocuparia a rede.
+vi.mock("@/components/inbox/SeloDeIdiomas", () => ({ SeloDeIdiomas: () => null }));
 vi.mock("@/components/inbox/ChannelLogo", () => ({ ChannelLogo: () => null }));
 vi.mock("@/hooks/voice/useVoiceSessionStatus", () => ({
   useVoiceSessionStatus: () => ({ data: { configured: true, paired: true } }),

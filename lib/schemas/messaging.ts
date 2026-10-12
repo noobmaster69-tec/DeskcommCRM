@@ -111,6 +111,15 @@ export const sendMessageSchema = z
      * linha do token e o membership, no banco.
      */
     on_behalf_of_user_id: z.string().uuid().optional(),
+    /**
+     * Tradução de saída (fork jhoow, 9022): o texto que o atendente escreveu,
+     * no idioma dele. `body` é o que SAI (a tradução). Os três andam juntos.
+     */
+    content_original: z.string().min(1).max(4096).optional(),
+    /** Idioma de `content_original` (o do atendente), BCP-47 curto. */
+    content_locale: z.string().regex(/^[a-z]{2}(-[A-Z]{2})?$/).optional(),
+    /** Idioma de `body` (o do cliente). */
+    translated_to: z.string().regex(/^[a-z]{2}(-[A-Z]{2})?$/).optional(),
   })
   .refine(
     (d) => {

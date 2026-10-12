@@ -14583,6 +14583,29 @@ export const DICIONARIO: Traducoes = {
   "holandês": { es: "neerlandés" },
   "francês": { es: "francés" },
   "alemão": { es: "alemán" },
+  // Tradução automática — Fases C e D
+  "Mensagens traduzidas este mês": { es: "Mensajes traducidos este mes" },
+  "Custo estimado": { es: "Costo estimado" },
+  "Traduzir mensagens para o idioma do contato ao enviar": { es: "Traducir los mensajes al idioma del contacto al enviar" },
+  "Será enviado em": { es: "Se enviará en" },
+  "Editar tradução": { es: "Editar traducción" },
+  "Não traduzir": { es: "No traducir" },
+  "Desliga a tradução das suas respostas nesta conversa": { es: "Desactiva la traducción de tus respuestas en esta conversación" },
+  "Tradução": { es: "Traducción" },
+  "Usar esta tradução": { es: "Usar esta traducción" },
+  "Traduzir automaticamente": { es: "Traducir automáticamente" },
+  "Escolher o idioma do envio": { es: "Elegir el idioma del envío" },
+  "Tradução indisponível. A mensagem não foi enviada — tente de novo ou desligue a tradução.": { es: "Traducción no disponible. El mensaje no se envió: inténtalo de nuevo o desactiva la traducción." },
+  "Tradução automática desta conversa": { es: "Traducción automática de esta conversación" },
+  "Idioma do cliente": { es: "Idioma del cliente" },
+  "Traduzir mensagens recebidas": { es: "Traducir mensajes recibidos" },
+  "Traduzir minhas respostas": { es: "Traducir mis respuestas" },
+  "escolhido manualmente": { es: "elegido manualmente" },
+  "detectado por DDI": { es: "detectado por el prefijo telefónico" },
+  "detectado pelo texto": { es: "detectado por el texto" },
+  "O idioma do cliente ainda não é conhecido.": { es: "El idioma del cliente aún no se conoce." },
+  // Tradução — envio
+  "Enviar em": { es: "Enviar en" },
 };
 
 /**

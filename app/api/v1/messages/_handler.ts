@@ -708,6 +708,17 @@ export async function sendMessageHandler(
     // Guardado mesmo quando o canal não sabe citar: o fio existe no NOSSO
     // histórico de qualquer jeito, e é o que a tela desenha.
     reply_to_message_id: citada?.id ?? null,
+    // Tradução de saída (9022): só grava quando o composer mandou o original —
+    // a bolha mostra "Enviado em inglês · Ver original" a partir daqui.
+    ...(input.content_original && input.translated_to
+      ? {
+          content_original: input.content_original,
+          content_locale: input.content_locale ?? null,
+          translated_to: input.translated_to,
+          translated_at: new Date().toISOString(),
+          translation_status: "done" as const,
+        }
+      : {}),
     conversation_id: c.id,
     channel_session_id: c.channel_session_id,
     contact_id: c.contact_id,

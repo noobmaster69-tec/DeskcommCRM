@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { JanelaSelo } from "@/components/inbox/JanelaSelo";
 import { Archive, ArrowRightLeft, Check, Hand, PanelRight, Search } from "./icones";
 import { BOTAO_DO_GRUPO } from "./estilo";
+import { SeloDeIdiomas } from "./SeloDeIdiomas";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/contacts/apresentacao-na-lista";
 import { telefoneLegivel } from "@/lib/inbox/telefone-legivel";
@@ -236,6 +237,8 @@ export function ConversationHeader({
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {/* Tradução automática: só aparece quando o cliente fala outra língua. */}
+        {!conversation.is_group && <SeloDeIdiomas conversationId={conversation.id} />}
         {/* A chamada usa o telefone da ficha. Grupos não são uma pessoa. */}
         {!conversation.is_group && c?.id && (
           <DialButton contactId={c.id} hasPhone={!!c.phone_number} />

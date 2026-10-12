@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 import { useT } from "@/hooks/i18n/useT";
 import {
   forwardRef,
@@ -9,7 +10,11 @@ import {
   type ClipboardEvent,
   type KeyboardEvent,
 } from "react";
-import { SendHorizontal, Slash, Sparkles } from "@/components/inbox/icones";
+import { ChevronDown, Languages, SendHorizontal, Slash, Sparkles } from "@/components/inbox/icones";
+import { PainelDeTraducao } from "@/components/inbox/composer/PainelDeTraducao";
+import { useIdiomasDaConversa, useMudarIdiomasDaConversa } from "@/hooks/inbox/useIdiomasDaConversa";
+import { useTraducaoDeSaida } from "@/hooks/inbox/useTraducaoDeSaida";
+import { IDIOMAS_OFERECIDOS, nomeDaLingua, nomeDoIdioma } from "@/lib/translation/idiomas";
 import { BOTAO_DE_ICONE } from "@/components/inbox/estilo";
 import { AttachMenu } from "@/components/inbox/composer/AttachMenu";
 import { AttachmentPreviewDialog } from "@/components/inbox/composer/AttachmentPreviewDialog";
@@ -163,6 +168,12 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
   }, [text, mode, onDraftChange]);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const send = useSendMessage();
+  // Tradução de saída (Fase C): ativa quando o cliente fala outra língua e a
+  // chave de saída da conversa está ligada. Nota interna nunca é traduzida.
+  const idiomas = useIdiomasDaConversa(conversationId);
+  const mudarIdiomas = useMudarIdiomasDaConversa(conversationId);
+  const traducao = useTraducaoDeSaida(conversationId, text, mode === "reply");
+  const [menuDeIdiomaAberto, setMenuDeIdiomaAberto] = useState(false);
   const upload = useUploadMedia();
   const createNote = useCreateNote();
   const templates = useMessageTemplates();
@@ -223,15 +234,20 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
       createNote.mutate({ conversation_id: conversationId, body }, { onError: restoreOnError });
       return;
     }
+    const enviar = (corpo: string, traduzida?: { para: string; de: string }) =>
     send.mutate(
       {
         conversation_id: conversationId,
-        body,
+        body: corpo,
         type: "text",
         ...(respondendo ? { reply_to_message_id: respondendo.id } : {}),
+        // Traduzida: o original (meu idioma) vai junto, e a bolha mostra
+        // "Enviado em inglês · Ver original".
+        ...(traduzida ? { content_original: body, content_locale: traduzida.de, translated_to: traduzida.para } : {}),
       },
       {
         onSuccess: () => {
+          traducao.reiniciar();
           // A citação vale para UMA mensagem. Mantê-la depois do envio faria a
           // próxima frase sair citando algo que o atendente já respondeu.
           onCancelarResposta?.();
@@ -243,6 +259,21 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
         onError: restoreOnError,
       },
     );
+    if (traducao.ativa && traducao.para) {
+      const para = traducao.para;
+      void traducao.obter().then((traduzida) => {
+        if (!traduzida) {
+          // Sem tradução não sai nada: mandar o português para quem lê inglês
+          // é exatamente o que a pessoa ligou a tradução para evitar.
+          restoreOnError();
+          toast.error(t("Tradução indisponível. A mensagem não foi enviada — tente de novo ou desligue a tradução."));
+          return;
+        }
+        enviar(traduzida, { para, de: traducao.meuIdioma });
+      });
+      return;
+    }
+    enviar(body);
   }
 
   /**
@@ -382,6 +413,18 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
               </button>
             )}
             <ResumirConversa conversationId={conversationId} disabled={isDisabled} />
+            {mode === "reply" && idiomas.data?.idiomas_diferentes && (
+              <button
+                type="button"
+                className={cn(CHIP, idiomas.data.traducao.saida && "bg-ibx-accent-active-bg text-ibx-accent-text")}
+                aria-pressed={idiomas.data.traducao.saida}
+                disabled={mudarIdiomas.isPending}
+                onClick={() => mudarIdiomas.mutate({ saida: !idiomas.data!.traducao.saida })}
+              >
+                <Languages size={14} aria-hidden />
+                {t("Traduzir automaticamente")}
+              </button>
+            )}
           </div>
         </section>
         {/*
@@ -413,6 +456,16 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
               <X className="size-4" />
             </button>
           </div>
+        )}
+        {mode === "reply" && traducao.ativa && traducao.para && text.trim() && (
+          <PainelDeTraducao
+            conversationId={conversationId}
+            para={traducao.para}
+            previa={traducao.previa}
+            carregando={traducao.carregando}
+            falhou={traducao.falhou}
+            onEditar={traducao.editarTraducao}
+          />
         )}
         <div
           className={cn(
@@ -499,7 +552,48 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                   });
                 }}
               />
-              {text.trim() || mode === "note" ? (
+              {mode === "reply" && traducao.ativa && traducao.para && text.trim() ? (
+                <div className="relative ml-1 flex items-center">
+                  <button
+                    type="button"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-l-[10px] bg-ibx-accent px-3 text-[13px] font-semibold text-white hover:bg-ibx-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ibx-accent disabled:opacity-50"
+                    onClick={handleSubmit}
+                    disabled={respostaBarrada}
+                    aria-label={`${t("Enviar em")} ${t(nomeDaLingua(traducao.para))}`}
+                  >
+                    <SendHorizontal size={15} aria-hidden />
+                    {t("Enviar em")} {t(nomeDaLingua(traducao.para))}
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-7 items-center justify-center rounded-r-[10px] border-l border-white/25 bg-ibx-accent text-white hover:bg-ibx-accent-hover focus-visible:outline-2 focus-visible:outline-ibx-accent"
+                    aria-label={t("Escolher o idioma do envio")}
+                    aria-expanded={menuDeIdiomaAberto}
+                    onClick={() => setMenuDeIdiomaAberto((v) => !v)}
+                  >
+                    <ChevronDown size={14} aria-hidden />
+                  </button>
+                  {menuDeIdiomaAberto && (
+                    <div role="menu" className="absolute bottom-full right-0 z-30 mb-1 w-52 rounded-[10px] border border-ibx-border bg-ibx-pane p-1">
+                      {IDIOMAS_OFERECIDOS.map((l) => (
+                        <button
+                          key={l}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={traducao.para === l}
+                          className="flex w-full items-center rounded-[8px] px-2 py-1.5 text-left text-[13px] text-ibx-text hover:bg-ibx-field"
+                          onClick={() => {
+                            traducao.setPara(l);
+                            setMenuDeIdiomaAberto(false);
+                          }}
+                        >
+                          {t(nomeDoIdioma(l))}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : text.trim() || mode === "note" ? (
                 <button
                   type="button"
                   className={cn(
