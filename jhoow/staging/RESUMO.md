@@ -223,3 +223,27 @@ Migrations 9010/9011 são **aditivas** (colunas nulas, tabelas novas, uma funç�
 - O menu do card perdeu "Gerenciar funis" (pedido). Esse caminho agora é o botão "Gerenciar funis" do modal "Ver funis e números", que leva à página do CRM.
 
 Reverter: `git revert be9ec73 428f2ee 91e3ac4 ff1b273`. A migration 9012 só cria funções; reverter o código não exige mexer no banco. A marca volta ao padrão apagando a linha de `platform_branding` (ou trocando o nome e o ícone pela tela).
+
+## 2026-10-12 — Menu, cota de campanha, Listas, Inbox novo, tradução automática
+
+| Entrega | Estado | Commit |
+|---|---|---|
+| Menu: grupo CRM desmontado (CRMs/Contatos em Atendimento; Campanhas/Tarefas em Operações) | ✅ no staging | `540d4aa` |
+| Campanha: cota por hora/dia/semana/mês + checagem de WhatsApp antes do envio | ✅ no staging, migration **9020** | `0081ec6` |
+| Operações › Listas + "Usar uma lista salva" na campanha | ✅ no staging, migration **9021** | `6b07ded` |
+| Inbox redesenhado (painéis flutuantes, Geist, lista/cabeçalho/bolhas/composer/painel do contato) | ✅ no staging | `2437ac5` |
+| Tradução A: idioma do contato (manual > DDI > detectado) + esquema | ✅ no staging, migration **9022** | `4baf78c` |
+| Tradução B: entrada traduzida (cache no banco), "Ver original", "tentar novamente", Meu idioma | aguarda o workflow | `e4ca0a9` |
+| Tradução C: composer com prévia, "Enviar em inglês ▼", selo de idiomas no cabeçalho | aguarda o workflow | `7269665` |
+| Tradução D: selo no drawer do funil, chave do fluxo, consumo em Uso de IA | aguarda o workflow | `1fc19c0` |
+
+**Produção:** aplicar as migrations 9010 até 9022 ANTES da imagem nova. Não toquei na produção.
+
+**Decisões:**
+- A tradução usa a credencial de IA da empresa (Anthropic primeiro, OpenAI depois). Cada chamada tem limite de 10s e uma nova tentativa, e entra em `llm_calls`.
+- Tradução da entrada fica em cache na própria mensagem e nunca volta ao modelo para o mesmo par de idiomas. A falha não repete sozinha.
+- Sem tradução disponível, a resposta do atendente NÃO sai (o texto volta ao campo). No fluxo, sai o original para o fluxo não parar.
+- "Escrever com IA" do layout novo não entrou: não existe ação no sistema para ele chamar.
+- O disco da VPS está em 94%. As versões antigas da produção (1.66.1, 1.68.0, 1.69.0) podem ser apagadas pelo Jhoow para liberar ~9 GB.
+
+Reverter a tradução: `git revert 1fc19c0 7269665 e4ca0a9 4baf78c`. A 9022 é aditiva; reverter o código não exige mexer no banco.
