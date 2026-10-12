@@ -56,6 +56,8 @@ export const importacaoSchema = z.strictObject({
     .default([]),
   mapeamento: z.record(z.string(), z.string()).default({}),
   nome_do_arquivo: z.string().max(200).nullable().default(null),
+  /** 9021: o nome da lista (Operações › Listas). Sem ele, o nome do arquivo. */
+  nome_da_lista: z.string().trim().min(1).max(120).nullable().default(null),
 });
 export type EntradaDaImportacao = z.infer<typeof importacaoSchema>;
 
@@ -359,6 +361,7 @@ export async function importarAudiencia(
       .insert({
         organization_id: org,
         mode: "import",
+        name: (entrada.nome_da_lista ?? entrada.nome_do_arquivo ?? "Lista importada").slice(0, 120),
         contact_ids: contatos,
         snapshot_file_path: caminho,
         estimated_recipients: contatos.length,

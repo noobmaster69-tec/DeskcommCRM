@@ -12,6 +12,58 @@ import type {
   ValoresDaCampanha,
 } from "@/app/app/campaigns/_form/valores";
 import { ImportarLista } from "./ImportarLista";
+import { useListas } from "@/hooks/campanhas/useListas";
+
+/** Importar lista: subir uma planilha nova OU usar uma das Listas salvas (Operações › Listas). */
+function ListaSalvaOuNova({
+  v,
+  setV,
+}: {
+  v: ValoresDaCampanha;
+  setV: (f: (atual: ValoresDaCampanha) => ValoresDaCampanha) => void;
+}) {
+  const t = useT();
+  const salva = v.origemDaLista === "salva";
+  const listas = useListas(salva);
+  return (
+    <div className="space-y-3" data-testid="origem-da-lista">
+      <div role="radiogroup" aria-label={t("De onde vem a lista")} className="flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2">
+          <input type="radio" checked={!salva} onChange={() => setV((a) => ({ ...a, origemDaLista: "nova" }))} />
+          {t("Subir uma planilha")}
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="radio" checked={salva} onChange={() => setV((a) => ({ ...a, origemDaLista: "salva" }))} />
+          {t("Usar uma lista salva")}
+        </label>
+      </div>
+      {salva && (
+        <select
+          aria-label={t("Lista salva")}
+          className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm"
+          value=""
+          onChange={(e) => {
+            const l = (listas.data ?? []).find((x) => x.id === e.target.value);
+            if (!l) return;
+            setV((a) => ({
+              ...a,
+              listaImportada: l.id,
+              resumoDaLista: null,
+              limite: String(Math.min(5000, Math.max(Number(a.limite) || 0, l.contatos || 1))),
+            }));
+          }}
+        >
+          <option value="">{listas.isLoading ? t("Carregando…") : t("Escolha a lista")}</option>
+          {(listas.data ?? []).map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.nome} — {l.contatos} {t("contatos")}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
 
 const MODOS: ReadonlyArray<{ valor: Fonte; rotulo: string; dica: string }> = [
   { valor: "crm", rotulo: "Do CRM", dica: "Contatos com negócio num funil, por etapa, data de entrada, etiquetas e variáveis." },
@@ -253,7 +305,10 @@ export function FonteDoPublico({
         </div>
       )}
 
-      {v.fonte === "importacao" && (
+      {v.fonte === "importacao" && !v.listaImportada && (
+        <ListaSalvaOuNova v={v} setV={setV} />
+      )}
+      {v.fonte === "importacao" && (v.listaImportada || v.origemDaLista !== "salva") && (
         <ImportarLista
           importada={v.listaImportada ? { id: v.listaImportada, resumo: v.resumoDaLista } : null}
           onImportada={(r) =>

@@ -64,12 +64,15 @@ export function ImportarLista({
   onImportada,
   onTrocar,
   destino = "campanha",
+  nomeDaLista,
 }: {
   importada?: { id: string; resumo: ResumoDaLista | null } | null;
   onImportada?: (r: ResumoDaLista) => void;
   onTrocar?: () => void;
-  /** "contatos": a página de Contatos — atualiza a base, sem audiência de campanha. */
-  destino?: "campanha" | "contatos";
+  /** "contatos": a página de Contatos — atualiza a base, sem audiência de campanha. "lista": Operações › Listas. */
+  destino?: "campanha" | "contatos" | "lista";
+  /** 9021: o nome com que a lista aparece em Operações › Listas. */
+  nomeDaLista?: string;
 }) {
   const t = useT();
   const [concluida, setConcluida] = useState<ResumoDaLista | null>(null);
@@ -183,6 +186,7 @@ export function ImportarLista({
         novas_variaveis: [...new Map(novas.map((n) => [n.key, n])).values()],
         mapeamento: Object.fromEntries(cabecalho.map((c, i) => [c, destinos[i] ?? "ignorar"])),
         nome_do_arquivo: arquivo.name.slice(0, 200),
+        nome_da_lista: nomeDaLista?.trim() ? nomeDaLista.trim().slice(0, 120) : null,
       }),
     );
     form.append("arquivo", arquivo);
@@ -194,7 +198,7 @@ export function ImportarLista({
         setErroDoEnvio(json?.error?.message ?? t("Não foi possível importar a lista."));
         return;
       }
-      if (destino === "contatos") setConcluida(json.data);
+      if (destino !== "campanha") setConcluida(json.data);
       onImportada?.(json.data);
       setTabela(null);
       setArquivo(null);
@@ -205,7 +209,7 @@ export function ImportarLista({
     }
   }
 
-  if (destino === "contatos" && concluida) {
+  if (destino !== "campanha" && concluida) {
     const r = concluida;
     return (
       <div className="space-y-2 rounded-md border border-border p-3 text-sm" data-testid="lista-importada">

@@ -125,3 +125,14 @@ describe("campaign_audience_sources", () => {
     expect(sql(`select count(*) from public.campaign_audience_sources where organization_id = '${ORG_A}'`)).toBe("1");
   });
 });
+
+describe("9021 — listas nomeadas", () => {
+  it("nome opcional, 1–120 caracteres; reaplicar não muda nada", () => {
+    sql(`update public.campaign_audience_sources set name = 'Advogados Lisboa' where id = '${LISTA}'`);
+    expect(sqlstate(`update public.campaign_audience_sources set name = '   ' where id = '${LISTA}'`)).toBe("23514");
+    const r = "-- ---- listas nomeadas (migration 9021) ----";
+    sql(blocoDoBaseline(r));
+    sql(blocoDoBaseline(r));
+    expect(sql(`select name from public.campaign_audience_sources where id = '${LISTA}'`)).toBe("Advogados Lisboa");
+  });
+});

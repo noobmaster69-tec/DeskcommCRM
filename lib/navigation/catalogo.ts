@@ -528,6 +528,16 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
+    // Fork jhoow (9021): as planilhas de contatos — subidas aqui ou na campanha.
+    href: "/app/listas",
+    label: "Listas",
+    description: "As planilhas de contatos da empresa, prontas para virar público de campanha.",
+    icon: "ListChecks",
+    group: "operacoes",
+    minRole: "manager",
+    sidebar: true,
+  },
+  {
     href: "/app/ai/followups",
     label: "Follow-ups",
     description: "Como o agente retoma uma conversa que esfriou, para nenhuma morrer no silêncio.",

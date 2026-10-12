@@ -14520,6 +14520,24 @@ export const DICIONARIO: Traducoes = {
   "Chegou à cota de contatos do período desta campanha.": { es: "Llegó a la cuota de contactos del período de esta campaña." },
   "O número não tem WhatsApp (fixo ou sem conta) — nada foi enviado": { es: "El número no tiene WhatsApp (fijo o sin cuenta) — no se envió nada" },
   "Este número não tem WhatsApp — nada foi enviado (protege o seu número contra bloqueio).": { es: "Este número no tiene WhatsApp — no se envió nada (protege tu número contra bloqueos)." },
+  // Operações › Listas (fork jhoow)
+  "Listas": { es: "Listas" },
+  "As planilhas de contatos da empresa. Use qualquer uma como público de uma campanha.": { es: "Las planillas de contactos de la empresa. Usa cualquiera como público de una campaña." },
+  "Nova lista": { es: "Nueva lista" },
+  "Nome da lista": { es: "Nombre de la lista" },
+  "ex.: Advogados Lisboa — outubro": { es: "ej.: Abogados Lisboa — octubre" },
+  "Nenhuma lista ainda. Suba a primeira em “Nova lista”.": { es: "Aún no hay listas. Sube la primera en “Nueva lista”." },
+  "Criada em": { es: "Creada el" },
+  "Lista apagada.": { es: "Lista borrada." },
+  "Não foi possível apagar a lista.": { es: "No se pudo borrar la lista." },
+  "Esta lista é o público da campanha": { es: "Esta lista es el público de la campaña" },
+  "Troque o público da campanha antes de apagar.": { es: "Cambia el público de la campaña antes de borrar." },
+  "De onde vem a lista": { es: "De dónde viene la lista" },
+  "Subir uma planilha": { es: "Subir una planilla" },
+  "Usar uma lista salva": { es: "Usar una lista guardada" },
+  "Lista salva": { es: "Lista guardada" },
+  "Escolha a lista": { es: "Elige la lista" },
+  "As planilhas de contatos da empresa, prontas para virar público de campanha.": { es: "Las planillas de contactos de la empresa, listas para ser público de campaña." },
 };
 
 /**

@@ -40,6 +40,8 @@ export interface ValoresDaCampanha {
   /** Modo etiqueta: "todas" exige todas as etiquetas; "alguma", qualquer uma. */
   todasAsTags: boolean;
   listaImportada: string;
+  /** Só da tela: subir planilha nova ou usar uma lista salva (Operações › Listas). */
+  origemDaLista?: "nova" | "salva";
   /** Só da tela: as contagens da importação que acabou de rodar. */
   resumoDaLista: ResumoDaLista | null;
   texto: string;
