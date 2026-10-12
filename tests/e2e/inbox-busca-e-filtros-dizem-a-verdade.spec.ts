@@ -127,6 +127,8 @@ test('"Não lidos" VAI ao servidor — o defeito era filtrar a página carregada
     if (r.url().includes("unread=true")) comUnread.push(r.url());
   });
 
+  // Os filtros moram no popover do botão "Filtros" (cabeçalho da lista).
+  await page.getByRole("button", { name: "Filtros" }).click();
   await page.getByRole("button", { name: /Não lidos/i }).click();
 
   await expect

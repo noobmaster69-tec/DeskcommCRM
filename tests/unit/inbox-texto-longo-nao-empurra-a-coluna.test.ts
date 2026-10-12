@@ -112,14 +112,14 @@ describe("inbox — texto longo não empurra a coluna (#1802)", () => {
     const fonte = ler(LAYOUT);
 
     // Coluna da conversa — protegida pelo f7b1ef4, é a que o #1802 aponta.
-    expect(fonte).toMatch(/h-full min-h-0 min-w-0 flex-col md:flex/);
+    expect(fonte).toMatch(/h-full min-h-0 min-w-0 flex-col lg:flex/);
 
     // Coluna do CRM, trilha fixa do grid: min-w-0 como defesa uniforme com a
     // coluna da conversa (o transbordo do fato ficava dentro do painel).
-    // O wrapper da coluna é o único <div> com `xl:block` no arquivo: é ele que
+    // O wrapper da coluna é o único <div> com `lg:block` no arquivo: é ele que
     // o grid conta como item da terceira track. (O outro render do painel é o
     // Sheet do celular, que não participa do grid.)
-    const coluna = fonte.split("\n").find((l) => l.includes("xl:block"));
+    const coluna = fonte.split("\n").find((l) => l.includes("lg:block"));
     expect(coluna, "não achei a coluna do CRM no layout").toBeDefined();
     expect(coluna, "a coluna do CRM (a última do grid) precisa de min-w-0").toContain("min-w-0");
     expect(coluna).toContain("hidden");

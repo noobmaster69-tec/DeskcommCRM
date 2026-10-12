@@ -102,12 +102,18 @@ function Grupo({
   podeEditar,
   aberto,
   onAlternar,
+  painel,
+  titulo,
 }: {
   contactId: string;
   grupo: GrupoDaFicha;
   podeEditar: boolean;
   aberto: boolean;
   onAlternar: () => void;
+  /** Painel do Inbox: linhas chave/valor sem acordeão, sem `{variavel}`. */
+  painel?: boolean;
+  /** No painel, o título da seção (ex.: "Dados do contato") mora no cabeçalho do grupo. */
+  titulo?: string;
 }) {
   const t = useT();
   const qc = useQueryClient();
@@ -155,6 +161,71 @@ function Grupo({
       return;
     }
     salvar.mutate(valores);
+  }
+
+  if (painel) {
+    return (
+      <section className="space-y-2" data-testid={`grupo-${grupo.id}`}>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ibx-muted">
+            {titulo ?? grupo.rotulo}
+          </h3>
+          {podeEditar && editaveis.length > 0 && !editando && (
+            <button type="button" className="text-[12px] font-medium text-ibx-link hover:underline" onClick={comecar}>
+              {t("Editar")}
+            </button>
+          )}
+        </div>
+        <dl className="space-y-1.5">
+          {grupo.campos.map((c) => {
+            const emEdicao = editando && !c.somenteLeitura;
+            const valorTxt = textoDoValor(c, t) || c.efetivo || "";
+            return (
+              <div key={c.chave} data-testid={`campo-${c.chave}`} className={cn(emEdicao ? "space-y-1" : "flex items-baseline justify-between gap-3")}>
+                <dt className="shrink-0 text-[13px] text-ibx-muted">
+                  {emEdicao ? <label htmlFor={`f-${grupo.id}-${c.chave}`}>{c.rotulo}</label> : c.rotulo}
+                </dt>
+                <dd className={cn("min-w-0 text-[13px] text-ibx-text", !emEdicao && "truncate text-right")} title={emEdicao ? undefined : valorTxt || undefined}>
+                  {emEdicao ? (
+                    <>
+                      <Controle
+                        c={c}
+                        idBase={`f-${grupo.id}`}
+                        valor={rascunho[c.chave] ?? ""}
+                        onChange={(v) => setRascunho((r) => ({ ...r, [c.chave]: v }))}
+                      />
+                      {erros[c.chave] && <p className="text-xs text-error-fg">{erros[c.chave]}</p>}
+                    </>
+                  ) : valorTxt ? (
+                    valorTxt
+                  ) : podeEditar && !c.somenteLeitura ? (
+                    <button type="button" className="text-[13px] text-ibx-link hover:underline" onClick={comecar}>
+                      {t("Adicionar")}
+                    </button>
+                  ) : (
+                    <span className="text-ibx-muted">—</span>
+                  )}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+        {editando ? (
+          <div className="flex gap-2 pt-1">
+            <Button type="button" size="sm" disabled={salvar.isPending} onClick={enviar} data-testid={`salvar-${grupo.id}`}>
+              {salvar.isPending ? t("Salvando…") : t("Salvar")}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setEditando(false)}>
+              {t("Cancelar")}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-[12px] text-ibx-muted">
+            {preenchidos} {t("de")} {grupo.campos.length} {t("campos preenchidos")}
+          </p>
+        )}
+      </section>
+    );
   }
 
   return (
@@ -237,7 +308,16 @@ function Grupo({
  * em grupos recolhíveis com edição simples. A MESMA ficha no Inbox e na página
  * do contato; campo novo (Configurações › Variáveis) aparece sozinho.
  */
-export function CamposDoContato({ contactId, podeEditar }: { contactId: string; podeEditar: boolean }) {
+export function CamposDoContato({
+  contactId,
+  podeEditar,
+  variante,
+}: {
+  contactId: string;
+  podeEditar: boolean;
+  /** "painel": o painel do contato do Inbox (seções planas, sem acordeão). */
+  variante?: "painel";
+}) {
   const t = useT();
   const q = useCamposDoContato(contactId);
   const [abertos, setAbertos] = useState<Record<string, boolean>>({ contato: true });
@@ -255,6 +335,26 @@ export function CamposDoContato({ contactId, podeEditar }: { contactId: string; 
         </button>
       </p>
     );
+
+  if (variante === "painel") {
+    return (
+      <div className="divide-y divide-ibx-line" data-testid="campos-do-contato">
+        {todos.map((g, i) => (
+          <div key={g.id} className={cn(i > 0 && "pt-4", i < todos.length - 1 && "pb-4")}>
+            <Grupo
+              contactId={contactId}
+              grupo={g}
+              podeEditar={podeEditar}
+              aberto
+              onAlternar={() => {}}
+              painel
+              titulo={g.id === "contato" ? t("Dados do contato") : undefined}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   const secoes: Array<{ id: "dados" | "personalizados"; titulo: string }> = [
     { id: "dados", titulo: t("Dados do contato") },

@@ -148,6 +148,9 @@ function montar() {
 
 describe("deep-link para conversa fora do filtro", () => {
   beforeEach(() => {
+    // O painel do contato é recolhível e lembra a escolha; o jsdom tem 1024px
+    // de largura, onde ele nasce fechado. A sonda precisa dele aberto.
+    window.localStorage.setItem("inbox:painel-do-contato", "1");
     get.mockClear();
     window.history.replaceState(null, "", "/app/inbox");
   });

@@ -48,6 +48,21 @@ const plexMono = localFont({
   variable: "--font-mono",
 });
 
+// Geist e Geist Mono: a tipografia do Inbox (painéis flutuantes). Só a tela do
+// Inbox consome (`font-inbox` / `font-inbox-mono`); o resto do produto segue na
+// Atkinson. Variáveis porque o Inbox usa 400, 500 e 600.
+const geist = localFont({
+  src: [{ path: "./fonts/geist-variable.woff2", weight: "100 900", style: "normal" }],
+  display: "swap",
+  variable: "--font-geist",
+});
+
+const geistMono = localFont({
+  src: [{ path: "./fonts/geist-mono-variable.woff2", weight: "100 900", style: "normal" }],
+  display: "swap",
+  variable: "--font-geist-mono",
+});
+
 /**
  * A pilha de camadas da marca da instalação: BANCO acima, `.env` embaixo.
  *
@@ -282,7 +297,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       lang="pt-BR"
       data-theme="light"
       suppressHydrationWarning
-      className={`${atkinson.variable} ${plexMono.variable}`}
+      className={`${atkinson.variable} ${plexMono.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <head>
         {/* Primeiro de tudo: a cor da instalação, antes do CSS e do script de tema. */}

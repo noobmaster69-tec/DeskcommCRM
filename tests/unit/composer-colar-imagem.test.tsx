@@ -145,9 +145,7 @@ describe("Composer — colar imagem", () => {
     // abriu a colagem para a nota; o que não mudou — e é o que este caso passa
     // a guardar — é o Ctrl+V de texto e o DESTINO do arquivo.
     renderComposer();
-    // "Nota interna" agora está no menu "Responder ▼" (composer compacto).
-    fireEvent.click(screen.getByTestId("seletor-de-modo"));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /nota interna/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^nota$/i }));
     const seguiu = fireEvent.paste(campo(), { clipboardData: clipboard({ files: [png()] }) });
 
     // Diferente do caso de texto (logo abaixo): a IMAGEM foi interceptada, e

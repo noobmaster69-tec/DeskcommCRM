@@ -100,9 +100,7 @@ describe("Composer + modo nota interna", () => {
     expect(screen.getByRole("button", { name: /anexar/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sugerir resposta/i })).toBeInTheDocument();
 
-    // "Nota interna" agora está no menu "Responder ▼" (composer compacto).
-    fireEvent.click(screen.getByTestId("seletor-de-modo"));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /nota interna/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^nota$/i }));
 
     // F3 (#1863): o "+" deixou de ser exclusivo da resposta — a nota passou a
     // aceitar anexo. O que continua sumindo é o que sairia para o cliente:
@@ -115,9 +113,7 @@ describe("Composer + modo nota interna", () => {
 
   it("modo nota interna: enviar chama useCreateNote e NÃO useSendMessage", () => {
     renderComposer();
-    // "Nota interna" agora está no menu "Responder ▼" (composer compacto).
-    fireEvent.click(screen.getByTestId("seletor-de-modo"));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /nota interna/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^nota$/i }));
 
     fireEvent.change(screen.getByPlaceholderText(/nota interna/i), { target: { value: "cliente ligou reclamando" } });
     fireEvent.click(screen.getByRole("button", { name: /^enviar$/i }));
@@ -131,9 +127,7 @@ describe("Composer + modo nota interna", () => {
 
   it("ANEXO em modo NOTA: upload em notes/media + useCreateNote — e NÃO vai para o cliente", async () => {
     renderComposer();
-    // "Nota interna" agora está no menu "Responder ▼" (composer compacto).
-    fireEvent.click(screen.getByTestId("seletor-de-modo"));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /nota interna/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^nota$/i }));
     const dialog = await escolherArquivo("print.png", "image/png");
 
     fireEvent.click(within(dialog).getByRole("button", { name: /^enviar$/i }));
@@ -187,9 +181,7 @@ describe("Composer + modo nota interna", () => {
 
   it("escolhido em NOTA e enviado depois em REPLY: continua nota — o destino é o da ESCOLHA", async () => {
     renderComposer();
-    // "Nota interna" agora está no menu "Responder ▼" (composer compacto).
-    fireEvent.click(screen.getByTestId("seletor-de-modo"));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /nota interna/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /^nota$/i }));
     const dialog = await escolherArquivo("print.png", "image/png");
 
     // O operador troca de modo com o diálogo aberto. No app o modal bloqueia o
@@ -198,9 +190,8 @@ describe("Composer + modo nota interna", () => {
     // de agora — acompanha o modo em que o arquivo entrou. O clique vai pelo
     // DOM porque o Radix põe o resto da tela em `aria-hidden` com o dialog
     // aberto, e `getByRole` respeita isso.
-    // Composer compacto: a troca é pelo menu "Responder ▼" (seletor-de-modo).
-    fireEvent.click(document.querySelector("[data-testid=seletor-de-modo]")!);
-    const botaoResponder = [...document.querySelectorAll("[role=menuitemradio]")].find(
+    // A troca é pelo alternador Responder | Nota (seletor-de-modo).
+    const botaoResponder = [...document.querySelectorAll("[data-testid=seletor-de-modo] [role=radio]")].find(
       (b) => b.textContent?.trim() === "Responder",
     );
     expect(botaoResponder, "a opção Responder existe, escondida pelo modal").toBeTruthy();

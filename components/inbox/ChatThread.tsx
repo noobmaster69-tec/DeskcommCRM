@@ -78,7 +78,10 @@ export function mergeThreadItems(
 function dayLabel(d: Date, t: (texto: string) => string = (texto) => texto, locale: Locale): string {
   if (isToday(d)) return t("Hoje");
   if (isYesterday(d)) return t("Ontem");
-  return format(d, "dd/MM/yyyy", { locale: locale });
+  // "10 de outubro" — o ano só aparece quando não é o corrente.
+  return d.getFullYear() === new Date().getFullYear()
+    ? format(d, "d 'de' MMMM", { locale: locale })
+    : format(d, "d 'de' MMMM 'de' yyyy", { locale: locale });
 }
 
 export function ChatThread({
@@ -330,7 +333,10 @@ export function ChatThread({
           {t("Resultados nas mensagens carregadas")}: {resultados.size}
         </div>
       )}
-      <div ref={scrollerRef} className="min-w-0 flex-1 overflow-y-auto py-2">
+      <div ref={scrollerRef} className="min-w-0 flex-1 overflow-y-auto">
+        {/* Mensagens encostadas embaixo: com pouca conversa, o vazio fica em
+            cima e a última mensagem perto do composer. */}
+        <div className="flex min-h-full flex-col justify-end gap-2.5 px-8 py-5">
         {q.hasNextPage && (
           <div className="flex justify-center py-2">
             <Button
@@ -345,13 +351,13 @@ export function ChatThread({
         )}
 
         {groups.map((g) => (
-          <div key={g.key} className="space-y-1">
+          <div key={g.key} className="flex flex-col gap-2.5">
             <div className="sticky top-0 z-10 flex justify-center py-1">
-              <span className="rounded-full bg-background/80 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur">
+              <span className="rounded-full bg-ibx-field px-3 py-1 text-[12px] font-medium text-ibx-muted">
                 {dayLabel(g.date, t, localeDaData)}
               </span>
             </div>
-            {g.items.map((item) =>
+            {g.items.map((item, indice) =>
               item.kind === "passagem" ? (
                 <PassagemCard
                   key={`passagem-${item.data.id}`}
@@ -385,6 +391,10 @@ export function ChatThread({
                 <MessageBubble
                   key={`msg-${item.data.id}`}
                   message={item.data}
+                  agrupadaComAnterior={(() => {
+                    const anterior = g.items[indice - 1];
+                    return anterior?.kind === "message" && anterior.data.direction === item.data.direction;
+                  })()}
                   searchMatch={resultados.has(item.data.id)}
                   debugCitations={debugCitations}
                   onResponder={onResponder}
@@ -416,6 +426,7 @@ export function ChatThread({
         ))}
 
         <div ref={bottomRef} />
+        </div>
       </div>
     </div>
   );

@@ -1,11 +1,11 @@
 "use client";
+import { Smile } from "@/components/inbox/icones";
+import { BOTAO_DE_ICONE } from "@/components/inbox/estilo";
 import { lazy, Suspense, useState } from "react";
 import { useT } from "@/hooks/i18n/useT";
 
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Smiley } from "@/lib/ui/icons";
 
 // Lazy: o picker (+dados) só carrega quando o usuário abre — zero peso no bundle do inbox.
 const Picker = lazy(() => import("@emoji-mart/react"));
@@ -21,16 +21,15 @@ export function EmojiButton({ disabled, onPick }: Props) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
+        <button
           type="button"
-          size="icon"
-          variant="ghost"
-          className="h-9 w-9 shrink-0"
+          className={BOTAO_DE_ICONE}
           aria-label={t("Emoji")}
+          title={t("Emoji")}
           disabled={disabled}
         >
-          <Smiley size={18} weight="regular" aria-hidden />
-        </Button>
+          <Smile size={16} aria-hidden />
+        </button>
       </PopoverTrigger>
       <PopoverContent align="start" side="top" className="w-auto border-none p-0 shadow-lg">
         {open && (

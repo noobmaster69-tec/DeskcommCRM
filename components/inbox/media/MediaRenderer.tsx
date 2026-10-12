@@ -13,12 +13,12 @@ import { VideoMedia } from "./VideoMedia";
  * renderer dedicado (location/contact futuros) cai no DocumentCard —
  * sempre dá pro atendente baixar o arquivo.
  */
-export function MediaRenderer({ message }: { message: Message }) {
+export function MediaRenderer({ message, encostada }: { message: Message; encostada?: boolean }) {
   const t = useT();
   const isOutbound = message.direction === "outbound";
   switch (message.type) {
     case "image":
-      return <ImageMedia messageId={message.id} alt={t("Imagem recebida")} />;
+      return <ImageMedia messageId={message.id} alt={t("Imagem recebida")} encostada={encostada} />;
     case "sticker":
       return <StickerMedia messageId={message.id} />;
     case "audio":

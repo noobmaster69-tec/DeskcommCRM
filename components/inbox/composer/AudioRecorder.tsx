@@ -1,9 +1,10 @@
 "use client";
+import { Mic } from "@/components/inbox/icones";
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/hooks/i18n/useT";
 
 import { Button } from "@/components/ui/button";
-import { Microphone, PaperPlaneTilt, Trash } from "@/lib/ui/icons";
+import { PaperPlaneTilt, Trash } from "@/lib/ui/icons";
 import { useSendMessage } from "@/hooks/inbox/useSendMessage";
 import { useUploadMedia } from "@/hooks/inbox/useUploadMedia";
 
@@ -126,16 +127,16 @@ export function AudioRecorder({ conversationId, disabled }: Props) {
 
   if (!recording) {
     return (
-      <Button
+      <button
         type="button"
-        size="icon"
-        className="h-9 w-9 shrink-0"
+        className="ml-1 inline-flex h-8 w-9 shrink-0 items-center justify-center rounded-[10px] bg-ibx-accent text-white transition-colors hover:bg-ibx-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ibx-accent disabled:opacity-50"
         aria-label={t("Gravar áudio")}
+        title={t("Gravar áudio")}
         onClick={start}
         disabled={disabled}
       >
-        <Microphone size={16} weight="fill" aria-hidden />
-      </Button>
+        <Mic size={16} aria-hidden />
+      </button>
     );
   }
 

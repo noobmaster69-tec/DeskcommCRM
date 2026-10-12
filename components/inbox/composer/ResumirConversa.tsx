@@ -1,11 +1,11 @@
 "use client";
 
+import { List } from "@/components/inbox/icones";
 import { useState } from "react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ListBullets } from "@/lib/ui/icons";
 import { useCreateNote } from "@/hooks/inbox/useCreateNote";
 import { useT } from "@/hooks/i18n/useT";
 
@@ -53,10 +53,10 @@ export function ResumirConversa({ conversationId, disabled }: { conversationId: 
         <button
           type="button"
           disabled={disabled}
-          className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-transparent px-3 text-xs text-text transition-colors hover:bg-surface-elevated disabled:opacity-50"
+          className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[14px] bg-ibx-chip px-3 text-[12px] font-medium text-ibx-text-2 transition-colors hover:bg-ibx-chip-strong hover:text-ibx-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ibx-accent disabled:opacity-50"
           data-testid="acao-resumir"
         >
-          <ListBullets size={14} aria-hidden />
+          <List size={14} aria-hidden />
           {t("Resumir")}
         </button>
       </PopoverTrigger>

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   const r = renderizar(
     e.texto,
     {
-      nome: c.name ?? c.display_name,
+      nome: nomeDoContato(c),
       telefone: c.phone_number,
       email: c.email,
       campos,

@@ -56,10 +56,43 @@ import { useAutomaticoAtivo } from "@/hooks/ai/useAutomaticoAtivo";
  * Com uma pergunta só, "as duas escondidas" deixa de ser representável.
  * `md:flex` em ambas: no desktop as duas colunas convivem e a regra não vale.
  */
+/**
+ * O painel do contato (300px) é recolhível e lembra a escolha no navegador.
+ * Sem escolha gravada: abre de 1280px para cima e começa fechado abaixo disso,
+ * onde os 300px custariam a conversa. Nasce fechado no servidor e decide
+ * depois da hidratação — a coluna aparece, nunca pisca sumindo.
+ */
+const CHAVE_DO_PAINEL = "inbox:painel-do-contato";
+function usePainelDoContato(): [boolean, () => void] {
+  const [aberto, setAberto] = useState(false);
+  useEffect(() => {
+    let gravado: string | null = null;
+    try {
+      gravado = window.localStorage.getItem(CHAVE_DO_PAINEL);
+    } catch {
+      gravado = null;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura única do navegador depois da hidratação
+    setAberto(gravado != null ? gravado === "1" : window.innerWidth >= 1280);
+  }, []);
+  const alternar = useCallback(() => {
+    setAberto((atual) => {
+      const proximo = !atual;
+      try {
+        window.localStorage.setItem(CHAVE_DO_PAINEL, proximo ? "1" : "0");
+      } catch {
+        // navegador sem armazenamento: vale só nesta visita
+      }
+      return proximo;
+    });
+  }, []);
+  return [aberto, alternar];
+}
+
 export function colunasDoCelular(temSelecao: boolean): { lista: string; conversa: string } {
   return {
-    lista: temSelecao ? "hidden md:flex" : "flex",
-    conversa: temSelecao ? "flex" : "hidden md:flex",
+    lista: temSelecao ? "hidden lg:flex" : "flex",
+    conversa: temSelecao ? "flex" : "hidden lg:flex",
   };
 }
 
@@ -199,6 +232,7 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
   const ultimoIdNaUrl = useRef(idNaUrl);
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [painelAberto, alternarPainel] = usePainelDoContato();
   /** A ficha do contato como painel deslizante — só existe abaixo do `xl`. */
   const [fichaAberta, setFichaAberta] = useState(false);
   /**
@@ -434,7 +468,14 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
   return (
     <OpenConversationProvider conversationId={selectedId}>
     <div
-      className="grid h-[calc(100dvh-3.5rem-var(--space-6)-max(var(--space-6),var(--rodape-ocupado,0px)))] w-full grid-cols-1 md:grid-cols-[300px_1fr] xl:grid-cols-[272px_1fr_296px] 2xl:grid-cols-[300px_1fr_320px]"
+      // PAINÉIS FLUTUANTES: a área cancela o `p-6` do <main> (margem negativa nos
+      // quatro lados) e aplica o próprio respiro de 10px. A altura soma de volta
+      // o `--space-6` de cima que a margem devolveu; o de baixo segue o contrato
+      // do rodapé (`max(--space-6, --rodape-ocupado)`).
+      className={cn(
+        "-m-6 grid h-[calc(100dvh-3.5rem-max(var(--space-6),var(--rodape-ocupado,0px))+var(--space-6))] grid-cols-1 gap-[10px] bg-bg p-[10px] font-inbox text-[14px] text-ibx-text lg:grid-cols-[320px_minmax(0,1fr)]",
+        painelAberto && "lg:grid-cols-[320px_minmax(0,1fr)_300px]",
+      )}
       /*
        * O ESTADO DO TEMPO REAL, LEGÍVEL DE FORA — mesmo par que o dossiê do lead
        * já publica (`LeadDossier`), e pela mesma razão: quando a entrega morre,
@@ -473,7 +514,7 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
       */}
       <div
         className={cn(
-          "h-full min-h-0 flex-col border-r border-border md:flex",
+          "h-full min-h-0 flex-col overflow-hidden rounded-[16px] border border-ibx-line bg-ibx-pane lg:flex",
           colunas.lista,
         )}
       >
@@ -504,7 +545,7 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
       */}
       <div
         className={cn(
-          "h-full min-h-0 min-w-0 flex-col md:flex",
+          "h-full min-h-0 min-w-0 flex-col lg:flex overflow-hidden rounded-[16px] border border-ibx-line bg-ibx-pane-chat",
           colunas.conversa,
         )}
       >
@@ -515,7 +556,7 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
           conversa, e só aparece quando há uma.
         */}
         {selectedId && (
-          <div className="flex items-center gap-1 border-b border-border px-1 py-1 md:hidden">
+          <div className="flex items-center gap-1 border-b border-ibx-line px-1 py-1 lg:hidden">
             <Button
               variant="ghost"
               size="sm"
@@ -529,7 +570,7 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
             {selectedConversation && (
               <Sheet open={fichaAberta} onOpenChange={setFichaAberta}>
                 <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-9 gap-1 px-2 xl:hidden">
+                  <Button variant="ghost" size="sm" className="h-9 gap-1 px-2 lg:hidden">
                     <IdentificationCard size={16} />
                     {t("Ficha")}
                   </Button>
@@ -557,9 +598,11 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
               }
               buscaAberta={buscaAberta}
               botaoBuscaRef={botaoBuscaRef}
+              painelAberto={painelAberto}
+              onAlternarPainel={alternarPainel}
             />
             {buscaAberta && (
-              <div className="flex items-center gap-2 border-b border-border px-4 py-1.5">
+              <div className="flex items-center gap-2 border-b border-ibx-line px-4 py-1.5">
                 <MagnifyingGlass size={16} className="shrink-0 text-muted-foreground" aria-hidden />
                 <input
                   type="search"
@@ -654,9 +697,11 @@ export function InboxLayout({ initialSelectedId = null, rascunho = null }: Inbox
         )}
       </div>
 
-      <div className="hidden h-full min-h-0 min-w-0 xl:block">
-        <CRMSidePanel conversation={selectedConversation} />
-      </div>
+      {painelAberto && (
+        <div className="hidden h-full min-h-0 min-w-0 overflow-hidden rounded-[16px] border border-ibx-line bg-ibx-pane lg:block">
+          <CRMSidePanel conversation={selectedConversation} />
+        </div>
+      )}
 
       <InboxKeyboardShortcuts
         visibleIds={visibleIds}

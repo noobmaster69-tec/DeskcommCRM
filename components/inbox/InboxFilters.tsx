@@ -1,7 +1,9 @@
 "use client";
 import { useT } from "@/hooks/i18n/useT";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CaretLeft, CaretRight, MagnifyingGlass } from "@/lib/ui/icons";
+import { CaretLeft, CaretRight } from "@/lib/ui/icons";
+import Link from "next/link";
+import { Check, Search, SlidersHorizontal, SquarePen } from "./icones";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -39,8 +41,9 @@ import type { Role, VisibilityMode } from "@/lib/auth/types";
 export type InboxTab = "unassigned" | "mine" | "all" | "closed" | "archived" | "ai";
 
 const INBOX_TABS: { value: InboxTab; label: string }[] = [
-  { value: "unassigned", label: "Fila" },
+  // Minhas primeiro: é o trabalho de quem está olhando. A Fila vem logo depois.
   { value: "mine", label: "Minhas" },
+  { value: "unassigned", label: "Fila" },
   { value: "all", label: "Todas" },
   { value: "closed", label: "Fechadas" },
   // "Arquivadas" fica ao lado de "Fechadas" porque as duas são passado — e
@@ -94,6 +97,21 @@ interface Props {
 export function InboxFilters({ value, onChange }: Props) {
   const t = useT();
   const [searchInput, setSearchInput] = useState(value.search);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const filtrosRef = useRef<HTMLDivElement>(null);
+  // Clique fora fecha o popover dos filtros. O menu de etiquetas abre num
+  // portal (fora desta árvore): clique lá dentro não conta como "fora".
+  useEffect(() => {
+    if (!filtrosAbertos) return;
+    const fora = (e: PointerEvent) => {
+      const alvo = e.target as HTMLElement | null;
+      if (!alvo || filtrosRef.current?.contains(alvo)) return;
+      if (alvo.closest("[data-radix-popper-content-wrapper]")) return;
+      setFiltrosAbertos(false);
+    };
+    document.addEventListener("pointerdown", fora);
+    return () => document.removeEventListener("pointerdown", fora);
+  }, [filtrosAbertos]);
   const tabsListRef = useRef<HTMLDivElement>(null);
   const [moreTabs, setMoreTabs] = useState({ left: false, right: false });
   const updateMoreTabs = useCallback(() => {
@@ -339,69 +357,85 @@ export function InboxFilters({ value, onChange }: Props) {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  return (
-    <div className="border-b border-border bg-background">
-      <div className="space-y-2 px-3 pt-3 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="relative min-w-0 flex-1">
-            <MagnifyingGlass
-              size={15}
-              weight="regular"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-subtle"
-              aria-hidden
-            />
-            {/* "última mensagem", e não "mensagem": a busca alcança apenas
-                `conversations.last_message_preview` — a ÚLTIMA mensagem, truncada em 200
-                caracteres já na ingestão (`grep -rn 'slice(0, 200)' lib/channels/` mostra onde).
-                Medido numa conversa real de 32 mensagens: buscar o que o cliente pediu na
-                3ª devolve ZERO. Alcançar o histórico é projeto próprio (índice trigram +
-                retenção + LGPD); até lá, a tela não promete o que o backend não faz. */}
-            <Input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={t("Buscar por nome, telefone ou última mensagem…")}
-              className="h-9 rounded-full border-transparent bg-surface-elevated pl-9 text-sm shadow-none focus-visible:border-border focus-visible:bg-background"
-              aria-label={t("Buscar conversas")}
-            />
-          </div>
-          {/* Botão pressionável em vez de Switch: o filtro vive na mesma linha
-              da busca, e o Switch com rótulo pedia uma linha inteira só para
-              si numa coluna de 280px. */}
-          <button
-            type="button"
-            aria-pressed={value.onlyUnread}
-            onClick={() => onChange({ ...value, onlyUnread: !value.onlyUnread })}
-            className={cn(
-              "h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition-colors",
-              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              value.onlyUnread
-                ? "border-accent bg-accent text-accent-foreground"
-                : "border-border bg-transparent text-text-muted hover:bg-surface-elevated",
-            )}
-          >
-            {t("Não lidos")}
-          </button>
-          {/* MESMO PADRÃO do botão acima: filtro auxiliar pressionável, na
-              mesma linha. "Grupos" manda `is_group=true` na listagem — sem ele
-              a aba mostra tudo, individual e grupo misturados, como hoje. */}
-          <button
-            type="button"
-            aria-pressed={value.onlyGroups ?? false}
-            onClick={() => onChange({ ...value, onlyGroups: !value.onlyGroups })}
-            className={cn(
-              "h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition-colors",
-              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              value.onlyGroups
-                ? "border-accent bg-accent text-accent-foreground"
-                : "border-border bg-transparent text-text-muted hover:bg-surface-elevated",
-            )}
-          >
-            {t("Grupos")}
-          </button>
-        </div>
+  const filtrosAtivos =
+    (value.onlyUnread ? 1 : 0) +
+    (value.onlyGroups ? 1 : 0) +
+    (value.channel_session_id != null ? 1 : 0) +
+    (etiquetas.length > 0 ? 1 : 0);
+  const botaoDeIcone =
+    "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-ibx-muted transition-colors hover:bg-ibx-field hover:text-ibx-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ibx-accent";
+  const alternadorDoFiltro = (ativo: boolean) =>
+    cn(
+      "flex h-8 w-full items-center justify-between rounded-[8px] px-2.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-ibx-accent",
+      ativo ? "bg-ibx-accent-active-bg text-ibx-accent-text" : "text-ibx-text-2 hover:bg-ibx-field",
+    );
 
+  return (
+    <div className="shrink-0">
+      <div className="space-y-2.5 px-3 pt-3.5 pb-2">
+        <div className="flex h-8 items-center justify-between gap-2">
+          <h1 className="text-[18px] font-semibold leading-none text-ibx-text">{t("Inbox")}</h1>
+          <div ref={filtrosRef} className="relative flex items-center gap-0.5">
+            {/* O popover dos filtros fica SEMPRE montado e só se esconde: o
+                seletor de etiqueta não pode desmontar com o menu aberto (ver o
+                aviso do `ultimoVocabulario` lá em cima), e o filtro aplicado
+                precisa continuar alcançável. */}
+            <button
+              type="button"
+              className={cn(botaoDeIcone, filtrosAbertos && "bg-ibx-field text-ibx-text")}
+              aria-label={t("Filtros")}
+              title={t("Filtros")}
+              aria-expanded={filtrosAbertos}
+              aria-controls="inbox-filtros"
+              onClick={() => setFiltrosAbertos((v) => !v)}
+            >
+              <SlidersHorizontal size={16} aria-hidden />
+              {filtrosAtivos > 0 && (
+                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-ibx-accent" aria-hidden />
+              )}
+            </button>
+            <Link
+              href="/app/contacts"
+              className={botaoDeIcone}
+              aria-label={t("Nova conversa")}
+              title={t("Nova conversa")}
+            >
+              <SquarePen size={16} aria-hidden />
+            </Link>
+            <div
+              id="inbox-filtros"
+              role="group"
+              aria-label={t("Filtros")}
+              className={cn(
+                "absolute right-0 top-10 z-30 w-[260px] space-y-1 rounded-[12px] border border-ibx-border bg-ibx-pane p-2",
+                !filtrosAbertos && "hidden",
+              )}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setFiltrosAbertos(false);
+              }}
+            >
+              <button
+                type="button"
+                aria-pressed={value.onlyUnread}
+                onClick={() => onChange({ ...value, onlyUnread: !value.onlyUnread })}
+                className={alternadorDoFiltro(value.onlyUnread)}
+              >
+                {t("Não lidos")}
+                {value.onlyUnread && <Check size={14} aria-hidden />}
+              </button>
+              {/* "Grupos" manda `is_group=true` na listagem — sem ele a aba
+                  mostra tudo, individual e grupo misturados. */}
+              <button
+                type="button"
+                aria-pressed={value.onlyGroups ?? false}
+                onClick={() => onChange({ ...value, onlyGroups: !value.onlyGroups })}
+                className={alternadorDoFiltro(value.onlyGroups ?? false)}
+              >
+                {t("Grupos")}
+                {value.onlyGroups && <Check size={14} aria-hidden />}
+              </button>
         {(showChannelSwitch || mostrarSeletorDeTag) && (
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-1 pt-1">
             {showChannelSwitch && (
               <Select
                 value={value.channel_session_id ?? "all"}
@@ -411,7 +445,7 @@ export function InboxFilters({ value, onChange }: Props) {
               >
                 <SelectTrigger
                   className={cn(
-                    "h-8 min-w-0 flex-1 rounded-full border-transparent bg-surface-elevated px-3 text-xs shadow-none",
+                    "h-8 w-full min-w-0 rounded-[8px] border-transparent bg-ibx-field px-2.5 text-[13px] shadow-none",
                     value.channel_session_id != null && "border-accent bg-accent-soft text-accent",
                   )}
                   aria-label={t("Filtrar por número de WhatsApp")}
@@ -453,7 +487,7 @@ export function InboxFilters({ value, onChange }: Props) {
                   <button
                     type="button"
                     className={cn(
-                      "h-8 min-w-0 flex-1 truncate rounded-full border border-transparent bg-surface-elevated px-3 text-left text-xs shadow-none",
+                      "h-8 w-full min-w-0 truncate rounded-[8px] border border-transparent bg-ibx-field px-2.5 text-left text-[13px] shadow-none",
                       "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                       etiquetas.length > 0 && "border-accent bg-accent-soft text-accent",
                     )}
@@ -533,6 +567,28 @@ export function InboxFilters({ value, onChange }: Props) {
             )}
           </div>
         )}
+            </div>
+          </div>
+        </div>
+
+        <div className="relative">
+          <Search
+            size={15}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ibx-muted"
+            aria-hidden
+          />
+          {/* A busca alcança nome, telefone e `conversations.last_message_preview`
+              (a ÚLTIMA mensagem, truncada em 200 caracteres na ingestão) — não o
+              histórico inteiro. Alcançar o histórico é projeto próprio (índice
+              trigram + retenção + LGPD). */}
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder={t("Buscar conversa ou número")}
+            className="h-9 rounded-[10px] border-0 bg-ibx-field pl-9 text-[14px] text-ibx-text shadow-none placeholder:text-ibx-muted focus-visible:outline-2 focus-visible:outline-ibx-accent focus-visible:ring-0"
+            aria-label={t("Buscar conversas")}
+          />
+        </div>
       </div>
 
       {/* As setas aparecem só quando há abas fora da área visível; a faixa e o
@@ -540,7 +596,7 @@ export function InboxFilters({ value, onChange }: Props) {
       <Tabs
         value={value.tab}
         onValueChange={(v) => onChange({ ...value, tab: v as InboxTab })}
-        className="px-3"
+        className="px-3 pb-2"
       >
         <div className="flex items-center gap-1">
           {moreTabs.left ? (
@@ -558,7 +614,7 @@ export function InboxFilters({ value, onChange }: Props) {
           <TabsList
             ref={tabsListRef}
             onScroll={updateMoreTabs}
-            className="h-auto min-w-0 flex-1 justify-between gap-2 rounded-none bg-transparent p-0 [scrollbar-width:none]"
+            className="h-auto min-w-0 flex-1 justify-start gap-0.5 overflow-x-auto rounded-[10px] bg-ibx-field p-0.5 [scrollbar-width:none]"
           >
             {tabs.map((tab) => {
               const meta = INBOX_TABS.find((t) => t.value === tab)!;
@@ -567,11 +623,11 @@ export function InboxFilters({ value, onChange }: Props) {
                 <TabsTrigger
                   key={tab}
                   value={tab}
-                  className="shrink-0 gap-1 rounded-none border-b-2 border-transparent px-0 pb-2 pt-1 text-xs font-medium text-text-muted data-[state=active]:border-accent data-[state=active]:bg-transparent data-[state=active]:text-text data-[state=active]:shadow-none"
+                  className="h-7 shrink-0 gap-1 rounded-[8px] border-0 px-2.5 text-[13px] font-medium text-ibx-muted hover:text-ibx-text focus-visible:outline-2 focus-visible:outline-ibx-accent data-[state=active]:bg-ibx-chip-strong data-[state=active]:text-ibx-text data-[state=active]:shadow-none"
                 >
                   {t(meta.label)}
                   {typeof count === "number" && count > 0 && (
-                    <span className="text-[11px] tabular-nums text-text-subtle">{count}</span>
+                    <span className="font-inbox-mono text-[11px] tabular-nums text-ibx-muted">{count}</span>
                   )}
                 </TabsTrigger>
               );

@@ -20,6 +20,7 @@ que o `next/font/google` baixava.
 | `manrope-200-800-latin.woff2` | Manrope | variável 200–800 | latin | `manrope/v20` |
 | `source-serif-4-200-900-latin.woff2` | Source Serif 4 | variável 200–900 | latin | `sourceserif4/v14` |
 | `ibm-plex-sans-300-700-latin.woff2` | IBM Plex Sans | variável, usada em 300–700 | latin | `ibmplexsans/v23` |
+| `geist-variable.woff2`, `geist-mono-variable.woff2` | Geist, Geist Mono (Inbox) | variável 100–900 | latin + latin-ext | npm `geist@1.4.2` via cdn.jsdelivr.net (OFL) |
 | `jetbrains-mono-100-800-latin.woff2` | JetBrains Mono | variável 100–800 | latin | `jetbrainsmono/v24` |
 
 ## Como baixar de novo

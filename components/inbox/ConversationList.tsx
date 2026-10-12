@@ -117,7 +117,7 @@ export function ConversationList({
     return (
       <div className="space-y-3 p-3">
         {[1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} className="h-16 w-full" />
+          <Skeleton key={i} className="h-16 w-full rounded-[10px] bg-ibx-field" />
         ))}
       </div>
     );
@@ -153,7 +153,7 @@ export function ConversationList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2">
         {/* Vazio por FILTRO: fica DENTRO do return, nunca como `return` precoce —
             e por isso o bloco do `hasNextPage` abaixo continua sendo alcancado. */}
         {items.length === 0 && filtrosAtivos.length > 0 && (

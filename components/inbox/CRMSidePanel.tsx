@@ -12,13 +12,14 @@ import Link from "next/link";
 import { useT } from "@/hooks/i18n/useT";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { ChipDeEtiqueta } from "@/components/tags/ChipDeEtiqueta";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
-import { Tag, Receipt, Users, ArrowRight } from "@/lib/ui/icons";
+import { Receipt } from "@/lib/ui/icons";
+import { CalendarPlus, Tag as LucideTag, UserPlus } from "./icones";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initials } from "@/lib/contacts/apresentacao-na-lista";
+import { telefoneLegivel } from "@/lib/inbox/telefone-legivel";
 import { apiClient } from "@/lib/api/client";
 import { toast } from "sonner";
 import type { ConversationWithContact } from "@/hooks/inbox/useConversationsRealtime";
@@ -35,7 +36,6 @@ import { useBulkAction } from "@/hooks/kanban/useBulkAction";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { rotuloDoContato } from "@/lib/contacts/rotulo-do-contato";
-import { phoneForDisplay } from "@/lib/channels/phone-variants";
 
 interface Props {
   conversation: ConversationWithContact | null;
@@ -676,71 +676,67 @@ export function CRMSidePanel({ conversation }: Props) {
 
   if (!conversation) {
     return (
-      <aside className="flex h-full items-center justify-center border-l border-border p-4 text-center text-xs text-muted-foreground">
+      <aside className="flex h-full items-center justify-center p-4 text-center text-[13px] text-ibx-muted">
         {t("Selecione uma conversa para ver detalhes do contato.")}
       </aside>
     );
   }
 
-  return (
-    <aside className="flex h-full flex-col gap-4 overflow-y-auto border-l border-border bg-background p-4">
-      <section>
-        <h3 className="text-xs font-semibold text-text">
-          {t("Contato")}
-        </h3>
-        <Card className="mt-2 space-y-2 p-3 text-sm">
-          <div className="font-medium">{displayName}</div>
-          {contact?.phone_number && (
-            <div className="text-xs text-muted-foreground">{phoneForDisplay(contact.phone_number)}</div>
-          )}
-          {tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {tags.map((t) => (
-                <ChipDeEtiqueta key={t} tag={t} className="h-4 px-1.5 text-[10px]" />
-              ))}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-2 pt-1">
-            {contactId&&conversation?<Link className="underline" href={`/app/agenda?contato=${contactId}&conversa=${conversation.id}`}>{t("Marcar compromisso")}</Link>:null}
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              disabled={readonly || !contactId}
-              aria-pressed={tagEditorOpen}
-              onClick={() => setTagEditorOpen((v) => !v)}
-            >
-              <Tag size={12} className="mr-1" weight="regular" aria-hidden /> {t("Tags do contato")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 px-2 text-xs"
-              disabled={readonly || !contactId || (leadDialogOpen && defaultPipeline.isLoading)}
-              onClick={() => setLeadDialogOpen(true)}
-            >
-              <Users size={12} className="mr-1" weight="regular" aria-hidden />
-              {leadDialogOpen && defaultPipeline.isLoading ? t("Carregando…") : t("Novo Lead")}
-            </Button>
-            {contactId && (
-              <Button asChild size="sm" variant="ghost" className="h-7 px-2 text-xs">
-                <Link href={`/app/contacts/${contactId}`}>
-                  {t("Ver contato")}
-                  <ArrowRight size={12} className="ml-1" weight="regular" aria-hidden />
-                </Link>
-              </Button>
-            )}
-          </div>
-          {tagEditorOpen && contactId && <ContactTagsEditor contactId={contactId} orgId={conversation.organization_id} tags={tags} />}
-        </Card>
-      </section>
+  const acaoRapida =
+    "flex flex-1 flex-col items-center gap-1 rounded-[10px] px-1 py-2 text-[12px] font-medium text-ibx-text-2 transition-colors hover:bg-ibx-field hover:text-ibx-text focus-visible:outline-2 focus-visible:outline-ibx-accent disabled:pointer-events-none disabled:opacity-50";
 
-      <LeadEnrichment
-        data={summaryContactId === contactId && !erro && !contact?.is_anonymized ? enrichment : null}
-        loading={sectionsLoading}
-        error={erro || (summaryContactId === contactId && enrichmentError)}
-        onRetry={recarregar}
-      />
+  return (
+    <aside className="flex h-full min-h-0 flex-col font-inbox text-ibx-text">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4">
+      {/* TOPO: quem é, e as três ações que mais se usam daqui. Substitui o
+          cartão "Contato". */}
+      <div className="flex flex-col items-center gap-1 pb-4 pt-5 text-center">
+        <Avatar className="h-14 w-14">
+          {contact?.avatar_storage_path && !contact?.is_anonymized ? (
+            <AvatarImage src={`/api/v1/contacts/${contact.id}/avatar`} alt="" className="object-cover" />
+          ) : null}
+          <AvatarFallback className="bg-ibx-chip text-[16px] font-semibold text-ibx-text-2">
+            {initials(displayName, contact?.phone_number ?? "??")}
+          </AvatarFallback>
+        </Avatar>
+        <p className="mt-2 max-w-full truncate text-[16px] font-semibold" title={displayName}>{displayName}</p>
+        {contact?.phone_number && (
+          <p className="font-inbox-mono text-[12px] text-ibx-muted">{telefoneLegivel(contact.phone_number)}</p>
+        )}
+        <div className="mt-3 flex w-full gap-1">
+          {contactId ? (
+            <Link className={acaoRapida} href={`/app/agenda?contato=${contactId}&conversa=${conversation.id}`}>
+              <CalendarPlus size={17} aria-hidden />
+              {t("Agendar")}
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            className={cn(acaoRapida, tagEditorOpen && "bg-ibx-field text-ibx-text")}
+            disabled={readonly || !contactId}
+            aria-pressed={tagEditorOpen}
+            aria-label={t("Tags do contato")}
+            onClick={() => setTagEditorOpen((v) => !v)}
+          >
+            <LucideTag size={17} aria-hidden />
+            {t("Tags")}
+          </button>
+          <button
+            type="button"
+            className={acaoRapida}
+            disabled={readonly || !contactId || (leadDialogOpen && defaultPipeline.isLoading)}
+            onClick={() => setLeadDialogOpen(true)}
+          >
+            <UserPlus size={17} aria-hidden />
+            {leadDialogOpen && defaultPipeline.isLoading ? t("Carregando…") : t("Novo lead")}
+          </button>
+        </div>
+        {tagEditorOpen && contactId && (
+          <div className="mt-3 w-full text-left">
+            <ContactTagsEditor contactId={contactId} orgId={conversation.organization_id} tags={tags} />
+          </div>
+        )}
+      </div>
 
       {contactId && defaultPipeline.data && (
         <NewLeadDialog
@@ -756,28 +752,29 @@ export function CRMSidePanel({ conversation }: Props) {
         />
       )}
 
-      <Separator />
-
+      {/* Seções sem cartão, separadas por uma linha. */}
+      <div className="divide-y divide-ibx-line border-t border-ibx-line [&>*]:py-4">
       {!readonly && <ConversationTagsEditor
         conversationId={conversation.id}
         orgId={conversation.organization_id}
         tags={conversation.tags ?? []}
       />}
 
-      <Separator />
-
-      {/* ANTES dos negócios de propósito (doutrina cap. 5): lead é o negócio,
-          conversa é o canal, demanda é o que precisa acabar. Quem abre esta
-          conversa está atendendo alguém que pediu alguma coisa — a primeira
-          pergunta a responder é o que ainda está pendente, não quanto vale. */}
       {contactId && !contact?.is_anonymized && (
         <section data-testid="inbox-campos-do-contato">
-          <CamposDoContato contactId={contactId} podeEditar={!readonly} />
+          <CamposDoContato contactId={contactId} podeEditar={!readonly} variante="painel" />
         </section>
       )}
 
+      <LeadEnrichment
+        data={summaryContactId === contactId && !erro && !contact?.is_anonymized ? enrichment : null}
+        loading={sectionsLoading}
+        error={erro || (summaryContactId === contactId && enrichmentError)}
+        onRetry={recarregar}
+      />
+
       <section data-testid="inbox-demandas">
-        <h3 className="text-xs font-semibold text-text">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ibx-muted">
           {t("Demandas abertas")}
         </h3>
         {sectionsLoading ? (
@@ -834,23 +831,21 @@ export function CRMSidePanel({ conversation }: Props) {
         )}
       </section>
 
-      <Separator />
 
       <section data-testid="inbox-memoria">
-        <h3 className="text-xs font-semibold">{t("Memória do contato")}</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ibx-muted">{t("Memória do contato")}</h3>
         <p className="mt-1 text-xs text-muted-foreground">{t("Fatos duráveis registrados nas notas. Pendências pertencem à demanda vigente.")}</p>
         {!sectionsLoading && fatos.map((f) => <details key={f.id} className="mt-2 text-xs"><summary className="wrap-anywhere">{f.headline}</summary><p className="mt-1 whitespace-pre-wrap wrap-anywhere">{f.body}</p></details>)}
         {!sectionsLoading && fatos.length === 0 && <p className="mt-2 text-xs text-muted-foreground">{t("Nenhum fato durável registrado.")}</p>}
         {!sectionsLoading && historico.length > 0 && <div className="mt-3 text-xs"><h4>{t("Histórico encerrado — sem tarefas pendentes")}</h4>{historico.map((h) => <p key={h.id}>{t(DESFECHO_LEGIVEL[h.desfecho] ?? h.desfecho)}{h.fechada_em ? ` · ${shortDate(h.fechada_em, localeDaData)}` : ""}</p>)}</div>}
       </section>
-      <Separator />
 
       {/* O que os roteiros de atendimento coletaram (módulo opcional; desligado
           ou sem roteiro, não desenha nada). */}
       {contactId && !contact?.is_anonymized && <RoteirosDoContato contactId={contactId} variante="painel" />}
 
       <section data-testid="inbox-campos-lead">
-        <h3 className="text-xs font-semibold text-text">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ibx-muted">
           {t("Leads recentes")}
         </h3>
         {sectionsLoading ? (
@@ -867,10 +862,9 @@ export function CRMSidePanel({ conversation }: Props) {
         )}
       </section>
 
-      <Separator />
 
       <section>
-        <h3 className="text-xs font-semibold text-text">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ibx-muted">
           {t("Pedidos recentes")}
         </h3>
         {sectionsLoading ? (
@@ -899,10 +893,9 @@ export function CRMSidePanel({ conversation }: Props) {
         )}
       </section>
 
-      <Separator />
 
       <section>
-        <h3 className="text-xs font-semibold text-text">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ibx-muted">
           {t("Atividade")}
         </h3>
         {sectionsLoading ? (
@@ -940,7 +933,6 @@ export function CRMSidePanel({ conversation }: Props) {
         )}
       </section>
 
-      <Separator />
 
       {/* Perguntar ao acervo — a MESMA busca que a IA faz, com a origem de cada
           trecho. Não é busca própria: o componente só pergunta e mostra, e quem
@@ -948,12 +940,24 @@ export function CRMSidePanel({ conversation }: Props) {
           DEPOIS das seções de trabalho: é consulta, não é o que o atendente abre
           a conversa para fazer. */}
       <section>
-        <h3 className="text-xs font-semibold">{t("Acervo")}</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ibx-muted">{t("Acervo")}</h3>
         <p className="mt-1 mb-2 text-xs text-muted-foreground">
           {t("Pergunte como a IA perguntaria — a resposta vem com a origem de cada trecho.")}
         </p>
         <AcervoSearch />
       </section>
+      </div>
+      </div>
+      {contactId && (
+        <div className="shrink-0 border-t border-ibx-line p-3">
+          <Link
+            href={`/app/contacts/${contactId}`}
+            className="flex h-9 w-full items-center justify-center gap-1 rounded-[10px] border border-ibx-border text-[13px] font-medium text-ibx-text transition-colors hover:border-ibx-border-hover hover:bg-ibx-field focus-visible:outline-2 focus-visible:outline-ibx-accent"
+          >
+            {t("Ver contato completo")} <span aria-hidden>→</span>
+          </Link>
+        </div>
+      )}
     </aside>
   );
 }

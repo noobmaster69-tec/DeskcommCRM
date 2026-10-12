@@ -1,9 +1,10 @@
 "use client";
 
+import { Check as LucideCheck, CheckCheck } from "./icones";
 import { useLocaleDeData } from "@/hooks/i18n/useLocaleDeData";
 import { format } from "date-fns";
 import { useT } from "@/hooks/i18n/useT";
-import { ArrowBendUpLeft, CaretDown, Check, Checks, PencilSimple, Robot, Trash, WarningOctagon } from "@/lib/ui/icons";
+import { ArrowBendUpLeft, CaretDown, PencilSimple, Robot, Trash, WarningOctagon } from "@/lib/ui/icons";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -48,17 +49,22 @@ interface Props {
   onApagar?: () => Promise<void>;
   onOcultar?: () => Promise<void>;
   onRestaurar?: () => Promise<void>;
+  /**
+   * A mensagem anterior é do MESMO lado. Bolhas seguidas do mesmo remetente
+   * formam um bloco: o canto de cima do lado de quem fala fica em 4px.
+   */
+  agrupadaComAnterior?: boolean;
 }
 
 function AckIndicator({ status, t }: { status: string; t: (texto: string) => string }) {
   if (status === "read") {
-    return <Checks size={12} weight="bold" className="text-blue-400" aria-label={t("Lida")} />;
+    return <CheckCheck size={13} strokeWidth={2.25} className="text-white" aria-label={t("Lida")} />;
   }
   if (status === "delivered") {
-    return <Checks size={12} weight="bold" className="text-current/70" aria-label={t("Entregue")} />;
+    return <CheckCheck size={13} strokeWidth={2.25} className="text-current/80" aria-label={t("Entregue")} />;
   }
   if (status === "sent") {
-    return <Check size={12} weight="bold" className="text-current/70" aria-label={t("Enviada")} />;
+    return <LucideCheck size={13} strokeWidth={2.25} className="text-current/80" aria-label={t("Enviada")} />;
   }
   return null;
 }
@@ -74,6 +80,7 @@ export function MessageBubble({
   onApagar,
   onOcultar,
   onRestaurar,
+  agrupadaComAnterior,
 }: Props) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(message.body ?? "");
@@ -105,6 +112,16 @@ export function MessageBubble({
   const localizacao = localizacaoDaMensagem(message);
   // Figurinha sem caption: sem moldura de bolha (padrão WhatsApp).
   const isBareSticker = hasMedia && message.type === "sticker" && !message.body;
+  // Imagem sem legenda: sem bolha, a foto É a bolha, e a hora vai por cima
+  // dela num degradê (padrão WhatsApp).
+  const isBareImage = hasMedia && message.type === "image" && !message.body;
+  // Texto puro: a hora entra na última linha, à direita (o espaço é reservado
+  // por um espaçador do tamanho dela no fim do parágrafo).
+  const horaNaLinha =
+    Boolean(message.body) && !hasMedia && message.type !== "contact" && !message.revoked_at &&
+    !message.metadata?.crm_hidden_at && !localizacaoDaMensagem(message) && !editando;
+  const larguraDaHora =
+    40 + (isOutbound ? 18 : 0) + (message.edited_at ? 44 : 0) + (message.status === "failed" ? 48 : 0);
   // Apagada pelo autor ("apagar para todos"). A linha continua no histórico —
   // sumir com ela deixaria a resposta seguinte respondendo ao nada —, mas o
   // texto não aparece: mostrá-lo seria expor justamente o que o cliente pediu
@@ -199,7 +216,7 @@ export function MessageBubble({
     <div
       data-search-match={searchMatch || undefined}
       className={cn(
-        "group flex w-full min-w-0 items-center gap-1 px-4 py-1",
+        "group flex w-full min-w-0 items-center gap-1",
         isOutbound ? "justify-end" : "justify-start",
       )}
     >
@@ -210,20 +227,26 @@ export function MessageBubble({
         // fez a spec achar que havia mensagem onde não havia (issue #1318).
         data-testid="message-bubble"
         className={cn(
-          "relative max-w-[75%] min-w-0 text-sm",
+          "relative max-w-[60%] min-w-0 text-[14px] leading-[1.45]",
           isBareSticker
             ? "px-0 py-0"
-            : cn(
-                "rounded-2xl px-3 py-2 shadow-sm",
-                temMenu && "pr-8",
-                isOutbound
-                  ? "rounded-br-sm bg-primary text-primary-foreground"
-                  : "rounded-bl-sm bg-muted text-foreground",
-              ),
+            : isBareImage
+              ? cn(
+                  "overflow-hidden border border-ibx-img-border p-0",
+                  isOutbound ? "rounded-[14px_14px_4px_14px]" : "rounded-[14px_14px_14px_4px]",
+                )
+              : cn(
+                  "rounded-[14px]",
+                  hasMedia && message.type === "image" ? "p-1" : "px-3.5 py-[9px]",
+                  temMenu && "pr-8",
+                  isOutbound
+                    ? cn("rounded-br-[4px] bg-ibx-accent text-white", agrupadaComAnterior && "rounded-tr-[4px]")
+                    : cn("rounded-bl-[4px] bg-ibx-bubble-in text-ibx-text", agrupadaComAnterior && "rounded-tl-[4px]"),
+                ),
           isFailed && "border border-destructive",
           // A marca da busca é ANEL, não cor de fundo: o fundo já diz de quem é
           // a mensagem, e trocá-lo apagaria essa leitura justo na bolha achada.
-          searchMatch && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
+          searchMatch && "ring-2 ring-ibx-accent-text ring-offset-2 ring-offset-ibx-pane-chat",
           apagada && "opacity-70",
         )}
       >
@@ -234,7 +257,7 @@ export function MessageBubble({
                 className={cn(
                   "absolute right-1 top-1 z-10 rounded-md p-0.5 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-1",
                   "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
-                  isOutbound ? "text-primary-foreground hover:bg-primary-foreground/15" : "text-muted-foreground hover:bg-background/70",
+                  isOutbound ? "text-white hover:bg-white/15" : "text-ibx-muted hover:bg-ibx-chip",
                 )}>
                 <CaretDown size={16} weight="bold" aria-hidden />
               </button>
@@ -374,7 +397,7 @@ export function MessageBubble({
           <>
             {hasMedia && (
               <div className={cn(message.body && "mb-1")}>
-                <MediaRenderer message={message} />
+                <MediaRenderer message={message} encostada={isBareImage} />
               </div>
             )}
 
@@ -387,15 +410,26 @@ export function MessageBubble({
             {localizacao && <LocationCard localizacao={localizacao} />}
 
             {message.body && !isContact && !localizacao && (
-              <p className="whitespace-pre-wrap wrap-anywhere leading-snug">{message.body}</p>
+              <p className={cn("whitespace-pre-wrap wrap-anywhere", hasMedia && message.type === "image" && "px-2.5 pb-1 pt-0.5")}>
+                {message.body}
+                {/* Reserva o canto da hora na última linha: a hora fica NA
+                    linha do texto, à direita, sem ganhar uma linha só sua. */}
+                {horaNaLinha && <span className="inline-block" style={{ width: larguraDaHora }} aria-hidden />}
+              </p>
             )}
           </>
         )}
 
         <div
           className={cn(
-            "mt-1 flex items-center justify-end gap-1 text-[10px]",
-            isOutbound ? "text-primary-foreground" : "text-muted-foreground",
+            "flex items-center justify-end gap-1 font-inbox-mono text-[11px] leading-none",
+            isOutbound ? "text-ibx-sent-meta" : "text-ibx-muted",
+            horaNaLinha
+              ? "absolute bottom-[9px] right-3.5"
+              : isBareImage
+                ? "absolute inset-x-0 bottom-0 bg-linear-to-t from-black/60 to-transparent px-2.5 pb-1.5 pt-5 text-white"
+                : "mt-1",
+            hasMedia && message.type === "image" && message.body && "px-2.5 pb-1",
           )}
         >
           {editada && (

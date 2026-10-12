@@ -217,6 +217,41 @@
   --agenda-pessoa-6: #608bda;   /* índigo */
   --agenda-pessoa-7: #7b5bad;   /* violeta */
   --agenda-pessoa-8: #cc77b1;   /* framboesa */
+
+  /* Inbox — painéis flutuantes (claro). Escopados em `ibx-` para não
+     disputar nome com os tokens globais; consumidos só por components/inbox. */
+  --color-ibx-pane: #ffffff;
+  --color-ibx-pane-chat: #fbfaf7;
+  --color-ibx-field: #f2f0ea;
+  --color-ibx-bubble-in: #efece5;
+  --color-ibx-chip: #ebe8e0;
+  --color-ibx-chip-strong: #e0dcd1;
+  --color-ibx-line: #ebe7de;
+  --color-ibx-border: #e2ded5;
+  --color-ibx-border-hover: #c9c3b4;
+  --color-ibx-text: #1c1a16;
+  --color-ibx-text-2: #3d3a33;
+  --color-ibx-muted: #5d594f;
+  --color-ibx-unread: #1c1a16;
+  --color-ibx-accent: #2f63ef;
+  --color-ibx-accent-hover: #2554d6;
+  --color-ibx-accent-active-bg: #e1ebff;
+  --color-ibx-accent-text: #2e56bf;
+  --color-ibx-link: #2e56bf;
+  --color-ibx-avatar-sel-bg: #c4d7ff;
+  --color-ibx-avatar-sel-fg: #223b79;
+  --color-ibx-avatar-head-bg: #e1ebff;
+  --color-ibx-img-border: #c4d7ff;
+  --color-ibx-sent-meta: #dbe5ff;
+  --color-ibx-success: #1a8a5a;
+  --color-ibx-warning: #a86a00;
+  --color-ibx-whatsapp: #1da851;
+  --color-ibx-danger: #c9353a;
+  --color-ibx-note-bg: #fdf6e3;
+  --color-ibx-note-border: #ecd9a8;
+  --color-ibx-note-chip: #f6e7bf;
+  --color-ibx-note-text: #7a5510;
+  --color-ibx-note-accent: #b7821a;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -330,6 +365,41 @@
   --agenda-pessoa-6: #608bda;   /* índigo */
   --agenda-pessoa-7: #7b5bad;   /* violeta */
   --agenda-pessoa-8: #cc77b1;   /* framboesa */
+
+  /* Inbox — painéis flutuantes (claro). Escopados em `ibx-` para não
+     disputar nome com os tokens globais; consumidos só por components/inbox. */
+  --color-ibx-pane: #ffffff;
+  --color-ibx-pane-chat: #fbfaf7;
+  --color-ibx-field: #f2f0ea;
+  --color-ibx-bubble-in: #efece5;
+  --color-ibx-chip: #ebe8e0;
+  --color-ibx-chip-strong: #e0dcd1;
+  --color-ibx-line: #ebe7de;
+  --color-ibx-border: #e2ded5;
+  --color-ibx-border-hover: #c9c3b4;
+  --color-ibx-text: #1c1a16;
+  --color-ibx-text-2: #3d3a33;
+  --color-ibx-muted: #5d594f;
+  --color-ibx-unread: #1c1a16;
+  --color-ibx-accent: #2f63ef;
+  --color-ibx-accent-hover: #2554d6;
+  --color-ibx-accent-active-bg: #e1ebff;
+  --color-ibx-accent-text: #2e56bf;
+  --color-ibx-link: #2e56bf;
+  --color-ibx-avatar-sel-bg: #c4d7ff;
+  --color-ibx-avatar-sel-fg: #223b79;
+  --color-ibx-avatar-head-bg: #e1ebff;
+  --color-ibx-img-border: #c4d7ff;
+  --color-ibx-sent-meta: #dbe5ff;
+  --color-ibx-success: #1a8a5a;
+  --color-ibx-warning: #a86a00;
+  --color-ibx-whatsapp: #1da851;
+  --color-ibx-danger: #c9353a;
+  --color-ibx-note-bg: #fdf6e3;
+  --color-ibx-note-border: #ecd9a8;
+  --color-ibx-note-chip: #f6e7bf;
+  --color-ibx-note-text: #7a5510;
+  --color-ibx-note-accent: #b7821a;
 }
 
 [data-theme="dark"] {
@@ -437,6 +507,41 @@
   --agenda-pessoa-6: #6c97e7;
   --agenda-pessoa-7: #be9ef6;
   --agenda-pessoa-8: #cc77b1;
+
+  /* Inbox — painéis flutuantes (escuro). Escopados em `ibx-` para não
+     disputar nome com os tokens globais; consumidos só por components/inbox. */
+  --color-ibx-pane: #111113;
+  --color-ibx-pane-chat: #0d0d0f;
+  --color-ibx-field: #16161a;
+  --color-ibx-bubble-in: #1a1a1d;
+  --color-ibx-chip: #1f1f23;
+  --color-ibx-chip-strong: #25252a;
+  --color-ibx-line: #1a1a1d;
+  --color-ibx-border: #232327;
+  --color-ibx-border-hover: #34343a;
+  --color-ibx-text: #ededef;
+  --color-ibx-text-2: #c4c4cc;
+  --color-ibx-muted: #8e8e96;
+  --color-ibx-unread: #d4d4d8;
+  --color-ibx-accent: #3d72ff;
+  --color-ibx-accent-hover: #5585ff;
+  --color-ibx-accent-active-bg: #172447;
+  --color-ibx-accent-text: #93b0ff;
+  --color-ibx-link: #7fa2ff;
+  --color-ibx-avatar-sel-bg: #2a3d73;
+  --color-ibx-avatar-sel-fg: #c9d6ff;
+  --color-ibx-avatar-head-bg: #1f2a4a;
+  --color-ibx-img-border: #22305a;
+  --color-ibx-sent-meta: #dbe5ff;
+  --color-ibx-success: #3ecf8e;
+  --color-ibx-warning: #f2b544;
+  --color-ibx-whatsapp: #25d366;
+  --color-ibx-danger: #e5484d;
+  --color-ibx-note-bg: #1f1a0e;
+  --color-ibx-note-border: #4a3a16;
+  --color-ibx-note-chip: #3a2e14;
+  --color-ibx-note-text: #f7cd7a;
+  --color-ibx-note-accent: #f2b544;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -466,6 +571,39 @@
    embrulhar o `:root` num `@layer`, o teste reprova e a explicação está aqui.
    ───────────────────────────────────────────────────────────────────────── */
 @theme inline {
+  /* Inbox (painéis flutuantes) */
+  --color-ibx-pane: var(--color-ibx-pane);
+  --color-ibx-pane-chat: var(--color-ibx-pane-chat);
+  --color-ibx-field: var(--color-ibx-field);
+  --color-ibx-bubble-in: var(--color-ibx-bubble-in);
+  --color-ibx-chip: var(--color-ibx-chip);
+  --color-ibx-chip-strong: var(--color-ibx-chip-strong);
+  --color-ibx-line: var(--color-ibx-line);
+  --color-ibx-border: var(--color-ibx-border);
+  --color-ibx-border-hover: var(--color-ibx-border-hover);
+  --color-ibx-text: var(--color-ibx-text);
+  --color-ibx-text-2: var(--color-ibx-text-2);
+  --color-ibx-muted: var(--color-ibx-muted);
+  --color-ibx-unread: var(--color-ibx-unread);
+  --color-ibx-accent: var(--color-ibx-accent);
+  --color-ibx-accent-hover: var(--color-ibx-accent-hover);
+  --color-ibx-accent-active-bg: var(--color-ibx-accent-active-bg);
+  --color-ibx-accent-text: var(--color-ibx-accent-text);
+  --color-ibx-link: var(--color-ibx-link);
+  --color-ibx-avatar-sel-bg: var(--color-ibx-avatar-sel-bg);
+  --color-ibx-avatar-sel-fg: var(--color-ibx-avatar-sel-fg);
+  --color-ibx-avatar-head-bg: var(--color-ibx-avatar-head-bg);
+  --color-ibx-img-border: var(--color-ibx-img-border);
+  --color-ibx-sent-meta: var(--color-ibx-sent-meta);
+  --color-ibx-success: var(--color-ibx-success);
+  --color-ibx-warning: var(--color-ibx-warning);
+  --color-ibx-whatsapp: var(--color-ibx-whatsapp);
+  --color-ibx-danger: var(--color-ibx-danger);
+  --color-ibx-note-bg: var(--color-ibx-note-bg);
+  --color-ibx-note-border: var(--color-ibx-note-border);
+  --color-ibx-note-chip: var(--color-ibx-note-chip);
+  --color-ibx-note-text: var(--color-ibx-note-text);
+  --color-ibx-note-accent: var(--color-ibx-note-accent);
   /* Foundation */
   --color-bg: var(--color-bg);
   --color-surface: var(--color-surface);
@@ -548,6 +686,8 @@
   --color-card-foreground: var(--color-text);
 
   /* Tipografia */
+  --font-inbox: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-inbox-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco,

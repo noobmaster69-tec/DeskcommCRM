@@ -18,10 +18,12 @@ interface Props {
    * o caminho é o de sempre (`/api/v1/messages/{id}/media`).
    */
   src?: string;
+  /** Imagem SEM legenda: ocupa a bolha inteira, e quem arredonda é a bolha. */
+  encostada?: boolean;
 }
 
 /** Miniatura na bolha + lightbox (Dialog) no clique. Padrão WhatsApp Web. */
-export function ImageMedia({ messageId, alt, src: fonte }: Props) {
+export function ImageMedia({ messageId, alt, src: fonte, encostada }: Props) {
   const t = useT();
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [open, setOpen] = useState(false);
@@ -43,7 +45,8 @@ export function ImageMedia({ messageId, alt, src: fonte }: Props) {
         disabled={state !== "ready"}
         aria-disabled={state !== "ready"}
         className={cn(
-          "relative block w-64 max-w-full aspect-[4/3] overflow-hidden rounded-lg focus-visible:outline-2 focus-visible:outline-ring",
+          "relative block w-60 max-w-full aspect-[4/3] overflow-hidden focus-visible:outline-2 focus-visible:outline-ring",
+          encostada ? "rounded-none" : "rounded-[11px]",
           state === "ready" ? "cursor-zoom-in" : "cursor-not-allowed opacity-50",
         )}
       >

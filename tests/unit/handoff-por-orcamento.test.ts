@@ -542,7 +542,9 @@ describe("os textos do orçamento nomeiam botões que existem", () => {
    */
   function rotuloDoBotaoDeVolta(): string {
     const bloco = fonteCabecalho.slice(fonteCabecalho.indexOf('data-testid="devolver-ao-automatico"'));
-    const fechamento = bloco.indexOf("</Button>");
+    // `</Button>` ou `</button>`: desde o redesenho do Inbox o cabeçalho usa
+    // botão nativo com a mesma geometria em todos os estados.
+    const fechamento = bloco.search(/<\/[Bb]utton>/);
     const corpoDoBotao = fechamento === -1 ? bloco : bloco.slice(0, fechamento);
     const ocorrencias = [...corpoDoBotao.matchAll(/t\("([^"]+)"\)/g)];
     const ultima = ocorrencias[ocorrencias.length - 1];
@@ -580,7 +582,7 @@ describe("os textos do orçamento nomeiam botões que existem", () => {
     );
     expect(renomeado).not.toBe(fonteCabecalho);
     const blocoRenomeado = renomeado.slice(renomeado.indexOf('data-testid="devolver-ao-automatico"'));
-    const fechamentoRenomeado = blocoRenomeado.indexOf("</Button>");
+    const fechamentoRenomeado = blocoRenomeado.search(/<\/[Bb]utton>/);
     const corpoRenomeado =
       fechamentoRenomeado === -1 ? blocoRenomeado : blocoRenomeado.slice(0, fechamentoRenomeado);
     const ocorrenciasRenomeadas = [...corpoRenomeado.matchAll(/t\("([^"]+)"\)/g)];

@@ -87,7 +87,11 @@ function renderHeader(conv = conversation) {
 // A barra é quem segura os botões, não um índice fixo: desde o #1625 o
 // `children[1]` do header é a coluna que empilha a barra e o selo do automático.
 function barraDeAcoes() {
-  const barra = screen.getByText("Transferir").closest("button")?.parentElement;
+  // Desde o redesenho, "Transferir" é um botão de ícone dentro do grupo
+  // secundário; a barra é quem segura o grupo.
+  const barra = screen
+    .getByRole("button", { name: "Transferir" })
+    .closest('[role="group"]')?.parentElement;
   expect(barra, "a barra de ações não renderizou").toBeTruthy();
   return barra as HTMLElement;
 }
@@ -128,7 +132,7 @@ describe("header do inbox — não trava a largura da tela", () => {
     // Se um dia alguém "resolver" o aperto colapsando ações num menu, este caso
     // reprova. Esconder ação de quem atende é pior que uma segunda linha.
     for (const rotulo of ["Assumir", "Transferir", "Fechar"]) {
-      expect(screen.getByText(rotulo), `a ação "${rotulo}" sumiu do header`).toBeTruthy();
+      expect(screen.getByRole("button", { name: rotulo }), `a ação "${rotulo}" sumiu do header`).toBeTruthy();
     }
   });
 
@@ -159,18 +163,19 @@ describe("header do inbox — não trava a largura da tela", () => {
     expect(screen.queryByRole("button", { name: "Mais ações" }), "ação de quem atende escondida num menu").toBeNull();
   });
 
-  it('"Ver contato" existe no DOM e só se cala onde há outra porta', () => {
-    renderHeader();
-    // Ele NÃO sai do markup: some por CSS a partir de `xl`, exatamente a largura
-    // em que o painel lateral entra na tela com um "Ver contato" próprio. A
-    // distinção importa — remover do DOM tiraria a ação de quem usa 1024px, que
-    // é onde o painel não existe e esta é a única porta para o contato.
-    const link = screen.getByText("Ver contato").closest("a, button") as HTMLElement;
-    expect(link, "o link para o contato sumiu do markup").toBeTruthy();
-    const classes = `${link.className} ${link.parentElement?.className ?? ""}`;
-    expect(
-      classes,
-      "sem `xl:hidden`, a duplicata volta e o header ganha uma segunda linha em 1280px",
-    ).toContain("xl:hidden");
+  it("a porta para o contato é o painel recolhível — não um link duplicado na barra", () => {
+    // O "Ver contato" da barra saiu: o painel do contato (300px, recolhível)
+    // tem o "Ver contato completo →" no rodapé, e o botão do painel mora no
+    // header. Abaixo de 1024px a barra do celular abre a ficha numa gaveta.
+    const alternar = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <ConversationHeader conversation={conversation} painelAberto={false} onAlternarPainel={alternar} />
+      </QueryClientProvider>,
+    );
+    expect(screen.queryByText("Ver contato")).toBeNull();
+    const botao = screen.getByRole("button", { name: "Abrir painel do contato" });
+    botao.click();
+    expect(alternar).toHaveBeenCalledTimes(1);
   });
 });

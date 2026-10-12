@@ -31,28 +31,42 @@ function renderComposer() {
 }
 
 describe("composer compacto", () => {
-  it("as três ações ficam numa linha de pílulas — sem a caixa 'Assistência do agente'", () => {
+  it("as ações rápidas ficam numa linha de chips — sem a caixa 'Assistência do agente'", () => {
     renderComposer();
     const linha = screen.getByTestId("acoes-rapidas");
     const rotulos = [...linha.querySelectorAll("button")].map(
       (b) => b.getAttribute("aria-label") ?? b.textContent?.replace(/\s+/g, " ").trim(),
     );
-    expect(rotulos).toEqual(["Sugerir resposta", "Resumir", "/Respostas rápidas"]);
-    // UMA linha: não quebra, e "Sugerir resposta" é só a estrela (o nome fica no aria-label).
+    // "Respostas rápidas" saiu dos chips e foi para dentro do campo (o "/").
+    expect(rotulos).toEqual(["Sugerir resposta", "Resumir"]);
     expect(linha.className).toMatch(/flex-nowrap/);
-    expect(linha.querySelector("button")?.textContent?.trim()).toBe("");
+    expect(linha.querySelector("button")?.textContent?.trim()).toBe("Sugerir resposta");
     expect(screen.queryByText("Assistência do agente")).toBeNull();
     expect(screen.queryByTestId("sugestao-do-agente")).toBeNull();
   });
 
-  it("placeholder novo e o menu Responder ▼ troca para Nota interna", () => {
+  it("placeholder novo e o alternador Responder | Nota troca para nota", () => {
     renderComposer();
     expect(screen.getByPlaceholderText("Escreva uma mensagem ou digite / para atalhos")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^nota interna$/i })).toBeNull();
-    fireEvent.click(screen.getByTestId("seletor-de-modo"));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /nota interna/i }));
-    expect(screen.getByPlaceholderText("Nota interna visível só pra equipe...")).toBeInTheDocument();
-    expect(screen.getByTestId("seletor-de-modo")).toHaveTextContent("Nota interna");
+    fireEvent.click(screen.getByRole("radio", { name: /^nota$/i }));
+    expect(
+      screen.getByPlaceholderText("Nota interna — só a equipe vê. Use @ para mencionar."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^nota$/i })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("Cmd/Ctrl+Shift+N alterna Responder e Nota", () => {
+    renderComposer();
+    fireEvent.keyDown(window, { key: "N", ctrlKey: true, shiftKey: true });
+    expect(screen.getByRole("radio", { name: /^nota$/i })).toHaveAttribute("aria-checked", "true");
+    fireEvent.keyDown(window, { key: "n", metaKey: true, shiftKey: true });
+    expect(screen.getByRole("radio", { name: /^responder$/i })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("em nota não há sugestão (só o que serve à equipe)", () => {
+    renderComposer();
+    fireEvent.click(screen.getByRole("radio", { name: /^nota$/i }));
     // Em nota não há sugestão nem resposta rápida (só o que serve à equipe).
     expect(screen.queryByRole("button", { name: /sugerir resposta/i })).toBeNull();
     expect(screen.getByTestId("acao-resumir")).toBeInTheDocument();
@@ -67,12 +81,12 @@ describe("composer compacto", () => {
     expect(campo).toHaveValue("rascunho meu");
   });
 
-  it("o campo nasce com 1 linha e cresce até 4; da 5ª em diante rola", () => {
+  it("o campo nasce com 1 linha e cresce até 6; da 7ª em diante rola", () => {
     expect(ALTURA_MINIMA_PX).toBe(40);
-    expect(ALTURA_MAXIMA_PX).toBe(100);
+    expect(ALTURA_MAXIMA_PX).toBe(140);
     expect(alturaDoCampo(20)).toEqual({ altura: 40, rola: false });
     expect(alturaDoCampo(80)).toEqual({ altura: 80, rola: false });
-    expect(alturaDoCampo(100)).toEqual({ altura: 100, rola: false });
-    expect(alturaDoCampo(120)).toEqual({ altura: 100, rola: true });
+    expect(alturaDoCampo(140)).toEqual({ altura: 140, rola: false });
+    expect(alturaDoCampo(160)).toEqual({ altura: 140, rola: true });
   });
 });

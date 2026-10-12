@@ -26,7 +26,7 @@ function camposDoContatoParaIA(
 ): { campos?: Record<string, string>; idioma_conversa?: string | null } {
   try {
     const ctx = {
-      nome: contact.name ?? contact.display_name,
+      nome: nomeDoContato(contact),
       telefone: contact.phone_number,
       email: contact.email,
       campos: (contact.custom_fields ?? {}) as Record<string, unknown>,

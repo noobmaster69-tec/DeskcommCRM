@@ -1,5 +1,6 @@
 "use client";
 
+import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -113,12 +114,12 @@ export function PreviaPorContato({ texto, idioma, fuso }: { texto: string; idiom
                     type="button"
                     className="w-full rounded-md px-2 py-1 text-left hover:bg-surface-elevated"
                     onClick={() => {
-                      const nome = c.name ?? c.display_name ?? c.phone_number ?? c.id;
+                      const nome = nomeDoContato(c) ?? c.phone_number ?? c.id;
                       setContato({ id: c.id, nome });
                       void ver(c.id);
                     }}
                   >
-                    {c.name ?? c.display_name ?? "—"} <span className="text-muted-foreground">{c.phone_number}</span>
+                    {nomeDoContato(c) ?? "—"} <span className="text-muted-foreground">{c.phone_number}</span>
                   </button>
                 </li>
               ))}

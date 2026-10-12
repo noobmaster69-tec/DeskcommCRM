@@ -180,7 +180,7 @@ describe("painel do inbox — o botão diz o que faz (issue #908)", () => {
     get.mockResolvedValue({ data: RESPOSTA });
     renderPainel();
 
-    const botao = await screen.findByRole("button", { name: "Novo Lead" });
+    const botao = await screen.findByRole("button", { name: "Novo lead" });
     expect(screen.queryByRole("button", { name: "Lead" })).toBeNull();
 
     // O rótulo sozinho não diz de QUEM ele é: sem o clique, trocá-lo com o do

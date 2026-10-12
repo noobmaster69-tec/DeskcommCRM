@@ -9,8 +9,8 @@ import {
   type ClipboardEvent,
   type KeyboardEvent,
 } from "react";
-import { PaperPlaneTilt, Sparkle } from "@/lib/ui/icons";
-import { Button } from "@/components/ui/button";
+import { SendHorizontal, Slash, Sparkles } from "@/components/inbox/icones";
+import { BOTAO_DE_ICONE } from "@/components/inbox/estilo";
 import { AttachMenu } from "@/components/inbox/composer/AttachMenu";
 import { AttachmentPreviewDialog } from "@/components/inbox/composer/AttachmentPreviewDialog";
 import { ContactPickerDialog } from "@/components/inbox/composer/ContactPickerDialog";
@@ -104,6 +104,10 @@ interface Props {
   rascunho?: AvisoDeRascunho | null;
 }
 
+/** Chip de ação rápida acima do campo: 28px, raio 14. */
+const CHIP =
+  "inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[14px] bg-ibx-chip px-3 text-[12px] font-medium text-ibx-text-2 transition-colors hover:bg-ibx-chip-strong hover:text-ibx-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ibx-accent disabled:opacity-50";
+
 export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
   {
     conversationId,
@@ -142,6 +146,18 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
   const [contactPickerOpen, setContactPickerOpen] = useState(false);
   const [menuDismissed, setMenuDismissed] = useState(false);
   const [mode, setMode] = useState<"reply" | "note">(initialMode);
+  // Cmd/Ctrl+Shift+N alterna Responder/Nota de qualquer ponto da tela do Inbox.
+  useEffect(() => {
+    const alternar = (e: globalThis.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setMode((m) => (m === "note" ? "reply" : "note"));
+        taRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", alternar);
+    return () => window.removeEventListener("keydown", alternar);
+  }, []);
   useEffect(() => {
     onDraftChange?.(text, mode);
   }, [text, mode, onDraftChange]);
@@ -313,7 +329,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
 
   return (
     <>
-      <div className="relative border-t border-border bg-background px-3 pb-3 pt-2">
+      <div className="relative shrink-0 px-4 pb-4 pt-2">
         <TemplateMenu
           open={menuOpen}
           query={menuForcado && !slash.open ? "" : slash.query}
@@ -346,14 +362,11 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             </p>
           </div>
         )}
-        {/* AÇÕES RÁPIDAS (fork jhoow, composer compacto): o que era a caixa
-            "Assistência do agente" virou UMA linha de pílulas. O cartão de
-            revisão da sugestão só aparece quando há sugestão. */}
+        {/* AÇÕES RÁPIDAS: chips acima do campo. "Respostas rápidas" foi para
+            dentro do campo (o "/" da barra de baixo). O cartão de revisão da
+            sugestão só aparece quando há sugestão. */}
         <section aria-label={t("Assistência do agente")} className="mb-2 space-y-2">
           {mode === "reply" && <ReplyReviewPanel sugestao={sugestao} disabled={isDisabled} />}
-          {/* UMA linha só, sem quebrar (pedido do Jhoow, 5 out): pílulas de 32px,
-              texto pequeno, e "Sugerir resposta" vira só a estrela — o nome
-              continua no aria-label e no title. */}
           <div className="flex flex-nowrap items-center gap-1.5 overflow-hidden" data-testid="acoes-rapidas">
             {mode === "reply" && (
               <button
@@ -362,28 +375,13 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 disabled={isDisabled || sugestao.busy}
                 aria-busy={sugestao.busy || undefined}
                 aria-label={t(sugestao.busy ? "Preparando…" : "Sugerir resposta")}
-                title={t(sugestao.busy ? "Preparando…" : "Sugerir resposta")}
-                className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-text transition-colors hover:bg-accent-soft/80 disabled:opacity-50"
+                className={CHIP}
               >
-                <Sparkle size={16} weight="fill" aria-hidden className={sugestao.busy ? "animate-pulse text-violet-400" : "text-violet-400"} />
+                <Sparkles size={14} aria-hidden className={cn("text-ibx-accent-text", sugestao.busy && "animate-pulse")} />
+                {t(sugestao.busy ? "Preparando…" : "Sugerir resposta")}
               </button>
             )}
             <ResumirConversa conversationId={conversationId} disabled={isDisabled} />
-            {mode === "reply" && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuDismissed(false);
-                  setMenuForcado(true);
-                  taRef.current?.focus();
-                }}
-                disabled={respostaBarrada}
-                className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-transparent px-3 text-xs text-text transition-colors hover:bg-surface-elevated disabled:opacity-50"
-              >
-                <span aria-hidden className="text-text-muted">/</span>
-                {t("Respostas rápidas")}
-              </button>
-            )}
           </div>
         </section>
         {/*
@@ -418,8 +416,8 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
         )}
         <div
           className={cn(
-            "rounded-2xl border border-border bg-surface px-2 pb-2 pt-1 transition-colors",
-            mode === "note" && "border-warning/60 bg-warning-bg",
+            "rounded-[14px] border px-2 pb-2 pt-1 transition-colors focus-within:border-ibx-border-hover",
+            mode === "note" ? "border-ibx-note-border bg-ibx-note-bg" : "border-ibx-border bg-ibx-surface",
           )}
           data-modo={mode}
         >
@@ -437,7 +435,7 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             rows={1}
             placeholder={
               mode === "note"
-                ? t("Nota interna visível só pra equipe...")
+                ? t("Nota interna — só a equipe vê. Use @ para mencionar.")
                 : t("Escreva uma mensagem ou digite / para atalhos")
             }
             title={
@@ -447,19 +445,36 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
             }
             style={{ height: ALTURA_MINIMA_PX }}
             className={cn(
-              "block w-full resize-none overflow-hidden bg-transparent px-2 py-[10px] text-sm leading-5",
+              "block w-full resize-none overflow-hidden bg-transparent px-2 py-[10px] text-[14px] leading-5 text-ibx-text",
               "transition-[height] duration-150 ease-in-out",
-              "placeholder:text-muted-foreground focus:outline-hidden",
+              mode === "note" ? "placeholder:text-ibx-note-text" : "placeholder:text-ibx-muted",
+              "focus:outline-hidden",
             )}
             disabled={mode === "note" ? isDisabled : respostaBarrada}
             aria-label={t("Mensagem")}
           />
           <div className="flex items-center justify-between gap-2 pt-1">
             <SeletorDeModo modo={mode} onMudar={setMode} disabled={isDisabled} />
-            <div className="flex items-center gap-1">
-              {/* O clipe existe nos DOIS modos desde a F3 da #1863: em "Nota
-                  interna" ele oferece foto/vídeo e documento (a nota aceita
-                  anexo); Contato some — cartão de contato é MENSAGEM. */}
+            <div className="flex items-center gap-0.5">
+              {mode === "reply" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuDismissed(false);
+                    setMenuForcado(true);
+                    taRef.current?.focus();
+                  }}
+                  disabled={respostaBarrada}
+                  aria-label={t("Respostas rápidas")}
+                  title={t("Respostas rápidas")}
+                  className={BOTAO_DE_ICONE}
+                >
+                  <Slash size={16} aria-hidden />
+                </button>
+              )}
+              {/* O clipe existe nos DOIS modos desde a F3 da #1863: em "Nota"
+                  ele oferece foto/vídeo e documento (a nota aceita anexo);
+                  Contato some — cartão de contato é MENSAGEM. */}
               <AttachMenu
                 disabled={respostaBarrada}
                 onPick={escolherArquivo}
@@ -485,16 +500,19 @@ export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
                 }}
               />
               {text.trim() || mode === "note" ? (
-                <Button
+                <button
                   type="button"
-                  size="icon"
-                  className="h-9 w-9 shrink-0 rounded-full"
+                  className={cn(
+                    "ml-1 inline-flex h-8 w-9 shrink-0 items-center justify-center rounded-[10px] text-white transition-colors disabled:opacity-50",
+                    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ibx-accent",
+                    mode === "note" ? "bg-ibx-note-accent text-black hover:opacity-90" : "bg-ibx-accent hover:bg-ibx-accent-hover",
+                  )}
                   onClick={handleSubmit}
                   disabled={(mode === "note" ? isDisabled : respostaBarrada) || !text.trim()}
                   aria-label={t("Enviar")}
                 >
-                  <PaperPlaneTilt size={16} weight="fill" aria-hidden />
-                </Button>
+                  <SendHorizontal size={16} aria-hidden />
+                </button>
               ) : (
                 active && <AudioRecorder conversationId={conversationId} disabled={respostaBarrada} />
               )}

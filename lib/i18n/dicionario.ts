@@ -14538,6 +14538,23 @@ export const DICIONARIO: Traducoes = {
   "Lista salva": { es: "Lista guardada" },
   "Escolha a lista": { es: "Elige la lista" },
   "As planilhas de contatos da empresa, prontas para virar público de campanha.": { es: "Las planillas de contactos de la empresa, listas para ser público de campaña." },
+  // Inbox — painéis flutuantes
+  "Filtros": { es: "Filtros" },
+  "Nova conversa": { es: "Nueva conversación" },
+  "Buscar conversa ou número": { es: "Buscar conversación o número" },
+  "Buscar na conversa": { es: "Buscar en la conversación" },
+  "Atendido pelo automático": { es: "Atendido por el automático" },
+  "Ações da conversa": { es: "Acciones de la conversación" },
+  "Recolher painel do contato": { es: "Ocultar panel del contacto" },
+  "Abrir painel do contato": { es: "Abrir panel del contacto" },
+  "Localização": { es: "Ubicación" },
+  // Inbox — composer e painel do contato
+  "Ver contato completo": { es: "Ver contacto completo" },
+  "Sugestões de tag": { es: "Sugerencias de etiqueta" },
+  "campos preenchidos": { es: "campos completados" },
+  "Nota": { es: "Nota" },
+  "Cmd/Ctrl+Shift+N alterna Responder e Nota": { es: "Cmd/Ctrl+Shift+N alterna Responder y Nota" },
+  "Nota interna — só a equipe vê. Use @ para mencionar.": { es: "Nota interna — solo el equipo la ve. Usa @ para mencionar." },
 };
 
 /**

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import { fusoDoContato } from "@/lib/campanhas/fuso";
 import { lerVariaveisDaOrganizacao, paraRenderizar } from "./definicoes";
 import { interpolarVariaveis, variaveisDoTexto, type ContextoDoContato } from "./resolve";
@@ -28,7 +29,7 @@ interface LinhaDoContato {
 function paraContexto(l: LinhaDoContato, padroes: Record<string, string>, fusoPadrao: string, idioma?: string | null): ContextoDoContato {
   const campos = (l.custom_fields ?? {}) as Record<string, unknown>;
   return {
-    nome: l.name ?? l.display_name,
+    nome: nomeDoContato(l),
     telefone: l.phone_number,
     email: l.email,
     campos,

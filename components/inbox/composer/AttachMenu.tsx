@@ -1,10 +1,11 @@
 "use client";
+import { Paperclip as IconeDoClipe } from "@/components/inbox/icones";
+import { BOTAO_DE_ICONE } from "@/components/inbox/estilo";
 import { useRef } from "react";
 import { useT } from "@/hooks/i18n/useT";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { FileText, ImageSquare, Paperclip, UserCircle } from "@/lib/ui/icons";
+import { FileText, ImageSquare, UserCircle } from "@/lib/ui/icons";
 
 interface Props {
   disabled?: boolean;
@@ -28,16 +29,15 @@ export function AttachMenu({ disabled, onPick, onPickContact }: Props) {
     <>
       <Popover>
         <PopoverTrigger asChild>
-          <Button
+          <button
             type="button"
-            size="icon"
-            variant="ghost"
-            className="h-9 w-9 shrink-0"
+            className={BOTAO_DE_ICONE}
             aria-label={t("Anexar")}
+            title={t("Anexar")}
             disabled={disabled}
           >
-            <Paperclip size={18} weight="regular" aria-hidden />
-          </Button>
+            <IconeDoClipe size={16} aria-hidden />
+          </button>
         </PopoverTrigger>
         <PopoverContent align="start" side="top" className="w-52 p-1">
           <button

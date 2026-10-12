@@ -91,7 +91,7 @@ vi.mock("@/components/inbox/ConversationHeader", () => ({
     botaoBuscaRef?: RefObject<HTMLButtonElement | null>;
   }) => (
     <button ref={botaoBuscaRef} onClick={onBuscar} aria-expanded={buscaAberta}>
-      Buscar nesta conversa
+      Buscar na conversa
     </button>
   ),
 }));
@@ -118,7 +118,7 @@ function montar() {
 }
 
 async function abrirBusca() {
-  const botao = await screen.findByRole("button", { name: "Buscar nesta conversa" });
+  const botao = await screen.findByRole("button", { name: "Buscar na conversa" });
   fireEvent.click(botao);
   return { botao, campo: screen.getByRole("searchbox", { name: CAMPO }) };
 }

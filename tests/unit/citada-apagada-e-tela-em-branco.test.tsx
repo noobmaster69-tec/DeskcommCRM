@@ -129,7 +129,7 @@ describe("no celular sempre há exatamente UMA coluna na tela", () => {
     for (const temSelecao of [false, true]) {
       const { lista, conversa } = colunasDoCelular(temSelecao);
       for (const c of [lista, conversa]) {
-        expect(c.split(/\s+/).includes("hidden") ? c : `${c} md:flex`).toContain("md:flex");
+        expect(c.split(/\s+/).includes("hidden") ? c : `${c} lg:flex`).toContain("lg:flex");
       }
     }
   });

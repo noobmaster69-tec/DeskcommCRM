@@ -183,7 +183,7 @@ test.describe("busca dentro da conversa", () => {
     await expect(bolhas(page)).toHaveCount(MENSAGENS_A.length, { timeout: 30_000 });
 
     // ── abrir a busca pela lupa
-    const lupa = page.getByRole("button", { name: "Buscar nesta conversa" });
+    const lupa = page.getByRole("button", { name: "Buscar na conversa" });
     await expect(lupa).toHaveAttribute("aria-expanded", "false");
     // A lupa acrescenta ~38px à barra. A barra PODE quebrar (ver o comentário
     // dela no ConversationHeader); a pergunta é se é a LUPA que a faz quebrar.
@@ -282,7 +282,7 @@ test.describe("busca dentro da conversa", () => {
       page.locator('[data-search-match="true"]'),
       "a conversa B tem o termo e ganhou a marca da busca feita em A",
     ).toHaveCount(0);
-    const lupaB = page.getByRole("button", { name: "Buscar nesta conversa" });
+    const lupaB = page.getByRole("button", { name: "Buscar na conversa" });
     await expect(lupaB).toHaveAttribute("aria-expanded", "false");
     await page.screenshot({ path: path.join(EVIDENCE, "2-outra-conversa-sem-busca.png") });
 
