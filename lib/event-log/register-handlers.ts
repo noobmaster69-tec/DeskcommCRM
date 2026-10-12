@@ -28,6 +28,7 @@ import { conversaoDeVendaHandler } from "@/lib/conversoes/envio.handler";
 import { avisoDeEtapaHandler } from "@/lib/leads/aviso-de-etapa.handler";
 import { avisoDeCasoAoSuporteHandler } from "@/lib/escalacao/aviso-ao-suporte.handler";
 import { avisoDePropostaNoWhatsAppHandler } from "@/lib/propostas/aviso-no-whatsapp.handler";
+import { idiomaDoContatoHandler } from "@/lib/translation/idioma-do-contato.handler";
 import { registerHandler } from "@/lib/event-log/dispatcher";
 
 let _registered = false;
@@ -63,6 +64,10 @@ export function ensureHandlersRegistered(): void {
   // longe do aviso ao suporte, que sai por rede de terceiro.
   registerHandler(casoNaCentralHandler);
   registerHandler(followupGatilhoPresencaHandler);
+  // O idioma do contato (9022): escrita curta no banco e, só quando nem a
+  // ficha nem o DDI respondem, uma chamada ao modelo da empresa. Depois de
+  // quem só escreve no banco, antes de quem sai por rede de terceiro.
+  registerHandler(idiomaDoContatoHandler);
   registerHandler(mediaPersistHandler);
   registerHandler(mediaDeriveHandler);
   registerHandler(webPushInboundHandler);

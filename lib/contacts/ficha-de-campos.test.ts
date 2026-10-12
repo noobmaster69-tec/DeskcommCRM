@@ -72,7 +72,7 @@ describe("prepararAlteracao", () => {
 
   it("nativos vão para a coluna; nome marca edição manual", () => {
     const a = prepararAlteracao(contato, { nome_completo: "Ana Paula Ribeiro Lopes", email: "ana@x.pt", idioma_contato: "pt-PT" }, []);
-    expect(a.colunas).toEqual({ name: "Ana Paula Ribeiro Lopes", email: "ana@x.pt", locale: "pt-PT" });
+    expect(a.colunas).toEqual({ name: "Ana Paula Ribeiro Lopes", email: "ana@x.pt", locale: "pt-PT", locale_source: "manual" });
     expect(a.nomeManual).toBe(true);
     expect(a.customFields).toBeNull();
   });

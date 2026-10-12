@@ -1,4 +1,5 @@
 import { fusoValido } from "@/lib/campanhas/fuso";
+import { nomeDoContato } from "@/lib/contacts/rotulo-do-contato";
 import {
   CAMPOS_DO_CONTATO,
   GRUPOS,
@@ -75,7 +76,7 @@ export function montarFicha(
 ): GrupoDaFicha[] {
   const campos = (c.custom_fields ?? {}) as Record<string, unknown>;
   const ctx = {
-    nome: c.name ?? c.display_name,
+    nome: nomeDoContato(c),
     telefone: c.phone_number,
     email: c.email,
     campos,
@@ -254,6 +255,9 @@ export function prepararAlteracao(
         continue;
       }
       colunas.locale = n.valor;
+      // Quem edita o idioma na ficha ESCOLHEU: a cascata (9022) nunca o
+      // sobrescreve com DDI nem detecção. Apagar devolve o contato à cascata.
+      colunas.locale_source = n.valor === null ? null : "manual";
       continue;
     }
     if (chave === "fuso_horario" && n.valor !== null && !fusoValido(String(n.valor))) {

@@ -11,12 +11,17 @@ import type { OrigemDaEscolha } from "@/lib/ai/pontos/resolver";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-/** Espelha o CHECK de `ai_invocations.invocation_kind` (ver o invariante). */
+/**
+ * Espelha o CHECK de `ai_invocations.invocation_kind` (ver o invariante).
+ * `message_translate` e `locale_detect`: tradução automática do Inbox (9022).
+ */
 export type InvocationKind =
   | "bot_respond"
   | "sentiment_classify"
   | "triage_classify"
-  | "embedding_generate";
+  | "embedding_generate"
+  | "message_translate"
+  | "locale_detect";
 
 export interface LogInvocationInput {
   organization_id: string;
