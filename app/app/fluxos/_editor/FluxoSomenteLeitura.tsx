@@ -5,7 +5,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   Background,
-  Controls,
+  BackgroundVariant,
   MiniMap,
   useNodesState,
   type EdgeTypes,
@@ -22,7 +22,9 @@ import { BlocoDoFluxoNode, FimDoFluxoNode, InicioDoFluxoNode } from "@/app/app/f
 import { ArestaDoFluxo } from "./ArestaDoFluxo";
 import { rotuloDaArestaDoFluxo } from "./aresta-do-fluxo";
 import { CanvasDoFluxoContext, type CanvasDoFluxo } from "./canvas-do-fluxo";
+import { ControlesDoCanvas } from "./ControlesDoCanvas";
 import { corDoBloco } from "./cores-dos-blocos";
+import "./fluxo-editor.css";
 
 const nodeTypes: NodeTypes = {
   ...Object.fromEntries(TIPOS_DE_BLOCO_DO_FLUXO.map((tipo) => [tipo, BlocoDoFluxoNode])),
@@ -56,7 +58,7 @@ export function FluxoSomenteLeitura({ grafo }: { grafo: FlowGraph }) {
       edges: rf.edges.map((e) => {
         const origem = porId.get(e.source);
         const rotulo = rotuloDaArestaDoFluxo(origem ? toFlowNode(origem) : undefined, e.data?.condition);
-        return { ...e, type: "fluxo", label: rotulo ? t(rotulo) : undefined };
+        return { ...e, type: "fluxo", label: rotulo ? t(rotulo) : undefined, style: { stroke: corDoBloco(origem?.type) } };
       }),
     };
   }, [grafo, t]);
@@ -68,7 +70,7 @@ export function FluxoSomenteLeitura({ grafo }: { grafo: FlowGraph }) {
   return (
     <ReactFlowProvider>
       <CanvasDoFluxoContext.Provider value={LEITURA}>
-        <div className="h-full w-full" data-testid="fluxo-somente-leitura">
+        <div className="fx relative h-full w-full" data-testid="fluxo-somente-leitura">
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -82,13 +84,17 @@ export function FluxoSomenteLeitura({ grafo }: { grafo: FlowGraph }) {
             fitView
             fitViewOptions={{ maxZoom: 1 }}
           >
-            <Background gap={20} />
-            <Controls showInteractive={false} />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="#27272d" bgColor="#121214" />
+            <ControlesDoCanvas />
             <MiniMap
               nodeColor={(node) => corDoBloco(node.type)}
-              nodeStrokeWidth={2}
-              maskColor="rgba(0,0,0,0.6)"
-              style={{ backgroundColor: "rgba(20,20,25,0.9)", border: "1px solid #333", borderRadius: 8 }}
+              nodeBorderRadius={4}
+              nodeStrokeWidth={0}
+              maskColor="rgba(0,0,0,0.45)"
+              maskStrokeColor="rgba(255,255,255,0.35)"
+              maskStrokeWidth={1.5}
+              bgColor="#18181b"
+              style={{ width: 200, height: 110 }}
               position="bottom-right"
               pannable
               zoomable

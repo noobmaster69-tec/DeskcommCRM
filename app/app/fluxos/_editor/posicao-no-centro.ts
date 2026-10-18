@@ -1,12 +1,12 @@
-/** Metade do cartão de bloco (240×~100): o CENTRO do cartão cai no centro da tela. */
-const MEIO_DO_CARTAO = { x: 120, y: 50 };
-/** A caixa que um cartão ocupa para efeito de "já tem alguém aqui" (240 de largura, ~140 de altura útil). */
-const CAIXA = { largura: 240, altura: 140 };
+/** Metade do cartão de bloco (264×~100): o CENTRO do cartão cai no centro da tela. */
+const MEIO_DO_CARTAO = { x: 132, y: 50 };
+/** A caixa que um cartão ocupa para efeito de "já tem alguém aqui" (264 de largura, ~140 de altura útil). */
+const CAIXA = { largura: 264, altura: 140 };
 /** Quanto desce o bloco novo quando o lugar está ocupado: a altura de um cartão + folga. */
 const DEGRAU = 160;
 
 /**
- * Onde nasce o bloco clicado no popover Ferramentas (fork jhoow, item 4): no
+ * Onde nasce o bloco clicado no dock: no
  * centro da área visível. Se outro cartão já ocupa aquela caixa, o novo DESCE
  * um degrau inteiro até achar lugar livre — antes ele andava 30px na diagonal
  * e nascia por cima do anterior, cobrindo a prévia dele (achado na prova pela

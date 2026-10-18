@@ -49,8 +49,12 @@ export function useFollowupFlow(id: string, opts?: { initialData?: FollowupFlowD
   });
 }
 
-/** PATCH draft_graph — "Salvar". Errors handled by the caller (dirty-state UI), no toast noise. */
-export function useSaveFollowupFlowDraft(id: string) {
+/**
+ * PATCH draft_graph — "Salvar". Errors handled by the caller (dirty-state UI), no toast noise.
+ * `silencioso` (Fluxos, salvamento automático): sem o toast "Rascunho salvo." a cada edição —
+ * a topbar mostra "Salvo há…".
+ */
+export function useSaveFollowupFlowDraft(id: string, opts?: { silencioso?: boolean }) {
   const t = useT();
   const qc = useQueryClient();
   return useMutation({
@@ -64,7 +68,7 @@ export function useSaveFollowupFlowDraft(id: string) {
       qc.setQueryData<FollowupFlowDetailRow>(followupFlowQueryKey(id), (prev) =>
         prev ? { ...prev, ...updated } : prev,
       );
-      toast.success(t("Rascunho salvo."));
+      if (!opts?.silencioso) toast.success(t("Rascunho salvo."));
     },
     onError: (err) => showApiError(err),
   });

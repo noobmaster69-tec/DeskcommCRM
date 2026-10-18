@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from "@xyflow/react";
 
 import type { RFEdge } from "@/lib/followup/graph-mappers";
 import { X } from "@/lib/ui/icons";
@@ -26,11 +26,11 @@ export const ArestaDoFluxoContext = createContext<ContextoDaAresta>({
 });
 
 /**
- * A linha do canvas de FLUXOS (fork jhoow, item 6) — sem painel de condição.
- * Clicar seleciona (linha mais grossa, na cor de destaque); Delete/Backspace
- * apaga pelo próprio React Flow; com o mouse em cima ou selecionada, um X no
- * meio da linha apaga com um clique. O rótulo só existe quando a linha sai de
- * um bloco com várias saídas (`rotuloDaArestaDoFluxo`).
+ * A linha do canvas de FLUXOS — sem painel de condição. Bezier suave de 2px,
+ * na cor do bloco de ORIGEM a 65% (o canvas a entrega em `style.stroke`).
+ * Clicar seleciona (mais grossa, na cor cheia); Delete/Backspace apaga pelo
+ * próprio React Flow; com o mouse em cima ou selecionada aparecem o rótulo da
+ * saída ("Saída 1", só em bloco com várias saídas) e o X que apaga.
  */
 export function ArestaDoFluxo({
   id,
@@ -43,10 +43,11 @@ export function ArestaDoFluxo({
   selected,
   label,
   markerEnd,
+  style,
 }: EdgeProps<RFEdge>) {
   const t = useT();
   const { emFoco, focar, excluir } = useContext(ArestaDoFluxoContext);
-  const [path, labelX, labelY] = getSmoothStepPath({
+  const [path, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -55,6 +56,7 @@ export function ArestaDoFluxo({
     targetPosition,
   });
   const mostrarX = Boolean(selected) || emFoco === id;
+  const cor = typeof style?.stroke === "string" ? style.stroke : "var(--fx-muted-2)";
   return (
     <>
       <BaseEdge
@@ -62,9 +64,13 @@ export function ArestaDoFluxo({
         path={path}
         markerEnd={markerEnd}
         interactionWidth={24}
-        style={selected ? { stroke: "var(--color-accent)", strokeWidth: 3 } : { strokeWidth: 1.5 }}
+        style={{
+          stroke: selected ? cor : `color-mix(in oklch, ${cor} 65%, transparent)`,
+          strokeWidth: selected ? 3 : 2,
+          strokeLinecap: "round",
+        }}
       />
-      {(label || mostrarX) && (
+      {mostrarX && (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan pointer-events-auto absolute flex items-center gap-1"
@@ -75,7 +81,7 @@ export function ArestaDoFluxo({
             data-testid={`aresta-rotulo-${id}`}
           >
             {label ? (
-              <span className="rounded-sm border border-border bg-surface-elevated px-1.5 py-0.5 text-[11px] font-medium text-text">
+              <span className="fx-aresta-rotulo">
                 {label}
               </span>
             ) : null}
@@ -84,7 +90,7 @@ export function ArestaDoFluxo({
                 type="button"
                 aria-label={t("Excluir ligação")}
                 title={t("Excluir ligação")}
-                className="flex h-5 w-5 items-center justify-center rounded-full border border-border bg-surface text-error shadow-sm hover:bg-error hover:text-white"
+                className="flex h-5 w-5 items-center justify-center rounded-full border border-[#34343b] bg-[#1f1f24] text-[#f87171] shadow-sm hover:bg-[#f87171] hover:text-white"
                 onClick={(e) => {
                   e.stopPropagation();
                   excluir(id);

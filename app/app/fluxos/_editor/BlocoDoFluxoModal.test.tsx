@@ -16,14 +16,16 @@ const no: RFNode = {
 };
 
 describe("modal de bloco do canvas de Fluxos (item 7)", () => {
-  it("abre centralizado com o nome do bloco, o formulário e Cancelar/Salvar", () => {
+  it("abre com \"Editar {bloco}\", categoria · etapa, o formulário e Cancelar/Salvar", () => {
     render(
-      <BlocoDoFluxoModal node={no} onSalvar={() => {}} onCancelar={() => {}}>
+      <BlocoDoFluxoModal node={no} etapa={4} onSalvar={() => {}} onCancelar={() => {}}>
         <p>formulário</p>
       </BlocoDoFluxoModal>,
     );
     const modal = screen.getByTestId("bloco-modal");
-    expect(modal).toHaveTextContent("Mensagem");
+    expect(modal).toHaveTextContent("Editar Mensagem");
+    expect(modal).toHaveTextContent("Enviar · etapa 4");
+    expect(modal).toHaveTextContent("Esc para fechar · ⌘ Enter para salvar");
     expect(modal).toHaveTextContent("formulário");
     expect(screen.getByTestId("bloco-modal-cancelar")).toHaveTextContent("Cancelar");
     expect(screen.getByTestId("bloco-modal-salvar")).toHaveTextContent("Salvar");
@@ -42,7 +44,20 @@ describe("modal de bloco do canvas de Fluxos (item 7)", () => {
     expect(onCancelar).not.toHaveBeenCalled();
   });
 
-  it("Cancelar devolve a foto tirada na abertura — mesmo se o nó mudou depois", async () => {
+  it("⌘/Ctrl+Enter salva", async () => {
+    const onSalvar = vi.fn();
+    render(
+      <BlocoDoFluxoModal node={no} onSalvar={onSalvar} onCancelar={() => {}}>
+        <input aria-label="campo" />
+      </BlocoDoFluxoModal>,
+    );
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByLabelText("campo"));
+    await user.keyboard("{Control>}{Enter}{/Control}");
+    expect(onSalvar).toHaveBeenCalledOnce();
+  });
+
+  it("com alteração, Cancelar pergunta antes e então devolve a foto da abertura", async () => {
     const onCancelar = vi.fn();
     const settings = { somente_interno: false } as never;
     const { rerender } = render(
@@ -56,11 +71,14 @@ describe("modal de bloco do canvas de Fluxos (item 7)", () => {
         <p>x</p>
       </BlocoDoFluxoModal>,
     );
-    await userEvent.setup({ delay: null }).click(screen.getByTestId("bloco-modal-cancelar"));
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByTestId("bloco-modal-cancelar"));
+    expect(onCancelar).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId("bloco-modal-descartar-sim"));
     expect(onCancelar).toHaveBeenCalledWith(no.data, settings);
   });
 
-  it("Esc também cancela", async () => {
+  it("sem alteração, Esc fecha direto", async () => {
     const onCancelar = vi.fn();
     render(
       <BlocoDoFluxoModal node={no} onSalvar={() => {}} onCancelar={onCancelar}>

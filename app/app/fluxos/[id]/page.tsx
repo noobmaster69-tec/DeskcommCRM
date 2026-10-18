@@ -6,7 +6,6 @@ import { ROLE_RANK } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
 import type { FollowupFlowDetailRow } from "@/hooks/followup/useFollowupFlow";
 import { FlowBuilder } from "@/app/app/ai/followups/[id]/_components/FlowBuilder";
-import { TraduzirFluxo } from "./_traduzir-fluxo";
 
 export const dynamic = "force-dynamic";
 
@@ -56,16 +55,14 @@ export default async function FluxoEditorPage({ params }: { params: Promise<{ id
     previous_version_id: versionRows?.[1]?.id ?? null,
   };
 
+  // "Traduzir para o idioma do contato" mora no menu "…" da topbar do editor
+  // (BarraDoFluxo), que lê `translate_to_contact_locale` do próprio fluxo.
   // Canvas de ponta a ponta (item 8, modelo Leona): `-m-6` desfaz o `p-6` do
   // <main> da casca e a altura é a da tela menos a barra do topo (h-14) — o
   // <main> não tem altura definida, então `h-full` aqui não resolvia nada e o
   // canvas ficava preso no `min-h-[600px]`.
   return (
     <div className="-m-6 flex h-[calc(100dvh-3.5rem)] min-h-[420px] flex-col" data-testid="fluxo-editor-tela">
-      <TraduzirFluxo
-        flowId={id}
-        inicial={Boolean((pointer as { translate_to_contact_locale?: boolean }).translate_to_contact_locale)}
-      />
       <FlowBuilder flowId={id} initialData={flow} />
     </div>
   );

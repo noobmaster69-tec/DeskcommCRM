@@ -1,36 +1,39 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Handle, Position } from "@xyflow/react";
+import { Copy, CornerDownRight, Pencil, Trash2, type LucideIcon } from "lucide-react";
 
-import { Copy, PencilSimple, Trash } from "@/lib/ui/icons";
-import { cn } from "@/lib/utils";
 import { useT } from "@/hooks/i18n/useT";
-import type { NodeVisual } from "@/app/app/ai/followups/[id]/_components/nodes/nodeVisuals";
 
 import { useCanvasDoFluxo } from "./canvas-do-fluxo";
+import { temaDoBloco, varsDoBloco } from "./tema-dos-blocos";
 
 export type AcaoDoCartao = "editar" | "duplicar" | "excluir";
 
 export interface SaidaDoCartao {
   id: string;
   conteudo: ReactNode;
+  /** À direita da linha, 11px (ex.: "34%"). */
+  valor?: ReactNode;
+  icone?: LucideIcon;
   /** A saída de escape ("nenhuma serve"): itálico, apagada. */
   escape?: boolean;
 }
 
 interface Props {
   id: string;
-  icon: NodeVisual["icon"];
+  /** Tipo do bloco: ícone, categoria e cores saem de BLOCK_THEME. */
+  tipo: string;
   title: string;
-  color: string;
   selected?: boolean;
   errors?: string[];
   showTarget?: boolean;
   showSource?: boolean;
-  /** Mais de uma saída: uma linha com bolinha própria para cada (Sim/Não, Saída N). */
+  /** Mais de uma saída: uma linha de 36px com alça própria para cada. */
   saidas?: SaidaDoCartao[];
-  rodape?: ReactNode;
+  /** Separador "OU" entre as saídas (Aguardar resposta). */
+  ouEntreSaidas?: boolean;
   acoes?: readonly AcaoDoCartao[];
   children?: ReactNode;
 }
@@ -38,36 +41,35 @@ interface Props {
 const TODAS: readonly AcaoDoCartao[] = ["editar", "duplicar", "excluir"];
 
 /**
- * O cartão genérico de bloco do canvas de FLUXOS (fork jhoow, item 5) — o
- * "preview" do Leona (imagens 7–9): cabeçalho na cor do bloco com ícone,
- * título e ✏️ 📋 🗑️ à direita; corpo com a prévia do que o bloco faz.
- *
- * Tamanho: 240px de largura; o corpo tem teto de 220px (o cartão fica entre
- * ~100 e ~320px) — o que passar disso some sob "… + ver mais", que abre o
- * bloco. As bolinhas seguem as do NodeCard (entrada em cima, saída embaixo ou
- * uma por linha à direita), para o auto-layout e as arestas antigas não mudarem.
+ * O cartão de bloco do canvas de FLUXOS (redesenho de 17 out): 264px, borda e
+ * cabeçalho na cor do tipo, corpo em linhas tingidas. Editar/duplicar/excluir
+ * saem do cabeçalho para uma barra flutuante 42px acima do card, visível no
+ * hover ou com o bloco selecionado. Entrada à esquerda na altura do cabeçalho;
+ * saída única à direita embaixo; saídas múltiplas, uma alça por linha.
  */
 export function FluxoNode({
   id,
-  icon: Icon,
+  tipo,
   title,
-  color,
   selected,
   errors,
   showTarget = true,
   showSource = true,
   saidas,
-  rodape,
+  ouEntreSaidas = false,
   acoes = TODAS,
   children,
 }: Props) {
   const t = useT();
   const { editar, duplicar, excluir, somenteLeitura } = useCanvasDoFluxo();
   const acoesVisiveis = somenteLeitura ? [] : acoes;
+  const tema = temaDoBloco(tipo);
+  const Icone = tema.icon;
   const corpo = useRef<HTMLDivElement>(null);
   const [transborda, setTransborda] = useState(false);
   const temErro = (errors?.length ?? 0) > 0;
   const linhasDeSaida = saidas !== undefined && saidas.length > 1 ? saidas : null;
+  const temCorpo = Boolean(children) || linhasDeSaida !== null;
 
   // Mede depois de pintar: o corpo só sabe se passou do teto com o texto real.
   useLayoutEffect(() => {
@@ -81,110 +83,116 @@ export function FluxoNode({
     return () => ro.disconnect();
   }, [children]);
 
-  const BOTOES: Record<AcaoDoCartao, { rotulo: string; Icone: NodeVisual["icon"]; fazer: () => void; perigo?: boolean }> = {
-    editar: { rotulo: t("Editar bloco"), Icone: PencilSimple, fazer: () => editar(id) },
+  const BOTOES: Record<AcaoDoCartao, { rotulo: string; Icone: LucideIcon; fazer: () => void; perigo?: boolean }> = {
+    editar: { rotulo: t("Editar bloco"), Icone: Pencil, fazer: () => editar(id) },
     duplicar: { rotulo: t("Duplicar bloco"), Icone: Copy, fazer: () => duplicar(id) },
-    excluir: { rotulo: t("Excluir bloco"), Icone: Trash, fazer: () => excluir(id), perigo: true },
+    excluir: { rotulo: t("Excluir bloco"), Icone: Trash2, fazer: () => excluir(id), perigo: true },
   };
 
   return (
     <div
-      className={cn(
-        "w-60 rounded-lg border border-border bg-surface shadow-md transition-shadow",
-        temErro && "border-error ring-2 ring-error ring-offset-1 ring-offset-bg",
-      )}
-      style={selected && !temErro ? { boxShadow: `0 0 0 2px ${color}` } : undefined}
+      className="fx-node"
+      style={varsDoBloco(tipo)}
+      data-selected={selected ? "true" : undefined}
+      data-erro={temErro ? "true" : undefined}
+      data-so-cabecalho={temCorpo || temErro ? undefined : "true"}
       data-testid={`node-card-${id}`}
       title={temErro ? errors!.join("; ") : undefined}
     >
-      {showTarget && <Handle type="target" position={Position.Top} />}
-      <div
-        className={cn("flex items-center gap-2 px-2.5 py-2", (children || linhasDeSaida || rodape) && "border-b border-border")}
-        style={{ backgroundColor: `${color}1f`, borderTopLeftRadius: 8, borderTopRightRadius: 8 }}
-      >
-        <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-white"
-          style={{ backgroundColor: color }}
-        >
-          <Icon size={14} aria-hidden />
-        </span>
-        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-text" title={title}>
-          {title}
-        </p>
-        <div className="flex shrink-0 items-center">
+      {acoesVisiveis.length > 0 && (
+        <div className="fx-node__acoes nodrag" data-testid={`acoes-${id}`}>
           {acoesVisiveis.map((a) => {
-            const { rotulo, Icone, fazer, perigo } = BOTOES[a];
+            const { rotulo, Icone: IconeDaAcao, fazer, perigo } = BOTOES[a];
             return (
               <button
                 key={a}
                 type="button"
                 aria-label={rotulo}
                 title={rotulo}
-                className={cn(
-                  "nodrag flex h-6 w-6 items-center justify-center rounded-sm text-text-muted hover:bg-surface-elevated",
-                  perigo ? "hover:text-error" : "hover:text-text",
-                )}
+                className="fx-node__acao"
+                data-perigo={perigo ? "true" : undefined}
                 onClick={(e) => {
                   e.stopPropagation();
                   fazer();
                 }}
                 data-testid={`bloco-${a}-${id}`}
               >
-                <Icone size={13} aria-hidden />
+                <IconeDaAcao size={15} aria-hidden />
               </button>
             );
           })}
         </div>
+      )}
+      {showTarget && <Handle type="target" position={Position.Left} className="fx-h fx-h--in" />}
+
+      <div className="fx-node__head">
+        <span className="fx-node__icon">
+          <Icone size={15} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="fx-node__title" title={title}>
+            {title}
+          </p>
+          {tema.categoria && <p className="fx-node__cat">{t(tema.categoria)}</p>}
+        </div>
       </div>
-      {children ? (
-        <div className="relative">
-          <div ref={corpo} className="max-h-[220px] space-y-1.5 overflow-hidden px-2.5 py-2" data-testid={`previa-${id}`}>
-            {children}
-          </div>
-          {transborda && !somenteLeitura && (
-            <button
-              type="button"
-              className="nodrag block w-full border-t border-border px-2.5 py-1 text-left text-xs font-medium text-accent hover:underline"
-              onClick={(e) => {
-                e.stopPropagation();
-                editar(id);
-              }}
-              data-testid={`ver-mais-${id}`}
-            >
-              … + {t("ver mais")}
-            </button>
+
+      {temCorpo && (
+        <div className="fx-node__body">
+          {children ? (
+            <>
+              <div
+                ref={corpo}
+                className="flex max-h-[220px] flex-col gap-1.5 overflow-hidden"
+                data-testid={`previa-${id}`}
+              >
+                {children}
+              </div>
+              {transborda && !somenteLeitura && (
+                <button
+                  type="button"
+                  className="fx-node__mais nodrag"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    editar(id);
+                  }}
+                  data-testid={`ver-mais-${id}`}
+                >
+                  … + {t("ver mais")}
+                </button>
+              )}
+            </>
+          ) : null}
+          {linhasDeSaida !== null && (
+            <ul className="flex flex-col gap-1.5" data-testid={`node-branches-${id}`}>
+              {linhasDeSaida.map((s, i) => {
+                const IconeDaSaida = s.icone ?? CornerDownRight;
+                return (
+                  <Fragment key={s.id}>
+                    {ouEntreSaidas && i > 0 && (
+                      <li className="fx-or" aria-hidden>
+                        {t("OU")}
+                      </li>
+                    )}
+                    <li className="fx-out" data-escape={s.escape ? "true" : undefined} data-testid={`node-branch-${id}-${s.id}`}>
+                      <IconeDaSaida size={14} aria-hidden />
+                      <span className="fx-out__name">{s.conteudo}</span>
+                      {s.valor !== undefined && s.valor !== null && <span className="fx-out__value">{s.valor}</span>}
+                      <Handle type="source" id={s.id} position={Position.Right} className="fx-h fx-h--ramo" />
+                    </li>
+                  </Fragment>
+                );
+              })}
+            </ul>
           )}
         </div>
-      ) : null}
+      )}
       {temErro && (
-        <p className="border-t border-error/30 px-2.5 py-1.5 text-xs leading-snug text-error-fg" data-testid={`node-error-${id}`}>
+        <p className={temCorpo ? "fx-node__erro" : "fx-node__erro mt-2.5"} data-testid={`node-error-${id}`}>
           {errors![0]}
         </p>
       )}
-      {linhasDeSaida !== null && (
-        <ul className="border-t border-border" data-testid={`node-branches-${id}`}>
-          {linhasDeSaida.map((s) => (
-            <li
-              key={s.id}
-              className={cn(
-                "relative flex items-center gap-1.5 border-t border-border/60 px-2.5 py-1.5 text-xs first:border-t-0",
-                s.escape && "italic text-text-muted",
-              )}
-              data-testid={`node-branch-${id}-${s.id}`}
-            >
-              <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: s.escape ? "#71717a" : color }} />
-              <span className="line-clamp-2 min-w-0 break-words leading-tight">{s.conteudo}</span>
-              <Handle type="source" id={s.id} position={Position.Right} style={{ top: "50%" }} />
-            </li>
-          ))}
-        </ul>
-      )}
-      {rodape ? (
-        <p className="border-t border-border px-2.5 py-1.5 text-[11px] text-text-muted" data-testid={`rodape-${id}`}>
-          {rodape}
-        </p>
-      ) : null}
-      {showSource && linhasDeSaida === null && <Handle type="source" position={Position.Bottom} />}
+      {showSource && linhasDeSaida === null && <Handle type="source" position={Position.Right} className="fx-h fx-h--out" />}
     </div>
   );
 }

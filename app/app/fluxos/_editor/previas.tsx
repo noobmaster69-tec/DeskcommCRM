@@ -1,11 +1,22 @@
 "use client";
 
 import type { ReactNode } from "react";
+import {
+  Contact,
+  File,
+  Image as ImageIcon,
+  Mic,
+  Sticker,
+  Tag,
+  Text,
+  Timer,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { FlowNode } from "@/lib/followup/graph-schema";
-import type { ItemDaMensagem } from "@/lib/followup/blocos-do-fluxo";
+import { DIGITANDO_PADRAO, temDigitando, type ItemDaMensagem } from "@/lib/followup/blocos-do-fluxo";
 import { EVENTOS_DO_PIXEL_NA_TELA } from "@/lib/followup/vocabulario";
-import { cn } from "@/lib/utils";
 import { useT } from "@/hooks/i18n/useT";
 import { useEtapasDoFluxo } from "@/app/app/ai/followups/[id]/_components/EtapasDoFluxo";
 import { ROTULO_DO_CAMPO, ROTULO_DO_OPERADOR } from "@/app/app/fluxos/_blocos/CondicionalForm";
@@ -20,39 +31,114 @@ export const MAX_ITENS_NA_PREVIA = 4;
 
 const UNIDADE_CURTA: Record<string, string> = { segundos: "s", minutos: "min", horas: "h", dias: "dias" };
 
-export function Pilula({ children, className, title }: { children: ReactNode; className?: string; title?: string }) {
+/** `{variavel}` — o que o motor interpola. */
+const VARIAVEL = /(\{[^{}\s]+\})/g;
+
+/** Texto com as variáveis destacadas (Geist Mono, --c-light). */
+export function ComVariaveis({ texto }: { texto: string }) {
+  const partes = texto.split(VARIAVEL);
   return (
-    <div
-      className={cn("truncate rounded-md bg-surface-elevated px-2 py-1 text-xs text-text", className)}
-      title={title ?? (typeof children === "string" ? children : undefined)}
-    >
-      {children}
+    <>
+      {partes.map((p, i) =>
+        i % 2 === 1 ? (
+          <span key={i} className="fx-var">
+            {p}
+          </span>
+        ) : (
+          p
+        ),
+      )}
+    </>
+  );
+}
+
+/** Linha de texto: ícone 14px + até 2 linhas com reticências. */
+export function LinhaDeTexto({ texto, icone: Icone = Text }: { texto: string; icone?: LucideIcon }) {
+  return (
+    <div className="fx-row" title={texto}>
+      <Icone size={14} aria-hidden />
+      <p className="fx-row__text">
+        <ComVariaveis texto={texto} />
+      </p>
     </div>
   );
 }
 
-/** Uma linha da prévia da Mensagem (imagem 7): ícone + o essencial do item. */
+/** Rótulo em caixa alta + valor (Notificação, Kanban, Conexão…). */
+export function Campo({ rotulo, children }: { rotulo: string; children: ReactNode }) {
+  return (
+    <div className="fx-row fx-field">
+      <span className="fx-field__label">{rotulo}</span>
+      <span className="fx-field__value">{children}</span>
+    </div>
+  );
+}
+
+/** Linha sem caixa, 12px, com relógio (delay/meta). */
+export function Meta({ children, icone: Icone = Timer }: { children: ReactNode; icone?: LucideIcon }) {
+  return (
+    <p className="fx-meta">
+      <Icone size={13} aria-hidden />
+      <span className="min-w-0 truncate">{children}</span>
+    </p>
+  );
+}
+
+const MIDIA: Record<string, { Icone: LucideIcon; rotulo: string }> = {
+  imagem: { Icone: ImageIcon, rotulo: "Imagem" },
+  video: { Icone: Video, rotulo: "Vídeo" },
+  audio: { Icone: Mic, rotulo: "Áudio" },
+  arquivo: { Icone: File, rotulo: "Arquivo" },
+  sticker: { Icone: Sticker, rotulo: "Figurinha" },
+};
+
+function LinhaDeMidia({ item, t }: { item: Extract<ItemDaMensagem, { midia: unknown }>; t: Traduzir }) {
+  const { Icone, rotulo } = MIDIA[item.tipo]!;
+  const nome = ("legenda" in item && item.legenda) || item.midia.nome_arquivo || t(rotulo);
+  const miniatura = item.tipo === "imagem" && item.midia.url ? item.midia.url : null;
+  return (
+    <div className="fx-row fx-media" title={nome}>
+      <span className="fx-media__thumb">
+        {miniatura ? (
+          // eslint-disable-next-line @next/next/no-img-element -- link externo do usuário, sem otimização do Next
+          <img src={miniatura} alt="" loading="lazy" />
+        ) : (
+          <Icone size={16} aria-hidden />
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="fx-media__name block">{nome}</span>
+        <span className="fx-media__type block">{t(rotulo)}</span>
+      </span>
+    </div>
+  );
+}
+
+/** O texto de um item da Mensagem, sem ícone (busca, título, testes). */
 export function linhaDoItem(item: ItemDaMensagem, t: Traduzir): string {
   switch (item.tipo) {
     case "texto":
-      return `📝 ${item.texto}`;
+      return item.texto;
     case "intervalo":
       return item.modo === "fixo"
-        ? `⏱️ ${t("Delay")}: ${item.segundos}s`
-        : `⏱️ ${t("Delay")}: ${item.min_segundos}-${item.max_segundos}s`;
-    case "imagem":
-      return `🖼️ ${item.legenda || item.midia.nome_arquivo || t("Imagem")}`;
-    case "video":
-      return `🎥 ${item.legenda || item.midia.nome_arquivo || t("Vídeo")}`;
-    case "audio":
-      return `🎤 ${item.midia.nome_arquivo || t("Áudio")}`;
-    case "arquivo":
-      return `📎 ${item.midia.nome_arquivo || t("Arquivo")}`;
-    case "sticker":
-      return `🏷️ ${t("Figurinha")}`;
+        ? `${t("Pausa")} ${item.segundos} s`
+        : `${t("Pausa")} ${item.min_segundos}–${item.max_segundos} s`;
     case "contato":
-      return `👤 ${item.nome}`;
+      return item.nome;
+    default:
+      return ("legenda" in item && item.legenda) || item.midia.nome_arquivo || t(MIDIA[item.tipo]!.rotulo);
   }
+}
+
+/** "Digitando 6–15 s": do menor ao maior "digitando" dos itens da Mensagem. */
+export function faixaDoDigitando(itens: readonly ItemDaMensagem[]): string | null {
+  const comDigitando = itens.filter(temDigitando);
+  if (comDigitando.length === 0) return null;
+  const minimos = comDigitando.map((i) => i.typing_delay_seconds ?? DIGITANDO_PADRAO[i.tipo]);
+  const maximos = comDigitando.map((i, k) => Math.max(minimos[k]!, i.typing_delay_random_max ?? minimos[k]!));
+  const de = Math.min(...minimos);
+  const ate = Math.max(...maximos);
+  return de === ate ? `${de} s` : `${de}–${ate} s`;
 }
 
 /** As linhas visíveis e quantas ficaram de fora (o "+ N itens"). */
@@ -66,7 +152,7 @@ function valorDaCondicao(valor: unknown): string {
   return String(valor);
 }
 
-/** O rodapé do cartão (Etiquetas: o que o bloco faz com o cliente). */
+/** O que o bloco Etiquetas faz com o cliente (rótulo do campo do cartão). */
 export function rodapeDoBloco(tipo: FlowNode["type"], config: FlowNode["config"], t: Traduzir): string | null {
   if (tipo === "etiquetas") {
     const c = config as ConfigDe<"etiquetas">;
@@ -76,9 +162,9 @@ export function rodapeDoBloco(tipo: FlowNode["type"], config: FlowNode["config"]
 }
 
 /**
- * O CORPO do cartão de cada bloco (fork jhoow, item 5) — a prévia do Leona.
- * `null` = cartão só com cabeçalho (Fim, Início, e o Distribuidor, cujo corpo
- * SÃO as linhas de saída com a contagem).
+ * O CORPO do cartão de cada bloco. `null` = cartão só com cabeçalho (Fim,
+ * Início, e o Distribuidor, cujo corpo SÃO as linhas de saída).
+ * Nenhum emoji: ícone lucide em linha tingida, variáveis destacadas.
  */
 export function PreviaDoBloco({ tipo, config }: { tipo: FlowNode["type"]; config: FlowNode["config"] }) {
   const t = useT();
@@ -89,53 +175,70 @@ export function PreviaDoBloco({ tipo, config }: { tipo: FlowNode["type"]; config
     case "mensagem": {
       const c = config as ConfigDe<"mensagem">;
       const { visiveis, resto } = itensDaPrevia(c.itens);
+      const digitando = faixaDoDigitando(c.itens);
       return (
         <>
-          {visiveis.map((item) => (
-            <Pilula key={item.id} className={item.tipo === "texto" ? "line-clamp-2 whitespace-normal break-words" : undefined}>
-              {linhaDoItem(item, t)}
-            </Pilula>
-          ))}
-          {resto > 0 && <p className="text-xs text-text-muted">+ {resto} {resto === 1 ? t("item") : t("itens")}</p>}
+          {visiveis.map((item) => {
+            if (item.tipo === "texto") return <LinhaDeTexto key={item.id} texto={item.texto} />;
+            if (item.tipo === "intervalo") return <Meta key={item.id}>{linhaDoItem(item, t)}</Meta>;
+            if (item.tipo === "contato")
+              return (
+                <div key={item.id} className="fx-row fx-media">
+                  <span className="fx-media__thumb">
+                    <Contact size={16} aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="fx-media__name block">{item.nome}</span>
+                    <span className="fx-media__type block">{item.telefone}</span>
+                  </span>
+                </div>
+              );
+            return <LinhaDeMidia key={item.id} item={item} t={t} />;
+          })}
+          {resto > 0 && <p className="fx-meta">+ {resto} {resto === 1 ? t("item") : t("itens")}</p>}
+          {digitando && <Meta>{`${t("Digitando")} ${digitando}`}</Meta>}
         </>
       );
     }
     case "etiquetas": {
       const c = config as ConfigDe<"etiquetas">;
       return (
-        <div className="flex flex-wrap gap-1">
-          {c.etiquetas.map((e) => (
-            <span key={e} className="max-w-full truncate rounded-full bg-violet-500/20 px-2 py-0.5 text-xs text-violet-300" title={e}>
-              {e}
-            </span>
-          ))}
+        <div className="fx-row fx-field">
+          <span className="fx-field__label">
+            {c.operacao === "remover" ? t("Remover do contato") : t("Adicionar ao contato")}
+          </span>
+          <div className="fx-chips mt-1">
+            {c.etiquetas.map((e) => (
+              <span key={e} className="fx-chip" title={e}>
+                <Tag size={11} aria-hidden />
+                {e}
+              </span>
+            ))}
+          </div>
         </div>
       );
     }
     case "kanban": {
       const c = config as ConfigDe<"kanban">;
-      const acao = c.acao === "adicionar" ? t("Adicionar card:") : c.acao === "mover" ? t("Mover card:") : t("Remover card:");
+      const acao = c.acao === "adicionar" ? t("Adicionar card") : c.acao === "mover" ? t("Mover card") : t("Remover card");
       const funil = nomeDoFunil(c.pipeline_id) ?? t("Funil");
       const etapa = "stage_id" in c && c.stage_id ? (nomes.etapa?.(c.stage_id) ?? "").split(" · ")[0] : "";
-      return (
-        <>
-          <p className="text-xs text-text-muted">{acao}</p>
-          <Pilula className="bg-violet-400/15 text-violet-200">+ {etapa ? `${funil} / ${etapa}` : funil}</Pilula>
-        </>
-      );
+      return <Campo rotulo={acao}>{etapa ? `${funil} · ${etapa}` : funil}</Campo>;
     }
     case "condicional": {
       const c = config as ConfigDe<"condicional">;
       const { visiveis, resto } = itensDaPrevia(c.condicoes);
       return (
         <>
-          <p className="text-xs font-medium text-text-muted">{c.regra === "todas" ? t("SE todas") : t("SE qualquer")}</p>
+          <p className="fx-field__label px-0.5">{c.regra === "todas" ? t("SE todas") : t("SE qualquer")}</p>
           {visiveis.map((cond) => {
             const campo = cond.campo.tipo === "campo_custom" ? cond.campo.chave : t(ROTULO_DO_CAMPO[cond.campo.tipo]);
             const valor = valorDaCondicao(cond.valor);
-            return <Pilula key={cond.id}>{`${campo} ${t(ROTULO_DO_OPERADOR[cond.operador])}${valor ? ` ${valor}` : ""}`}</Pilula>;
+            return (
+              <LinhaDeTexto key={cond.id} texto={`${campo} ${t(ROTULO_DO_OPERADOR[cond.operador])}${valor ? ` ${valor}` : ""}`} />
+            );
           })}
-          {resto > 0 && <p className="text-xs text-text-muted">+ {resto} {t("condições")}</p>}
+          {resto > 0 && <p className="fx-meta">+ {resto} {t("condições")}</p>}
         </>
       );
     }
@@ -143,12 +246,12 @@ export function PreviaDoBloco({ tipo, config }: { tipo: FlowNode["type"]; config
       const c = config as ConfigDe<"aguardar_resposta">;
       return (
         <>
-          <p className="text-xs text-text">{t("Aguardar pela resposta do cliente")}</p>
-          <Pilula>
+          <LinhaDeTexto texto={t("Aguardar pela resposta do cliente")} />
+          <Meta>
             {c.sem_limite || !c.tempo
               ? t("Sem limite de tempo")
               : `${t("Após")} ${c.tempo.valor} ${t(UNIDADE_CURTA[c.tempo.unidade] ?? c.tempo.unidade)}`}
-          </Pilula>
+          </Meta>
         </>
       );
     }
@@ -156,8 +259,8 @@ export function PreviaDoBloco({ tipo, config }: { tipo: FlowNode["type"]; config
       const c = config as ConfigDe<"notificacao">;
       return (
         <>
-          <Pilula>{`📞 +${c.ddi} ${c.numero}`}</Pilula>
-          <p className="line-clamp-3 break-words text-xs text-text-muted">{c.mensagem}</p>
+          <Campo rotulo={t("Notificar")}>{`+${c.ddi} ${c.numero}`}</Campo>
+          {c.mensagem && <LinhaDeTexto texto={c.mensagem} />}
         </>
       );
     }
@@ -165,9 +268,8 @@ export function PreviaDoBloco({ tipo, config }: { tipo: FlowNode["type"]; config
       const c = config as ConfigDe<"conexao_fluxo">;
       return (
         <>
-          <p className="text-xs text-text-muted">{t("Ir para o fluxo:")}</p>
-          <Pilula className="bg-red-500/15 text-red-200">{nomeDoFluxo(c.fluxo_id) ?? t("Escolha o fluxo")}</Pilula>
-          {c.retornar && <p className="text-[11px] text-text-muted">{t("e volta quando ele terminar")}</p>}
+          <Campo rotulo={t("Ir para o fluxo")}>{nomeDoFluxo(c.fluxo_id) ?? t("Escolha o fluxo")}</Campo>
+          {c.retornar && <Meta>{t("e volta quando ele terminar")}</Meta>}
         </>
       );
     }
@@ -175,28 +277,24 @@ export function PreviaDoBloco({ tipo, config }: { tipo: FlowNode["type"]; config
       const c = config as ConfigDe<"pixel">;
       return (
         <>
-          <Pilula>{`🎯 ${t(EVENTOS_DO_PIXEL_NA_TELA[c.evento])}`}</Pilula>
-          {c.valor && <Pilula>{`${t("Valor")}: ${c.valor} ${c.moeda}`}</Pilula>}
+          <Campo rotulo={t("Evento")}>{t(EVENTOS_DO_PIXEL_NA_TELA[c.evento])}</Campo>
+          {c.valor && <Campo rotulo={t("Valor")}>{`${c.valor} ${c.moeda}`}</Campo>}
         </>
       );
     }
     case "intervalo": {
       const c = config as ConfigDe<"intervalo">;
       if (c.modo === "duracao")
-        return <Pilula>{`⏳ ${t("Aguardar")} ${c.valor} ${t(UNIDADE_CURTA[c.unidade] ?? c.unidade)}`}</Pilula>;
-      if (c.modo === "data") return <Pilula>{`📅 ${t("Até")} ${c.quando}`}</Pilula>;
-      return <Pilula>{`🕒 ${c.janelas.length} ${t("janelas de horário")}`}</Pilula>;
+        return <Campo rotulo={t("Aguardar")}>{`${c.valor} ${t(UNIDADE_CURTA[c.unidade] ?? c.unidade)}`}</Campo>;
+      if (c.modo === "data") return <Campo rotulo={t("Até")}>{c.quando}</Campo>;
+      return <Campo rotulo={t("Horários")}>{`${c.janelas.length} ${t("janelas de horário")}`}</Campo>;
     }
     case "bloco_ia": {
       const c = config as ConfigDe<"bloco_ia">;
       return (
         <>
-          <Pilula>{`🤖 ${c.provedor} · ${c.modelo}`}</Pilula>
-          {c.prompt ? (
-            <p className="line-clamp-3 break-words text-xs text-text-muted">{c.prompt}</p>
-          ) : (
-            <p className="text-xs italic text-text-muted">{t("Sem prompt")}</p>
-          )}
+          <Campo rotulo={t("Modelo")}>{`${c.provedor} · ${c.modelo}`}</Campo>
+          {c.prompt ? <LinhaDeTexto texto={c.prompt} /> : <Meta>{t("Sem prompt")}</Meta>}
         </>
       );
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,20 +16,22 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useT } from "@/hooks/i18n/useT";
 import {
-  CaretDown,
-  CaretUp,
-  ChatText,
-  CircleNotch,
-  FileText,
-  IdentificationCard,
-  ImageSquare,
-  Microphone,
-  MonitorPlay,
-  Smiley,
+  ChevronDown,
+  ChevronUp,
+  Contact,
+  File,
+  GripVertical,
+  Image as ImageIcon,
+  LoaderCircle,
+  Mic,
+  Sticker,
+  Text,
   Timer,
-  Trash,
-  UploadSimple,
-} from "@/lib/ui/icons";
+  Trash2,
+  Upload,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConfigOf } from "@/app/app/ai/followups/[id]/_components/forms/shared";
 import { CampoDeTexto } from "./CampoDeTexto";
@@ -48,26 +50,31 @@ import { useCamposDaFicha } from "./useCamposDaFicha";
 type Tipo = ItemDaMensagem["tipo"];
 type ItemDeMidia = Extract<ItemDaMensagem, { midia: unknown }>;
 
+/** Rótulo do card "Adicionar conteúdo". */
 const ROTULO_DO_TIPO: Record<Tipo, string> = {
   texto: "Texto",
   imagem: "Imagem",
   video: "Vídeo",
   audio: "Áudio",
   arquivo: "Arquivo",
-  sticker: "Figurinha",
+  sticker: "Sticker",
   contato: "Contato",
   intervalo: "Intervalo",
 };
 
-const TIPOS: ReadonlyArray<{ tipo: Tipo; Icone: typeof ChatText; aceita?: string }> = [
-  { tipo: "texto", Icone: ChatText },
-  { tipo: "imagem", Icone: ImageSquare, aceita: "image/*" },
-  { tipo: "video", Icone: MonitorPlay, aceita: "video/*" },
-  { tipo: "audio", Icone: Microphone, aceita: "audio/*" },
-  { tipo: "arquivo", Icone: FileText, aceita: "*/*" },
-  { tipo: "sticker", Icone: Smiley, aceita: "image/webp" },
-  { tipo: "contato", Icone: IdentificationCard },
-  { tipo: "intervalo", Icone: Timer },
+/** Nome no cabeçalho do item da sequência. */
+const NOME_DO_ITEM: Record<Tipo, string> = { ...ROTULO_DO_TIPO, texto: "Mensagem de texto" };
+
+/** Na ordem da grade "Adicionar conteúdo", cada um com a sua matiz. */
+const TIPOS: ReadonlyArray<{ tipo: Tipo; Icone: LucideIcon; hue: number; aceita?: string }> = [
+  { tipo: "texto", Icone: Text, hue: 262 },
+  { tipo: "imagem", Icone: ImageIcon, hue: 150, aceita: "image/*" },
+  { tipo: "video", Icone: Video, hue: 300, aceita: "video/*" },
+  { tipo: "audio", Icone: Mic, hue: 40, aceita: "audio/*" },
+  { tipo: "intervalo", Icone: Timer, hue: 215 },
+  { tipo: "contato", Icone: Contact, hue: 350 },
+  { tipo: "arquivo", Icone: File, hue: 275, aceita: "*/*" },
+  { tipo: "sticker", Icone: Sticker, hue: 75, aceita: "image/webp" },
 ];
 
 /** Item em edição: a mídia pode ainda não existir (o schema a exige). */
@@ -105,18 +112,22 @@ function EditorDoDigitando({ item, onChange }: { item: ItemComDigitando; onChang
   const max = item.typing_delay_random_max ?? null;
   const aleatorio = max !== null;
   return (
-    <div className="space-y-2 border-t border-border pt-2" data-testid={`digitando-${item.id}`}>
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="text-text-muted">{t("Delay do “digitando”")}</span>
-        <span className="text-sm font-semibold text-text" data-testid={`digitando-valor-${item.id}`}>
+    <div className="space-y-2.5" data-testid={`digitando-${item.id}`}>
+      <div className="grid grid-cols-[1fr_auto_1fr] items-baseline gap-2">
+        <span className="text-[13px] text-[var(--fx-text-2)]">{t("Delay do “digitando”")}</span>
+        <span className="text-[14px] font-semibold text-[var(--fx-text)]" data-testid={`digitando-valor-${item.id}`}>
           {aleatorio ? `${segundos}–${max}` : segundos} {t("segundos")}
         </span>
-        <span className="text-text-muted">
-          {DIGITANDO_MAX} {t("segundos")}
+        <span className="text-right text-[12px] text-[var(--fx-muted)]">
+          {t("máx.")} {DIGITANDO_MAX} s
         </span>
       </div>
       <Slider
         aria-label={t("Delay do “digitando”")}
+        // Trilho #26262b, parte preenchida --accent (a bolinha vem do CSS do editor).
+        style={{
+          background: `linear-gradient(to right, #3d72ff ${((segundos - DIGITANDO_MIN) / (DIGITANDO_MAX - DIGITANDO_MIN)) * 100}%, #26262b ${((segundos - DIGITANDO_MIN) / (DIGITANDO_MAX - DIGITANDO_MIN)) * 100}%)`,
+        }}
         min={DIGITANDO_MIN}
         max={DIGITANDO_MAX}
         value={[segundos]}
@@ -128,12 +139,12 @@ function EditorDoDigitando({ item, onChange }: { item: ItemComDigitando; onChang
           } as Rascunho)
         }
       />
-      <p className="text-[11px] text-text-muted">
+      <p className="text-[12px] text-[var(--fx-muted)]">
         {item.tipo === "audio"
           ? t("Tempo que o WhatsApp ficará “gravando áudio” antes de enviar esta mensagem.")
           : t("Tempo que o WhatsApp ficará “digitando” antes de enviar esta mensagem.")}
       </p>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 border-t border-[var(--fx-modal-line)] pt-3 text-[12px]">
         <Switch
           id={`aleatorio-${item.id}`}
           checked={aleatorio}
@@ -204,72 +215,129 @@ export function MensagemForm({
     gravar(next);
   };
 
+  const lista = useRef<HTMLOListElement>(null);
+  const rolarPara = useRef<string | null>(null);
+  const [arrastando, setArrastando] = useState<number | null>(null);
+
+  // "Adicionar conteúdo" rola até o card novo, depois que ele está na tela.
+  useEffect(() => {
+    if (!rolarPara.current) return;
+    lista.current
+      ?.querySelector(`[data-item-id="${rolarPara.current}"]`)
+      ?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    rolarPara.current = null;
+  }, [itens]);
+
+  const adicionar = (tipo: Tipo) => {
+    const id = novoId(itens);
+    rolarPara.current = id;
+    gravar([...itens, itemNovo(tipo, id)]);
+  };
+
+  const soltarEm = (destino: number) => {
+    if (arrastando === null || arrastando === destino) return;
+    const next = [...itens];
+    const [it] = next.splice(arrastando, 1);
+    next.splice(destino, 0, it!);
+    setArrastando(null);
+    gravar(next);
+  };
+
   return (
-    <div className="space-y-3">
-      <ol className="space-y-2" aria-label={t("Itens da mensagem")}>
+    <div className="flex flex-col gap-5">
+      <ol ref={lista} className="flex flex-col gap-3" aria-label={t("Itens da mensagem")}>
         {itens.map((item, idx) => {
           const meta = TIPOS.find((x) => x.tipo === item.tipo)!;
           return (
-            <li key={item.id} className="rounded-md border border-border bg-surface p-2" data-testid={`item-${item.tipo}`}>
-              <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-text-muted">
-                <meta.Icone size={14} aria-hidden />
-                <span className="flex-1">
-                  {idx + 1}. {t(ROTULO_DO_TIPO[item.tipo])}
-                </span>
+            <li
+              key={item.id}
+              className="fx-item"
+              data-item-id={item.id}
+              data-testid={`item-${item.tipo}`}
+              onDragOver={(e) => arrastando !== null && e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                soltarEm(idx);
+              }}
+            >
+              <div className="fx-item__head">
+                <span className="fx-item__num">{idx + 1}</span>
+                <meta.Icone size={15} aria-hidden className="text-[var(--c-light)]" />
+                <span className="fx-item__nome">{t(NOME_DO_ITEM[item.tipo])}</span>
                 <button
                   type="button"
-                  className="rounded-sm p-1 hover:bg-surface-elevated disabled:opacity-30"
+                  className="fx-item__btn"
                   disabled={idx === 0}
                   onClick={() => mover(idx, -1)}
                   aria-label={t("Subir item")}
                 >
-                  <CaretUp size={12} aria-hidden />
+                  <ChevronUp size={15} aria-hidden />
                 </button>
                 <button
                   type="button"
-                  className="rounded-sm p-1 hover:bg-surface-elevated disabled:opacity-30"
+                  className="fx-item__btn"
                   disabled={idx === itens.length - 1}
                   onClick={() => mover(idx, 1)}
                   aria-label={t("Descer item")}
                 >
-                  <CaretDown size={12} aria-hidden />
+                  <ChevronDown size={15} aria-hidden />
                 </button>
+                <span
+                  className="fx-item__btn fx-item__grip"
+                  draggable
+                  onDragStart={(e) => {
+                    setArrastando(idx);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", item.id);
+                  }}
+                  onDragEnd={() => setArrastando(null)}
+                  aria-label={t("Arrastar para reordenar")}
+                  title={t("Arrastar para reordenar")}
+                >
+                  <GripVertical size={15} aria-hidden />
+                </span>
                 <button
                   type="button"
-                  className="rounded-sm p-1 text-error-fg hover:bg-surface-elevated"
+                  className="fx-item__btn"
+                  data-perigo="true"
                   onClick={() => gravar(itens.filter((_, i) => i !== idx))}
                   aria-label={t("Remover item")}
                 >
-                  <Trash size={12} aria-hidden />
+                  <Trash2 size={15} aria-hidden />
                 </button>
               </div>
-              <EditorDoItem item={item} onChange={(it) => trocar(idx, it)} variaveis={variaveis} flowId={flowId} aceita={meta.aceita} />
-              {item.tipo in DIGITANDO_PADRAO && (
-                <EditorDoDigitando item={item as ItemComDigitando} onChange={(it) => trocar(idx, it)} />
-              )}
+              <div className="fx-item__body">
+                <EditorDoItem item={item} onChange={(it) => trocar(idx, it)} variaveis={variaveis} flowId={flowId} aceita={meta.aceita} />
+                {item.tipo in DIGITANDO_PADRAO && (
+                  <EditorDoDigitando item={item as ItemComDigitando} onChange={(it) => trocar(idx, it)} />
+                )}
+              </div>
             </li>
           );
         })}
       </ol>
 
       <div>
-        <p className="mb-1.5 text-xs text-text-muted">{t("Adicionar à sequência")}</p>
-        <div className="grid grid-cols-4 gap-1.5">
-          {TIPOS.map(({ tipo, Icone }) => (
+        <p className="mb-2.5 text-[14px] font-semibold text-[var(--fx-text)]">{t("Adicionar conteúdo")}</p>
+        <div className="fx-add">
+          {TIPOS.map(({ tipo, Icone, hue }) => (
             <button
               key={tipo}
               type="button"
+              className="fx-add__card"
               disabled={itens.length >= 30}
-              onClick={() => gravar([...itens, itemNovo(tipo, novoId(itens))])}
-              className="flex flex-col items-center gap-1 rounded-md border border-border px-1 py-2 text-[11px] text-text-muted hover:border-accent hover:text-text disabled:opacity-40"
+              onClick={() => adicionar(tipo)}
+              data-testid={`adicionar-${tipo}`}
             >
-              <Icone size={16} aria-hidden />
+              <span className="fx-add__circ" style={{ background: `oklch(0.66 0.155 ${hue} / .2)`, color: `oklch(0.85 0.1 ${hue})` }}>
+                <Icone size={17} aria-hidden />
+              </span>
               {t(ROTULO_DO_TIPO[tipo])}
             </button>
           ))}
         </div>
       </div>
-      {erro && <p className="text-xs text-error-fg">{erro}</p>}
+      {erro && <p className="text-[12px] text-[#fca5a5]">{erro}</p>}
     </div>
   );
 }
@@ -291,13 +359,16 @@ function EditorDoItem({
   switch (item.tipo) {
     case "texto":
       return (
-        <CampoDeTexto
-          rotulo={t("Texto")}
-          valor={item.texto}
-          onChange={(texto) => onChange({ ...item, texto })}
-          variaveis={variaveis}
-          placeholder={t("Olá, {nome}!")}
-        />
+        <div className="space-y-2">
+          <p className="text-[13px] text-[var(--fx-text-2)]">{t("Conteúdo da mensagem")} *</p>
+          <CampoDeTexto
+            rotulo={t("Conteúdo da mensagem")}
+            valor={item.texto}
+            onChange={(texto) => onChange({ ...item, texto })}
+            variaveis={variaveis}
+            placeholder={t("Olá, {nome}!")}
+          />
+        </div>
       );
     case "contato":
       return (
@@ -459,7 +530,7 @@ function EditorDaMidia({
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <Button type="button" size="sm" variant="outline" disabled={subindo || !flowId} onClick={() => input.current?.click()}>
-          {subindo ? <CircleNotch size={14} className="mr-1 animate-spin" aria-hidden /> : <UploadSimple size={14} className="mr-1" aria-hidden />}
+          {subindo ? <LoaderCircle size={14} className="mr-1 animate-spin" aria-hidden /> : <Upload size={14} className="mr-1" aria-hidden />}
           {nome ? t("Trocar arquivo") : t("Enviar arquivo")}
         </Button>
         {nome && <span className="truncate text-xs text-text-muted" title={nome}>{nome}</span>}

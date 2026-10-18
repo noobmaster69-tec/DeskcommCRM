@@ -5,11 +5,9 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { FlowNode } from "@/lib/followup/graph-schema";
-import { ChatText } from "@/lib/ui/icons";
-
 import { CanvasDoFluxoContext, type CanvasDoFluxo } from "./canvas-do-fluxo";
 import { FluxoNode } from "./FluxoNode";
-import { PreviaDoBloco, itensDaPrevia, linhaDoItem, rodapeDoBloco } from "./previas";
+import { PreviaDoBloco, faixaDoDigitando, itensDaPrevia, linhaDoItem, rodapeDoBloco } from "./previas";
 
 const t = (s: string) => s;
 
@@ -31,16 +29,35 @@ function comCanvas(ui: ReactNode, extra: Partial<CanvasDoFluxo> = {}) {
   return valor;
 }
 
-describe("prévia da Mensagem (item 5, imagem 7)", () => {
-  it("cada tipo de item vira uma linha com ícone", () => {
-    expect(linhaDoItem({ id: "a", tipo: "texto", texto: "Oi!" }, t)).toBe("📝 Oi!");
+describe("prévia da Mensagem", () => {
+  it("cada tipo de item vira uma linha, sem emoji", () => {
+    expect(linhaDoItem({ id: "a", tipo: "texto", texto: "Oi!" }, t)).toBe("Oi!");
     expect(linhaDoItem({ id: "b", tipo: "intervalo", modo: "aleatorio", min_segundos: 6, max_segundos: 15 }, t)).toBe(
-      "⏱️ Delay: 6-15s",
+      "Pausa 6–15 s",
     );
-    expect(linhaDoItem({ id: "c", tipo: "intervalo", modo: "fixo", segundos: 3 }, t)).toBe("⏱️ Delay: 3s");
-    expect(linhaDoItem({ id: "d", tipo: "imagem", midia: { url: "https://x.y/a.png" } }, t)).toBe("🖼️ Imagem");
-    expect(linhaDoItem({ id: "e", tipo: "video", midia: { url: "https://x.y/a.mp4" }, legenda: "Demo" }, t)).toBe("🎥 Demo");
-    expect(linhaDoItem({ id: "f", tipo: "audio", midia: { url: "https://x.y/a.ogg" } }, t)).toBe("🎤 Áudio");
+    expect(linhaDoItem({ id: "c", tipo: "intervalo", modo: "fixo", segundos: 3 }, t)).toBe("Pausa 3 s");
+    expect(linhaDoItem({ id: "d", tipo: "imagem", midia: { url: "https://x.y/a.png" } }, t)).toBe("Imagem");
+    expect(linhaDoItem({ id: "e", tipo: "video", midia: { url: "https://x.y/a.mp4" }, legenda: "Demo" }, t)).toBe("Demo");
+    expect(linhaDoItem({ id: "f", tipo: "audio", midia: { url: "https://x.y/a.ogg" } }, t)).toBe("Áudio");
+  });
+
+  it("variáveis destacadas e nenhum emoji no cartão", () => {
+    const config = { itens: [{ id: "t1", tipo: "texto", texto: "Oi {nome}, tudo bem?" }] } as FlowNode["config"];
+    comCanvas(<PreviaDoBloco tipo="mensagem" config={config} />);
+    const variavel = screen.getByText("{nome}");
+    expect(variavel).toHaveClass("fx-var");
+    expect(document.body.textContent).not.toMatch(/\p{Extended_Pictographic}/u);
+  });
+
+  it("a faixa do digitando vai do menor ao maior", () => {
+    expect(faixaDoDigitando([{ id: "a", tipo: "texto", texto: "x" }])).toBe("6 s");
+    expect(
+      faixaDoDigitando([
+        { id: "a", tipo: "texto", texto: "x" },
+        { id: "b", tipo: "audio", midia: { url: "https://x.y/a.ogg" } },
+      ]),
+    ).toBe("6–15 s");
+    expect(faixaDoDigitando([{ id: "c", tipo: "contato", nome: "A", telefone: "5511999999999" }])).toBeNull();
   });
 
   it("mostra no máximo 4 itens e conta o resto", () => {
@@ -50,16 +67,17 @@ describe("prévia da Mensagem (item 5, imagem 7)", () => {
       itens: Array.from({ length: 6 }, (_, i) => ({ id: `t${i}`, tipo: "texto" as const, texto: `linha ${i}` })),
     } as FlowNode["config"];
     comCanvas(<PreviaDoBloco tipo="mensagem" config={config} />);
-    expect(screen.getByText("📝 linha 3")).toBeInTheDocument();
-    expect(screen.queryByText("📝 linha 4")).toBeNull();
+    expect(screen.getByText("linha 3")).toBeInTheDocument();
+    expect(screen.queryByText("linha 4")).toBeNull();
     expect(screen.getByText("+ 2 itens")).toBeInTheDocument();
   });
 });
 
 describe("prévias dos outros blocos", () => {
-  it("Etiquetas: pílulas e rodapé com a operação", () => {
+  it("Etiquetas: chips e a operação", () => {
     comCanvas(<PreviaDoBloco tipo="etiquetas" config={{ operacao: "adicionar", etiquetas: ["vip", "lead"] } as FlowNode["config"]} />);
-    expect(screen.getByText("vip")).toBeInTheDocument();
+    expect(screen.getByText("vip")).toHaveClass("fx-chip");
+    expect(screen.getByText("Adicionar ao contato")).toBeInTheDocument();
     expect(rodapeDoBloco("etiquetas", { operacao: "adicionar", etiquetas: ["x"] } as FlowNode["config"], t)).toBe(
       "Adicionar etiquetas ao cliente",
     );
@@ -68,15 +86,15 @@ describe("prévias dos outros blocos", () => {
     );
   });
 
-  it("Kanban: a ação e a pílula do funil", () => {
+  it("Kanban: campo com a ação e o funil", () => {
     comCanvas(
       <PreviaDoBloco
         tipo="kanban"
         config={{ acao: "adicionar", pipeline_id: "11111111-1111-4111-8111-111111111111" } as FlowNode["config"]}
       />,
     );
-    expect(screen.getByText("Adicionar card:")).toBeInTheDocument();
-    expect(screen.getByText("+ Vendas")).toBeInTheDocument();
+    expect(screen.getByText("Adicionar card")).toHaveClass("fx-field__label");
+    expect(screen.getByText("Vendas")).toBeInTheDocument();
   });
 
   it("Condicional: a regra e cada condição", () => {
@@ -113,20 +131,23 @@ describe("prévias dos outros blocos", () => {
         config={{ fluxo_id: "11111111-1111-4111-8111-111111111111", retornar: false } as FlowNode["config"]}
       />,
     );
-    expect(screen.getByText("Ir para o fluxo:")).toBeInTheDocument();
+    expect(screen.getByText("Ir para o fluxo")).toBeInTheDocument();
     expect(screen.getByText("Boas-vindas")).toBeInTheDocument();
   });
 });
 
 describe("FluxoNode — o cartão genérico", () => {
-  it("cabeçalho com título e as ações ✏️ 📋 🗑️ ligadas ao canvas", async () => {
+  it("cabeçalho com título e categoria; ações na barra flutuante ligadas ao canvas", async () => {
     const user = userEvent.setup({ delay: null });
     const canvas = comCanvas(
-      <FluxoNode id="n1" icon={ChatText} title="Mensagem" color="#3b82f6" showTarget={false} showSource={false}>
+      <FluxoNode id="n1" tipo="mensagem" title="Saudação A" showTarget={false} showSource={false}>
         <p>corpo</p>
       </FluxoNode>,
     );
-    expect(screen.getByText("Mensagem")).toBeInTheDocument();
+    expect(screen.getByText("Saudação A")).toBeInTheDocument();
+    expect(screen.getByText("Enviar")).toBeInTheDocument();
+    expect(screen.getByTestId("node-card-n1").style.getPropertyValue("--c")).toBe("oklch(0.66 0.155 262)");
+    expect(screen.getByTestId("acoes-n1")).toContainElement(screen.getByTestId("bloco-editar-n1"));
     await user.click(screen.getByTestId("bloco-editar-n1"));
     await user.click(screen.getByTestId("bloco-duplicar-n1"));
     await user.click(screen.getByTestId("bloco-excluir-n1"));
@@ -136,15 +157,35 @@ describe("FluxoNode — o cartão genérico", () => {
   });
 
   it("Fim: só cabeçalho, sem corpo", () => {
-    comCanvas(<FluxoNode id="f1" icon={ChatText} title="Fim" color="#991b1b" showTarget={false} showSource={false} />);
+    comCanvas(<FluxoNode id="f1" tipo="end" title="Fim" showTarget={false} showSource={false} />);
     expect(screen.queryByTestId("previa-f1")).toBeNull();
+    expect(screen.getByTestId("node-card-f1")).toHaveAttribute("data-so-cabecalho", "true");
   });
 
   it("acoes restringe os botões (o Início só edita)", () => {
     comCanvas(
-      <FluxoNode id="i1" icon={ChatText} title="Início" color="#6366f1" showTarget={false} showSource={false} acoes={["editar"]} />,
+      <FluxoNode id="i1" tipo="trigger" title="Início" showTarget={false} showSource={false} acoes={["editar"]} />,
     );
     expect(screen.getByTestId("bloco-editar-i1")).toBeInTheDocument();
     expect(screen.queryByTestId("bloco-excluir-i1")).toBeNull();
+  });
+});
+
+describe("FluxoNode — saídas múltiplas", () => {
+  it("uma linha por saída com valor à direita e OU entre elas", () => {
+    comCanvas(
+      <FluxoNode
+        id="a1"
+        tipo="aguardar_resposta"
+        title="Aguardar"
+        ouEntreSaidas
+        saidas={[
+          { id: "respondeu", conteudo: "Respondeu" },
+          { id: "sem_resposta", conteudo: "Não respondeu", valor: "2 h" },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("node-branch-a1-sem_resposta")).toHaveTextContent("Não respondeu2 h");
+    expect(screen.getByText("OU")).toBeInTheDocument();
   });
 });
